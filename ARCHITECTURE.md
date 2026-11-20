@@ -34,7 +34,7 @@ atlas-model -> no runtime crates
 - Main renderer: `gpui` + `gpui-component`.
 - The live GPUI layer (`App`, views, input, overlays, platform glue) lives in `crates/atlas-ui`.
 - Configuration, actions, and packaging use the `atlas` name.
-- Lints: `unsafe_code` is denied where possible and `unwrap_used`/`expect_used` warn. Strict clippy is a cleanup goal, not a CI gate yet (see CONTRIBUTING.md).
+- Lints: `unsafe_code` is denied where possible and `unwrap_used`/`expect_used` warn. `cargo clippy -- -D warnings` is a CI gate on Windows and Linux (see CONTRIBUTING.md).
 - `atlas-model` does not import filesystem, cloud, extension, or search runtime code. Contracts live in `cloud_model`, `ext_model`, and `preview_cache`.
 - Runtime state moved out of `AppState`: watchers, `nucleo`, and the extension registry live in `App`.
 
@@ -60,4 +60,4 @@ atlas-model -> no runtime crates
 - If UI needs data, request it through `Action`/`BgResult`; do not call `std::fs` from render code.
 - If a feature adds state, place neutral state first, then core behavior, then UI.
 - If a strict lint is legitimate noise, use `#[allow(...)]` with a short `reason` comment.
-- Gate meaningful changes with `cargo fmt --check`, `cargo check --workspace`, and `cargo test --workspace`.
+- Gate meaningful changes with `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace`.
