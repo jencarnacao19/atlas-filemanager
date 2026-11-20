@@ -364,6 +364,8 @@ impl App {
         {
             self.drag_hover_set_cursor(gpui::point(gpui::px(x), gpui::px(y)));
         }
+        // reason: only the Windows OLE drag path below mutates these.
+        #[cfg_attr(not(windows), allow(unused_mut))]
         let mut dirty = self.tick_drag_hover_inner();
         #[cfg(windows)]
         {
@@ -570,6 +572,8 @@ impl App {
             .as_ref()
             .map(|drag| drag.paths.clone())
             .unwrap_or_default();
+        // reason: only the Windows OLE drag path below mutates these.
+        #[cfg_attr(not(windows), allow(unused_mut))]
         let (mut ctrl, mut shift) = (window.modifiers().control, window.modifiers().shift);
         #[cfg(windows)]
         if let Some(zones) = self.dnd.as_ref().and_then(|dnd| dnd.zones.lock().ok()) {
@@ -823,6 +827,8 @@ impl App {
         self.drag_hover_drop_command_at(f32::from(pos.x), f32::from(pos.y))
     }
 
+    // reason: only the Windows OLE drop queue resolves drops by coordinates.
+    #[cfg(windows)]
     pub(crate) fn pane_drop_dest_at(&self, x: f32, y: f32) -> Option<PathBuf> {
         let pos = gpui::Point {
             x: gpui::px(x),
@@ -1277,6 +1283,7 @@ fn hover_target_at(
         .or_else(|| targets.iter().rev().find(visible_hit))
 }
 
+#[cfg(test)]
 fn drop_command_at(
     targets: &[DragHoverTarget],
     pos: gpui::Point<gpui::Pixels>,

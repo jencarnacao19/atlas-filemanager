@@ -1334,6 +1334,8 @@ impl App {
         ));
 
         // Lugares: user dirs (same set/icons as the sidebar).
+        // reason: only the Windows-specific entries below extend the list.
+        #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
         let mut places: Vec<PaletteItem> = [
             (
                 AtlasIcon::House,

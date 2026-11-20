@@ -197,14 +197,14 @@ impl App {
             t.scrollbar = gpui::transparent_black();
             let base = t.scrollbar_thumb;
             t.scrollbar_thumb = gpui::hsla(
-                (base.hue.into_positive_degrees() / 360.0),
+                base.hue.into_positive_degrees() / 360.0,
                 base.saturation,
                 base.lightness,
                 0.45,
             );
             let hover_base = t.scrollbar_thumb_hover;
             t.scrollbar_thumb_hover = gpui::hsla(
-                (hover_base.hue.into_positive_degrees() / 360.0),
+                hover_base.hue.into_positive_degrees() / 360.0,
                 hover_base.saturation,
                 hover_base.lightness,
                 0.75,
@@ -370,7 +370,6 @@ mod gpui_ce_tests {
                     1.0
                 );
                 assert_eq!(controls.foreground, original.foreground);
-                assert_eq!(controls.muted, original.muted_foreground);
                 assert!(controls.hover.alpha > theme.colors.border.alpha * 0.42);
                 assert!(controls.pressed.alpha > controls.hover.alpha);
                 if !config.mode.is_dark() {

@@ -5,6 +5,9 @@
 //! The Atlas section is cross-platform; native items only appear on Windows.
 //! Atlas rows dispatch the same boxed gpui actions the old `PopupMenu` used, so
 //! all existing wiring is reused. Native rows are invoked through the worker.
+// reason: the native shell rows, their invocation point and submenu filling only
+// exist on Windows; other platforms compile the Atlas section alone.
+#![cfg_attr(not(windows), allow(dead_code, unused_imports))]
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;

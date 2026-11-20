@@ -2614,11 +2614,6 @@ impl App {
         let border = cx.theme().border;
         let card = |item: &HeroItem, edge: f32| -> gpui::Div {
             let content = match item {
-                HeroItem::Texture(texture) => img(texture.clone())
-                    .size_full()
-                    .rounded(px(10.))
-                    .object_fit(gpui::ObjectFit::Cover)
-                    .into_any_element(),
                 HeroItem::Icon {
                     path,
                     kind,
@@ -2921,9 +2916,6 @@ fn dir_media_paths(entries: &[atlas_model::preview_cache::DirPreviewEntry]) -> V
         .collect()
 }
 
-/// Cards the multi-selection carousel can cycle through.
-const STACK_LIMIT: usize = 48;
-
 fn step_index(index: usize, step: isize, n: usize) -> usize {
     if n == 0 {
         return 0;
@@ -2948,7 +2940,6 @@ fn finish_stack_swipe(app: &mut App, n: usize, cx: &mut Context<App>) {
 }
 
 enum HeroItem {
-    Texture(Arc<RenderImage>),
     Icon {
         path: PathBuf,
         kind: FileKind,

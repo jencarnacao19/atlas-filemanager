@@ -25,6 +25,7 @@ pub mod breadcrumb_menu;
 pub mod chrome;
 pub mod chrome_imm;
 pub mod cleanup;
+pub(crate) mod click_navigation;
 pub(crate) mod converter;
 pub(crate) mod current_bounds;
 pub(crate) mod dir_ring;
@@ -36,18 +37,10 @@ pub mod edge_autoscroll;
 pub(crate) mod file_filter;
 pub mod file_icons;
 pub mod glass;
+pub(crate) mod group_header;
 pub mod icons;
 pub mod imm;
 pub mod inspector;
-pub(crate) mod preview_delay;
-pub(crate) mod preview_image;
-#[cfg(feature = "ui-lab")]
-pub(crate) mod preview_lab;
-// Historical layout fixtures; the application uses the retained preview.
-pub(crate) mod click_navigation;
-pub(crate) mod group_header;
-#[cfg(test)]
-mod inspector_imm;
 pub mod interactions;
 pub mod layout_region;
 pub(crate) mod loading_spinner;
@@ -58,6 +51,10 @@ pub mod overlays;
 pub mod palette;
 pub mod palette_host;
 pub mod pane_panel;
+pub(crate) mod preview_delay;
+pub(crate) mod preview_image;
+#[cfg(feature = "ui-lab")]
+pub(crate) mod preview_lab;
 pub(crate) mod reveal;
 pub mod root;
 pub mod search_shell;
@@ -68,9 +65,6 @@ pub(crate) mod sidebar_bookmarks;
 pub(crate) mod sidebar_collection;
 pub(crate) mod sidebar_feedback;
 pub(crate) mod sidebar_ink;
-// Historical layout fixture; production uses the composed sidebar + RowInk.
-#[cfg(test)]
-mod sidebar_imm;
 pub mod size_filter_menu;
 pub mod surface;
 pub mod syntax_provider;

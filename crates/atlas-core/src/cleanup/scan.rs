@@ -394,6 +394,7 @@ impl Worker {
         }
     }
 
+    #[cfg(windows)]
     fn maybe_publish(&mut self) {
         if self.last_publish.elapsed() >= Duration::from_millis(250) {
             self.publish(None);

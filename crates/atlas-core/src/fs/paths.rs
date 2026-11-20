@@ -1,8 +1,11 @@
 use std::path::{Component, Path, PathBuf};
+#[cfg(windows)]
 use std::time::{Duration, Instant};
 
 const WSL_LOCALHOST: &str = r"\\wsl.localhost\";
+#[cfg(windows)]
 const WSL_CACHE_TTL: Duration = Duration::from_secs(5);
+#[cfg(windows)]
 const WSL_READY_TTL: Duration = Duration::from_secs(30);
 
 fn wsl_tail(path: &Path) -> Option<&str> {
@@ -64,12 +67,15 @@ pub fn wsl_distro_name(path: &Path) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
+#[cfg(any(windows, test))]
 fn is_user_wsl_distro(name: &str) -> bool {
     !name.to_ascii_lowercase().starts_with("docker-desktop")
 }
 
+#[cfg(windows)]
 use std::sync::{Arc, Mutex, OnceLock};
 
+#[cfg(windows)]
 static WSL_ROOT_CACHE: OnceLock<Arc<Mutex<Option<(Instant, Vec<PathBuf>, bool)>>>> =
     OnceLock::new();
 
@@ -197,6 +203,7 @@ pub fn ensure_wsl_ready(_path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(any(windows, test))]
 fn parse_wsl_list_output(bytes: &[u8]) -> Vec<String> {
     let text = if bytes.len() >= 2 && bytes[1] == 0 {
         let words = bytes

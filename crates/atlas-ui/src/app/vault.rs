@@ -527,6 +527,8 @@ impl App {
         }
     }
 
+    // reason: the only callers are the Windows WinFsp controls.
+    #[cfg(windows)]
     pub(crate) fn manage_native_vault(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(windows)]
         {
@@ -563,6 +565,8 @@ impl App {
         let _ = (window, cx);
     }
 
+    // reason: the only callers are the Windows WinFsp controls.
+    #[cfg(windows)]
     pub(crate) fn install_vault_driver(&mut self, cx: &mut Context<Self>) {
         #[cfg(windows)]
         {

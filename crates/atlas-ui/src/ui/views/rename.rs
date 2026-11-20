@@ -2,7 +2,7 @@ use crate::app::App;
 use atlas_model::pane::TabId;
 use gpui::prelude::*;
 use gpui::{div, px, AnyElement, Entity, Hsla, MouseButton, Pixels, SharedString, TextRun, Window};
-use gpui_component::{input::InputState, ActiveTheme, Colorize};
+use gpui_component::{input::InputState, ActiveTheme};
 use std::path::Path;
 
 pub(super) fn active_input(
@@ -46,28 +46,6 @@ pub(super) fn cut_path_opacity(app: &gpui::WeakEntity<App>, path: &Path, cx: &gp
     } else {
         1.0
     }
-}
-
-pub(super) fn cut_entry_opacity(
-    app: &gpui::WeakEntity<App>,
-    pane: TabId,
-    index: usize,
-    cx: &gpui::App,
-) -> f32 {
-    app.upgrade().map_or(1.0, |entity| {
-        let app = entity.read(cx);
-        app.state
-            .tab_states
-            .get(&pane)
-            .and_then(|tab| tab.entries.get(index))
-            .map_or(1.0, |entry| {
-                if app.state.system_cut_paths.contains(&entry.path()) {
-                    0.5
-                } else {
-                    1.0
-                }
-            })
-    })
 }
 
 pub(super) fn dim_other_entry(app: &App, pane_id: TabId, entry_idx: usize) -> bool {

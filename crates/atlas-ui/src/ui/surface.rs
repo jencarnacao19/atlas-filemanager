@@ -12,7 +12,7 @@ use gpui::{
 
 /// Axis-aligned rect in surface-local pixels (origin = surface top-left).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub(crate) struct Slot {
+pub struct Slot {
     pub x: f32,
     pub y: f32,
     pub w: f32,
@@ -214,46 +214,6 @@ pub(crate) fn shape_text_truncated(
     shape_text(&elided, font, font_size, color, window)
 }
 
-/// Greedy word-wrap into at most `max_lines` shaped lines. A word wider than
-/// `max_w` and any overflow past the last line are ellipsized.
-pub(crate) fn wrap_text_lines(
-    text: &str,
-    font: &Font,
-    font_size: Pixels,
-    color: Hsla,
-    max_w: f32,
-    max_lines: usize,
-    window: &Window,
-) -> Vec<ShapedLine> {
-    let width_of = |t: &str| line_width(&shape_text(t.to_string(), font, font_size, color, window));
-    let mut lines: Vec<String> = Vec::new();
-    let mut current = String::new();
-    for word in text.split_whitespace() {
-        let candidate = if current.is_empty() {
-            word.to_string()
-        } else {
-            format!("{current} {word}")
-        };
-        if current.is_empty() || width_of(&candidate) <= max_w {
-            current = candidate;
-        } else {
-            lines.push(std::mem::replace(&mut current, word.to_string()));
-        }
-    }
-    if !current.is_empty() {
-        lines.push(current);
-    }
-    let max_lines = max_lines.max(1);
-    if lines.len() > max_lines {
-        let tail = lines.split_off(max_lines - 1).join(" ");
-        lines.push(tail);
-    }
-    lines
-        .iter()
-        .map(|line| shape_text_truncated(line, font, font_size, color, max_w, window))
-        .collect()
-}
-
 #[inline]
 pub(crate) fn line_width(line: &ShapedLine) -> f32 {
     f32::from(line.width())
@@ -366,27 +326,6 @@ pub(crate) fn paint_theme_icon(
     } else {
         paint_svg_icon(window, cx, b, kind.path(), color);
     }
-}
-
-/// Legacy helper: SVG-only icon as fraction of slot (prefer [`paint_theme_icon`]).
-pub(crate) fn paint_icon_in_slot(
-    window: &mut Window,
-    cx: &mut gpui::App,
-    origin: gpui::Point<Pixels>,
-    slot: Slot,
-    icon_frac: f32,
-    path: &'static str,
-    color: Hsla,
-) {
-    let sz = (slot.w.min(slot.h) * icon_frac).max(1.0);
-    let b = Bounds {
-        origin: point(
-            origin.x + px(slot.x + (slot.w - sz) * 0.5),
-            origin.y + px(slot.y + (slot.h - sz) * 0.5),
-        ),
-        size: size(px(sz), px(sz)),
-    };
-    paint_svg_icon(window, cx, b, path, color);
 }
 
 #[cfg(test)]

@@ -3,6 +3,9 @@
 //! Provides a single-cycle O(1) arithmetic layout with `RectCut`, immediate
 //! reactive settings updates, switch toggles, segmented selectors, sliders,
 //! searchable keybindings table, interactive tooltips, and keyboard dismiss.
+// reason: experimental renderer behind `EXPERIMENTAL_IMM_SETTINGS` (off); the
+// retained settings overlay is the live one until this reaches parity.
+#![allow(dead_code)]
 
 use crate::app::App as AtlasApp;
 use crate::input::action::Action;

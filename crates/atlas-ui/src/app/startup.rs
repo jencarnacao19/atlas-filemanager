@@ -699,10 +699,8 @@ impl App {
             details_row_texts: Default::default(),
             grid_hit: HashMap::new(),
             grid_hover: None,
-            file_surface_shapes: Default::default(),
             list_hit: HashMap::new(),
             list_hover: None,
-            grid_flip_states: std::rc::Rc::new(std::cell::RefCell::new(HashMap::new())),
 
             details_hover: None,
             miller_column_bounds: HashMap::new(),
@@ -738,7 +736,6 @@ impl App {
             theme_editor: None,
             theme_fork_error: None,
             settings_section: 0,
-            settings_font_families: None,
             rename_edit: None,
             batch_input_sub: None,
             content_results: Vec::new(),
@@ -755,8 +752,6 @@ impl App {
             dnd: dnd_opt,
             #[cfg(windows)]
             shell_menu,
-            dropped_in_background: false,
-            sidebar_hit_model: None,
             was_inactive: false,
             inactive_since: None,
             eco_cleared: false,

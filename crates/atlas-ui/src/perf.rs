@@ -1,3 +1,5 @@
+// reason: the scripted actions are only issued by the ui-lab harness.
+#[cfg_attr(not(feature = "ui-lab"), allow(dead_code))]
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum UiLabAction {
     SetDetails,

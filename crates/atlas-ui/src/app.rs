@@ -93,6 +93,8 @@ pub struct App {
     pub(crate) pane_zoom_sliders: HashMap<TileId, Entity<gpui_component::slider::SliderState>>,
     pub(crate) pane_zoom_slider_subs: HashMap<TileId, gpui::Subscription>,
     /// View-selector popovers whose open state must survive switching render trees.
+    // reason: tracked in every build but only read by the ui-lab diagnostics.
+    #[cfg_attr(not(feature = "ui-lab"), allow(dead_code))]
     pub(crate) open_view_selectors: HashSet<TileId>,
     /// Runtime extension registry. Kept out of `AppState` because loading it scans
     /// extension folders and PATH.
@@ -149,9 +151,15 @@ pub struct App {
     pub(crate) batch_rename_field: BatchRenameField,
     // UI-side cache of downscaled grid thumbnails, keyed by file path.
     pub(crate) thumb_textures: crate::ui::thumbnail_cache::ThumbnailCache,
+    // reason: filled everywhere but only read by the Windows shell-icon path.
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub(crate) shell_icon_inflight: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    // reason: filled everywhere but only read by the Windows shell-icon path.
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub(crate) shell_icon_lru: std::collections::VecDeque<std::path::PathBuf>,
     /// Windows Shell file-type / folder icons (multi-resolution). `None` = requested.
+    // reason: filled everywhere but only read by the Windows shell-icon path.
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub(crate) shell_icons: std::collections::HashMap<
         std::path::PathBuf,
         Option<std::sync::Arc<crate::icon_theme::MultiResIcon>>,
@@ -269,14 +277,8 @@ pub struct App {
     pub(crate) details_row_texts: crate::ui::views::details_ring::DetailsRowTextCache,
     pub(crate) grid_hit: HashMap<TileId, GridHitModel>,
     pub(crate) grid_hover: Option<(TileId, usize)>,
-    /// Cross-pane cold cache; hot reuse remains in each Grid surface's local ring.
-    pub(crate) file_surface_shapes:
-        crate::ui::views::grid_surface_element_deprecated::FileSurfaceShapeCache,
     pub(crate) list_hit: HashMap<TileId, GridHitModel>,
     pub(crate) list_hover: Option<(TileId, usize)>,
-    pub(crate) grid_flip_states: std::rc::Rc<
-        std::cell::RefCell<std::collections::HashMap<atlas_model::pane::TabId, GridFlipState>>,
-    >,
     pub(crate) details_hover: Option<(TileId, usize)>,
     pub(crate) miller_column_bounds: HashMap<(TileId, usize), gpui::Bounds<gpui::Pixels>>,
     pub(crate) dropzone_selection: atlas_model::tab::SelectionState<PathBuf>,
@@ -294,6 +296,8 @@ pub struct App {
     pub(crate) recycle_bin_status_inflight: bool,
     pub(crate) recycle_bin_status_checked: bool,
     pub(crate) recycle_bin_status_dirty: bool,
+    // reason: filled everywhere but only read by the Windows shell-icon path.
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub(crate) recycle_bin_icon_dirty: bool,
     pub(crate) view_selection_pending: HashMap<TileId, crate::ui::view_continuity::ViewSelection>,
     pub(crate) tab_reorder_preview: Option<crate::ui::tab_reorder::TabReorderPreview>,
@@ -324,9 +328,6 @@ pub struct App {
     pub(crate) theme_editor: Option<crate::ui::theme_editor::ThemeEditor>,
     pub(crate) theme_fork_error: Option<String>,
     pub(crate) settings_section: usize,
-    /// System font families are relatively expensive to enumerate, so cache
-    /// them after settings first opens.
-    pub(crate) settings_font_families: Option<std::sync::Arc<Vec<gpui::SharedString>>>,
     pub(crate) ext_manager_input: Option<Entity<InputState>>,
     /// Native inputs for the parameters of the pending extension command.
     pub(crate) ext_prompt_inputs: Vec<Entity<InputState>>,
@@ -376,16 +377,11 @@ pub struct App {
     // (Open with, Send to, 7-Zip, Properties, …). `None` if the worker failed.
     #[cfg(windows)]
     pub(crate) shell_menu: Option<crate::shell_menu::ShellMenuHandle>,
-    // Open right-click menu state: Atlas items + (Windows) native shell items.
-    // `None` when closed. Cross-platform; on non-Windows only Atlas items show.
-    pub(crate) dropped_in_background: bool,
-
-    // Sidebar interaction model for monolithic custom element rendering
-    pub(crate) sidebar_hit_model: Option<SidebarHitModel>,
-
     pub(crate) was_inactive: bool,
     pub(crate) inactive_since: Option<Instant>,
     pub(crate) eco_cleared: bool,
+    // Open right-click menu state: Atlas items + (Windows) native shell items.
+    // `None` when closed. Cross-platform; on non-Windows only Atlas items show.
     pub(crate) ctx_menu: Option<crate::ui::shell_context_menu::CtxMenuState>,
     // Monotonic id: stale `Built` events from a previous open are ignored.
     pub(crate) ctx_menu_seq: u64,
@@ -601,6 +597,7 @@ impl DockSplitAnimation {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn closing(from: Vec<f32>, closing_ix: usize) -> Self {
         Self::closing_many(from, &[closing_ix])
     }
@@ -794,14 +791,6 @@ pub(crate) fn normalize_split_shares_allow_zero(shares: &mut [f32]) {
     for share in shares {
         *share = (*share * scale).max(0.0);
     }
-}
-
-fn split_spring(t: f32) -> f32 {
-    let omega: f32 = 22.0;
-    let zeta: f32 = 0.68;
-    let wd = omega * (1.0 - zeta * zeta).sqrt();
-    let e = (-zeta * omega * t).exp();
-    1.0 - e * ((wd * t).cos() + (zeta * omega / wd) * (wd * t).sin())
 }
 
 #[cfg(test)]
@@ -1278,36 +1267,6 @@ pub struct RubberDrag {
     pub(crate) last_scroll_frame: Option<std::time::Instant>,
 }
 
-#[derive(Clone, Debug)]
-pub(crate) enum SidebarHit {
-    SectionHeader(usize),
-    NavRow(std::path::PathBuf),
-    VirtualNavRow(atlas_model::location::Location),
-    TagRow(atlas_model::tag_cache::TagId),
-    DriveRow(std::path::PathBuf),
-    CloudRow(std::path::PathBuf),
-}
-
-#[derive(Clone, Default)]
-pub(crate) struct SidebarHitModel {
-    pub(crate) bounds: gpui::Bounds<gpui::Pixels>,
-    pub(crate) zones: Vec<(gpui::Bounds<gpui::Pixels>, SidebarHit)>,
-}
-
-impl SidebarHitModel {
-    pub(crate) fn hit(&self, pos: gpui::Point<gpui::Pixels>) -> Option<SidebarHit> {
-        if !self.bounds.contains(&pos) {
-            return None;
-        }
-        for (rect, hit) in &self.zones {
-            if rect.contains(&pos) {
-                return Some(hit.clone());
-            }
-        }
-        None
-    }
-}
-
 #[derive(Clone)]
 pub(crate) struct DetailsHitModel {
     pub(crate) bounds: gpui::Bounds<gpui::Pixels>,
@@ -1723,6 +1682,8 @@ impl App {
     ///
     /// No-op on non-Windows (OLE drag-and-drop not used; field always empty).
     pub(crate) fn push_pane_zone(&self, pane_id: TileId, bounds: gpui::Bounds<gpui::Pixels>) {
+        #[cfg(not(windows))]
+        let _ = (pane_id, bounds);
         #[cfg(windows)]
         if let Some(dest) = self
             .tab_data_for(pane_id)
@@ -2304,18 +2265,6 @@ fn collect_tag_migration(
         }
     }
     out
-}
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct ActiveGridAnimation {
-    pub(crate) start_time: std::time::Instant,
-    pub(crate) start_offset: gpui::Point<f32>,
-}
-
-#[derive(Clone, Default)]
-pub(crate) struct GridFlipState {
-    pub(crate) last_unscrolled_origins: std::collections::HashMap<usize, gpui::Point<f32>>,
-    pub(crate) animations: std::collections::HashMap<usize, ActiveGridAnimation>,
 }
 
 /// Column-major Left: previous column, same row; no wrap past the first column.

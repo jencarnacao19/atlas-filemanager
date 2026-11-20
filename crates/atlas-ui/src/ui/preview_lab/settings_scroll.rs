@@ -3,7 +3,7 @@ use super::{key, mouse_down, mouse_up, select_named, type_text};
 use crate::app::App;
 use anyhow::{ensure, Context as _};
 use gpui::{point, px, size, Entity, Window};
-use gpui_component::{ActiveTheme, ThemeRegistry};
+use gpui_component::ThemeRegistry;
 use std::{path::PathBuf, time::Duration};
 
 fn present(window: &mut Window, cx: &mut gpui::App) {

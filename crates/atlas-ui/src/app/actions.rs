@@ -994,7 +994,7 @@ impl App {
                 }
                 Action::CreateFile { parent, name } => {
                     #[cfg(feature = "provider-host")]
-                    if let Some((remote_id, current_path)) = self.focused_remote_tab() {
+                    if let Some((remote_id, _current_path)) = self.focused_remote_tab() {
                         let parent_str = parent.to_string_lossy().replace('\\', "/");
                         let file_path = if parent_str.is_empty() {
                             name.clone()

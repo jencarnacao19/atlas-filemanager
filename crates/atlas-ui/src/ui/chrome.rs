@@ -88,10 +88,6 @@ impl App {
         None
     }
 
-    /// Toggle for immediate-mode experimental chrome (O(1) rect-slicing).
-    /// Enabled for testing.
-    pub const EXPERIMENTAL_IMM_CHROME: bool = true;
-
     /// Compact breadcrumb strip rendered at the top of each pane, showing the
     /// pane's current path. Clicking any segment navigates that specific pane.
     pub(crate) fn render_crumb_strip(
@@ -219,51 +215,50 @@ impl App {
         let is_branch_view = self.tab_data_for(pane_id).is_some_and(|t| t.is_branch_view);
         let button_hover = control_hover(fg);
 
-        if Self::EXPERIMENTAL_IMM_CHROME {
-            if let Some(Location::Directory(dir)) = pane_location.as_ref() {
-                let trail = self
-                    .tab_data_for(pane_id)
-                    .and_then(|tab| tab.breadcrumb_trail.as_deref());
-                let segments = std::sync::Arc::new(
-                    crate::ui::chrome_imm::path_with_ghost_segments(dir, trail),
-                );
-                let is_bookmarked = if let Some(path) = self
-                    .tab_data_for(pane_id)
-                    .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
-                {
-                    self.state
-                        .profiles
-                        .active()
-                        .bookmarks
-                        .iter()
-                        .any(|b| b.path == path)
-                } else {
-                    false
-                };
-                let strip_bg = if is_glass {
-                    header_bg
-                } else {
-                    border.opacity(0.03)
-                };
-                return crate::ui::chrome_imm::ImmChromeElement::new(
-                    pane_id,
-                    view.downgrade(),
-                    segments,
-                    can_back,
-                    can_forward,
-                    up_location.is_some(),
-                    is_bookmarked,
-                    windows_theme,
-                    is_glass,
-                    fg,
-                    muted,
-                    strip_bg,
-                    border,
-                    button_hover,
-                    fg,
-                )
-                .into_any_element();
-            }
+        // Plain directories use the immediate-mode strip; archives and other
+        // locations keep the composed breadcrumb below.
+        if let Some(Location::Directory(dir)) = pane_location.as_ref() {
+            let trail = self
+                .tab_data_for(pane_id)
+                .and_then(|tab| tab.breadcrumb_trail.as_deref());
+            let segments =
+                std::sync::Arc::new(crate::ui::chrome_imm::path_with_ghost_segments(dir, trail));
+            let is_bookmarked = if let Some(path) = self
+                .tab_data_for(pane_id)
+                .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+            {
+                self.state
+                    .profiles
+                    .active()
+                    .bookmarks
+                    .iter()
+                    .any(|b| b.path == path)
+            } else {
+                false
+            };
+            let strip_bg = if is_glass {
+                header_bg
+            } else {
+                border.opacity(0.03)
+            };
+            return crate::ui::chrome_imm::ImmChromeElement::new(
+                pane_id,
+                view.downgrade(),
+                segments,
+                can_back,
+                can_forward,
+                up_location.is_some(),
+                is_bookmarked,
+                windows_theme,
+                is_glass,
+                fg,
+                muted,
+                strip_bg,
+                border,
+                button_hover,
+                fg,
+            )
+            .into_any_element();
         }
 
         let crumbs: Option<AnyElement> = if let Some((archive, inner)) = pane_archive_inner.as_ref()

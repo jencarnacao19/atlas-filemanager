@@ -4,7 +4,7 @@
 //! rectangles instead of multi-pass CSS flexbox equation solving.
 
 use crate::ui::surface::Slot;
-use gpui::{px, Bounds, Pixels};
+use gpui::{Bounds, Pixels};
 
 #[derive(Clone, Copy, Debug)]
 pub struct RectCut {

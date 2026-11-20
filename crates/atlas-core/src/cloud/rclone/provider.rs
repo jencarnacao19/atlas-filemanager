@@ -693,7 +693,10 @@ impl CloudProvider for RcloneProvider {
             .await;
         }
         #[cfg(not(windows))]
-        anyhow::bail!("mount support is provided by the operating system")
+        {
+            drop(progress);
+            anyhow::bail!("mount support is provided by the operating system")
+        }
     }
 }
 

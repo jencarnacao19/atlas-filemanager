@@ -110,47 +110,6 @@ pub(crate) fn rect_recorder(
     }
 }
 
-pub(crate) fn miller_rect_recorder(
-    pane: TabId,
-    column: usize,
-    idx: usize,
-    view: &Entity<App>,
-) -> impl Fn(gpui::Bounds<gpui::Pixels>, &mut Window, &mut gpui::App) + 'static {
-    let view = view.clone();
-    move |bounds, _window, cx| {
-        crate::perf::count("prepaint.miller_row_rect");
-        let app = view.read(cx);
-        let mut rects = app.miller_row_rects.borrow_mut();
-        let rows = rects.entry((pane, column)).or_default();
-        if let Some((_, old)) = rows.iter_mut().find(|(row, _)| *row == idx) {
-            *old = bounds;
-        } else {
-            rows.push((idx, bounds));
-        }
-    }
-}
-
-pub(crate) fn miller_column_bounds_recorder(
-    pane: TabId,
-    column: usize,
-    view: &Entity<App>,
-) -> impl Fn(gpui::Bounds<gpui::Pixels>, &mut Window, &mut gpui::App) + 'static {
-    let view = view.clone();
-    move |bounds, _window, cx| {
-        let should_update = view
-            .read(cx)
-            .miller_column_bounds
-            .get(&(pane, column))
-            .copied()
-            != Some(bounds);
-        if should_update {
-            view.update(cx, |this, _| {
-                this.miller_column_bounds.insert((pane, column), bounds);
-            });
-        }
-    }
-}
-
 #[allow(dead_code)]
 pub(crate) fn pane_bounds_recorder(
     pane: TabId,

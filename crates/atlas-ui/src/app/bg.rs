@@ -3,7 +3,6 @@
 
 use atlas_model::layout_tree::{Tile, TileId};
 use atlas_model::overlay::{Toast, ToastKind};
-use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::Duration;
 

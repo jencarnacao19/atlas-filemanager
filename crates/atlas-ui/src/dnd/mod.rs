@@ -12,6 +12,10 @@
 //! dnd/macos.rs          — (future) NSPasteboard / NSDraggingSource
 //! dnd/linux.rs          — (future) XDND / wl_data_device
 //! ```
+// reason: this layer also holds the FreeDesktop uri-list helpers and the Linux
+// bridge placeholder. Parts are reached on one platform only, and the XDND /
+// wl_data_device bridge that will consume the rest is not wired yet.
+#![allow(dead_code)]
 
 use std::path::PathBuf;
 

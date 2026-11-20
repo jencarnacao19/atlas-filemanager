@@ -1151,7 +1151,7 @@ impl App {
         .into_any_element();
 
         let mut rename_overlay = None;
-        if let Some(ts) = self.state.tab_states.get(&pane_id) {
+        if self.state.tab_states.contains_key(&pane_id) {
             for visible_pos in start..end {
                 let Some(&entry_idx) = visible_arc.get(visible_pos) else {
                     continue;

@@ -4,7 +4,9 @@ use std::sync::Arc;
 use gpui::{img, AnyElement, Hsla, IntoElement, RenderImage, Styled};
 
 use crate::app::App;
-use crate::ui::icons::{file_type_icon, is_windows_theme};
+use crate::ui::icons::file_type_icon;
+#[cfg(target_os = "windows")]
+use crate::ui::icons::is_windows_theme;
 use atlas_model::file_entry::FileKind;
 
 #[derive(Clone)]
@@ -15,7 +17,7 @@ pub(crate) struct FileIconRef {
 }
 
 #[derive(Clone)]
-pub(crate) enum IconTexture {
+pub enum IconTexture {
     Single(Arc<RenderImage>),
     Multi(Arc<crate::icon_theme::MultiResIcon>),
 }
@@ -52,7 +54,7 @@ impl From<Arc<crate::icon_theme::MultiResIcon>> for IconTexture {
 }
 
 #[derive(Clone)]
-pub(crate) enum FileIcon {
+pub enum FileIcon {
     PreviewTexture(Arc<RenderImage>),
     IconTexture(IconTexture),
     Builtin {
@@ -115,6 +117,8 @@ impl App {
         kind: &FileKind,
         extension: Option<&str>,
     ) -> FileIcon {
+        #[cfg(not(target_os = "windows"))]
+        let _ = path;
         #[cfg(target_os = "windows")]
         if is_windows_theme(&self.state.profiles.active().theme) {
             let tex = if matches!(kind, FileKind::Dir) {
@@ -167,6 +171,8 @@ impl App {
     }
 
     pub(crate) fn maybe_request_file_icon(&mut self, file: &FileIconRef) {
+        #[cfg(not(target_os = "windows"))]
+        let _ = file;
         #[cfg(target_os = "windows")]
         if is_windows_theme(&self.state.profiles.active().theme) {
             if matches!(file.kind, FileKind::Dir) {

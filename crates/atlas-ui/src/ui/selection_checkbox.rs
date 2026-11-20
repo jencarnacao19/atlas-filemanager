@@ -3,12 +3,8 @@
 //! Grid uses the element form as an overlay; canvas-backed views use `paint` so
 //! they retain their virtualized paint path. Both forms share the same palette.
 
-use gpui::prelude::FluentBuilder;
 use gpui::ColorExt as _;
-use gpui::{
-    div, point, px, size, AnimationExt, Bounds, Hsla, InteractiveElement, IntoElement,
-    ParentElement, RenderOnce, SharedString, Styled, Window,
-};
+use gpui::{point, px, size, Bounds, Hsla, SharedString, Window};
 use gpui_component::ActiveTheme;
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -250,73 +246,4 @@ pub(crate) fn paint_animated(
         mark,
         cx,
     );
-}
-
-/// Element form for layout-based views such as Grid. It is positioned by the
-/// caller and animates only when the selected overlay is mounted.
-#[derive(IntoElement)]
-pub(crate) struct SelectionCheckbox {
-    id: SharedString,
-    size_px: f32,
-}
-
-impl SelectionCheckbox {
-    pub(crate) fn new(id: impl Into<SharedString>, size_px: f32) -> Self {
-        Self {
-            id: id.into(),
-            size_px,
-        }
-    }
-}
-
-impl RenderOnce for SelectionCheckbox {
-    fn render(self, _window: &mut Window, cx: &mut gpui::App) -> impl IntoElement {
-        let colors = SelectionCheckboxColors::from_theme(cx);
-        let visual_id = SharedString::from(format!("{}-visual", self.id));
-        let size_px = self.size_px;
-        div()
-            .id(self.id)
-            .size(px(size_px))
-            .flex_none()
-            .flex()
-            .items_center()
-            .justify_center()
-            .child(
-                div()
-                    .id(visual_id)
-                    .size(px(size_px))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(px((size_px * 0.26).max(3.0)))
-                    .bg(colors.surface)
-                    .border_1()
-                    .border_color(colors.border)
-                    .shadow_sm()
-                    .text_color(colors.mark)
-                    .child(
-                        gpui::svg()
-                            .path("icons/check.svg")
-                            .size(px(size_px * 0.62))
-                            .text_color(colors.mark),
-                    )
-                    .map(|this| {
-                        if cx.reduce_motion() {
-                            this.into_any_element()
-                        } else {
-                            this.with_spring(
-                                SharedString::from("selection-checkbox-pop"),
-                                gpui::SpringAnimation::new(SPRING.config())
-                                    .to(1.0_f32)
-                                    .from(0.0),
-                                move |this, scale| {
-                                    this.opacity(scale.clamp(0.0, 1.0))
-                                        .size(px(size_px * scale.max(0.0)))
-                                },
-                            )
-                            .into_any_element()
-                        }
-                    }),
-            )
-    }
 }

@@ -40,8 +40,6 @@ use crate::ui::selection_checkbox;
 use crate::ui::surface::{
     paint_rounded, paint_svg_icon, shape_text_truncated, text_origin_y, Slot,
 };
-pub(crate) const GRID_GAP: f32 = 16.0;
-pub(crate) const GRID_PAD: f32 = 12.0;
 pub(crate) const GRID_ICON_AREA: f32 = 0.72;
 pub(crate) const GRID_TEXTURE_ICON_MAX: f32 = 0.66;
 pub(crate) const GRID_BUILTIN_ICON: f32 = 0.54;
@@ -228,8 +226,6 @@ pub struct GridImmElement {
     pitch_y: f32,
     pad_x: f32,
     pad_y: f32,
-    thumb_px: f32,
-    icon_area_h: f32,
     scroll_y: f32,
     viewport_h: f32,
     zoom_scale: f32,
@@ -262,8 +258,6 @@ impl GridImmElement {
         pitch_y: f32,
         pad_x: f32,
         pad_y: f32,
-        thumb_px: f32,
-        icon_area_h: f32,
         scroll_y: f32,
         viewport_h: f32,
         zoom_scale: f32,
@@ -286,8 +280,6 @@ impl GridImmElement {
             pitch_y,
             pad_x,
             pad_y,
-            thumb_px,
-            icon_area_h,
             scroll_y,
             viewport_h,
             zoom_scale,
@@ -431,8 +423,6 @@ impl Element for GridImmElement {
         let pitch_y = self.pitch_y;
         let pad_x = self.pad_x;
         let pad_y = self.pad_y;
-        let _thumb_px = self.thumb_px;
-        let icon_area_h = self.icon_area_h;
         let scroll_y = self.scroll_y;
         let viewport_h = self.viewport_h;
         let zoom_scale = self.zoom_scale;
@@ -1272,8 +1262,6 @@ impl App {
             pitch_y,
             grid_pad_px,
             grid_pad_px,
-            thumb_px,
-            thumb_px * GRID_ICON_AREA,
             scroll_y,
             viewport_h,
             zoom_scale,
@@ -1287,7 +1275,7 @@ impl App {
         .into_any_element();
 
         let mut rename_overlay = None;
-        if let Some(_ts) = self.state.tab_states.get(&pane_id) {
+        if self.state.tab_states.contains_key(&pane_id) {
             for visible_pos in start..end {
                 let Some(&entry_idx) = cells.get(visible_pos) else {
                     continue;
@@ -1587,6 +1575,8 @@ impl App {
                 wanted.extend(paths.iter().cloned());
             }
         }
+        #[cfg(not(target_os = "windows"))]
+        let _ = request_folder_icon;
         #[cfg(target_os = "windows")]
         if request_folder_icon {
             self.request_shell_folder_icon();

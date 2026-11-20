@@ -110,7 +110,7 @@ pub(super) fn paint_wheel(
     scale: f32,
     rings: Vec<Ring>,
     selected: usize,
-    hovered: Option<usize>,
+    _hovered: Option<usize>,
     available: Vec<bool>,
     colors: (Hsla, Hsla, Hsla, Hsla),
     reveal: f32,
@@ -123,7 +123,8 @@ pub(super) fn paint_wheel(
     canvas(
         move |bounds, _, cx| {
             #[cfg(feature = "conversion-lab")]
-            geometry_view.update(cx, |app, _| {
+            // The view may already be gone while the wheel closes; nothing to record then.
+            let _ = geometry_view.update(cx, |app, _| {
                 if let Some(session) = app.converter.as_mut() {
                     session.wheel_bounds = Some(bounds);
                 }
@@ -194,7 +195,7 @@ pub(super) fn paint_wheel(
                 } else {
                     None
                 };
-                hover_view.update(cx, |app, cx| {
+                let _ = hover_view.update(cx, |app, cx| {
                     if let Some(session) = app
                         .converter
                         .as_mut()
@@ -219,7 +220,7 @@ pub(super) fn paint_wheel(
                 let Some(index) = locate(ev.position) else {
                     return;
                 };
-                click_view.update(cx, |app, cx| {
+                let _ = click_view.update(cx, |app, cx| {
                     if let Some(Session {
                         phase: Phase::Choosing,
                         selected,

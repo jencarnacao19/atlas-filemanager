@@ -105,6 +105,7 @@ pub(crate) fn projected_order(
 
 /// Fixed resting slots prevent a moving neighbour from changing the drop target
 /// under a stationary pointer and oscillating the preview.
+#[cfg(test)]
 pub(crate) fn boundary_at(x: f32, widths: &[f32], pad: f32, gap: f32) -> usize {
     let mut left = pad;
     for (index, width) in widths.iter().enumerate() {

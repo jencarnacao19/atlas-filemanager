@@ -1,10 +1,6 @@
 //! File-view renderers split out of `root.rs` by view mode.
 use crate::app::App;
 use crate::input::action::Action;
-use crate::ui::drag_hover::{
-    drag_hover_recorder_with_drop, DragHoverCommand, DragHoverDropCommand, DragHoverId,
-    DragHoverKind,
-};
 use crate::ui::root::{ctrl_scroll, DraggedFiles};
 use atlas_model::layout_tree::Tile;
 use atlas_model::location::Location;
@@ -12,7 +8,6 @@ use atlas_model::pane::TabId;
 use atlas_model::tab::LoadState;
 use gpui::prelude::*;
 use gpui::{Div, Entity, MouseButton, MouseDownEvent, Stateful, Window};
-use gpui_component::ElementExt;
 use std::path::PathBuf;
 
 mod batch_row;
@@ -20,18 +15,13 @@ mod batch_row;
 pub mod chrome_diagnostic;
 #[cfg(all(feature = "ui-lab", feature = "provider-host"))]
 pub mod cloud_diagnostic;
-pub mod crumb_strip_element;
 pub mod details;
 pub mod details_element;
 pub mod details_header_element;
 pub mod details_imm;
 pub mod details_ring;
-pub mod grid_deprecated;
 pub mod grid_imm;
-pub mod grid_surface_element_deprecated;
-pub mod list_deprecated;
 pub mod list_imm;
-pub mod miller_deprecated;
 pub mod miller_imm;
 mod rename;
 #[cfg(feature = "ui-lab")]
@@ -39,70 +29,9 @@ pub mod selection_diagnostic;
 pub mod space_lens;
 pub mod tabs_bar_element;
 pub(crate) mod transition;
-pub mod tree_deprecated;
 pub mod tree_imm;
 #[cfg(feature = "ui-lab")]
 pub use transition::diagnostic as view_controls_diagnostic;
-pub mod virtual_grid_deprecated;
-
-/// Element-backed rows use the same pointer policy as the canvas renderers.
-/// Apply selection once on mouse-down; mouse-up belongs to the global gesture
-/// motor so a marquee never becomes another click or toggles a Ctrl selection.
-pub(super) fn on_entry_mouse_down(
-    view: &Entity<App>,
-    pane_id: TabId,
-    entry_idx: usize,
-) -> impl Fn(&MouseDownEvent, &mut Window, &mut gpui::App) + 'static {
-    let v = view.clone();
-    move |ev, _window, cx| {
-        let m = ev.modifiers;
-        let (shift, ctrl) = (m.shift, m.control || m.platform);
-        v.update(cx, |this, cx| {
-            this.selection_left_mouse_down(
-                crate::app::RubberTarget::Pane(pane_id),
-                Some(entry_idx),
-                ev.position,
-                shift,
-                ctrl,
-                ev.click_count,
-                cx,
-            );
-        });
-        cx.stop_propagation();
-    }
-}
-
-pub(super) fn on_entry_click(
-    view: &Entity<App>,
-    pane_id: TabId,
-    entry_idx: usize,
-) -> impl Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App) + 'static {
-    let v = view.clone();
-    move |ev, _window, cx| {
-        let m = ev.modifiers();
-        let (shift, ctrl) = (m.shift, m.control || m.platform);
-        let activate = ev.click_count() >= 2;
-        v.update(cx, |this, cx| {
-            if this.rename_edit.is_some() {
-                this.commit_rename(cx);
-            }
-            if activate {
-                this.process_actions(vec![Action::Activate {
-                    tile: pane_id,
-                    idx: entry_idx,
-                }]);
-            } else {
-                this.process_actions(vec![Action::Select {
-                    tile: pane_id,
-                    idx: entry_idx,
-                    shift,
-                    ctrl,
-                }]);
-            }
-            cx.notify();
-        });
-    }
-}
 
 pub(super) fn on_pane_rubber_mouse_down(
     view: &Entity<App>,
@@ -123,72 +52,6 @@ pub(super) fn on_pane_rubber_mouse_down(
         });
         cx.stop_propagation();
     }
-}
-
-/// Shared right-click handler: select the target (keeping multi-selection when
-/// clicked inside it) and open the shell context menu at the cursor.
-pub(super) fn on_entry_ctx_menu(
-    view: &Entity<App>,
-    pane_id: TabId,
-    entry_idx: usize,
-) -> impl Fn(&gpui::MouseDownEvent, &mut Window, &mut gpui::App) + 'static {
-    let v = view.clone();
-    move |ev, window, cx| {
-        let pos = ev.position;
-        v.update(cx, |this, cx| {
-            this.activate_tab(pane_id);
-            let paths = this.select_context_menu_paths(pane_id, entry_idx);
-            this.open_ctx_menu(paths, pos, window, cx);
-            cx.notify();
-        });
-        cx.stop_propagation();
-    }
-}
-
-/// Shared folder drop target: dim on drag-over, record the hover zone for
-/// spring-loaded navigation, and accept both intra-Atlas and external drops
-/// as a transfer into `dest`. Apply behind a `.when(is_dir, …)` at the call site.
-pub(super) fn folder_drop_target(
-    el: Stateful<Div>,
-    view: &Entity<App>,
-    pane_id: TabId,
-    dest: PathBuf,
-) -> Stateful<Div> {
-    let hover_id = DragHoverId::Folder(pane_id, dest.clone());
-    let dest_internal = dest.clone();
-    let dest_external = dest.clone();
-    let mv = view.clone();
-    let cpv = view.clone();
-    el.drag_over::<DraggedFiles>(|s, _, _, _| s.opacity(0.6))
-        .on_prepaint_child(drag_hover_recorder_with_drop(
-            hover_id,
-            DragHoverKind::Folder,
-            DragHoverCommand::NavigatePathIn(pane_id, dest.clone()),
-            DragHoverDropCommand::TransferTo(dest),
-            view,
-        ))
-        .on_drop::<DraggedFiles>(move |d, _window, cx| {
-            let paths = d.paths.clone();
-            mv.update(cx, |this, cx| {
-                this.execute_drag_hover_drop_command(
-                    this.folder_drop_command(pane_id, &dest_internal),
-                    paths,
-                    true,
-                );
-                cx.notify();
-            });
-        })
-        .on_drop::<gpui::ExternalPaths>(move |paths, _window, cx| {
-            let paths = paths.paths().to_vec();
-            cpv.update(cx, |this, cx| {
-                this.execute_drag_hover_drop_command(
-                    this.folder_drop_command(pane_id, &dest_external),
-                    paths,
-                    false,
-                );
-                cx.notify();
-            });
-        })
 }
 
 /// Shared empty-space / background interactions for a pane container, applied

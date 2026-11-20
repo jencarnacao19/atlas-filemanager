@@ -6,7 +6,7 @@ use crate::app::App;
 use crate::input::action::Action;
 use gpui::prelude::*;
 use gpui::ColorExt as _;
-use gpui::{deferred, div, px, AnyElement, Context, KeyDownEvent, SharedString, Window};
+use gpui::{deferred, div, px, AnyElement, Context, SharedString, Window};
 use gpui_component::{h_flex, ActiveTheme, StyledExt as _};
 
 impl App {

@@ -6,7 +6,7 @@ use crate::app::{App, ColWidths, DetailsColumn};
 use crate::ui::imm::table::{fit_columns, ColumnSpec};
 use crate::ui::views::details::{DetailsColumnLayout, DetailsRowLayout, CELL_PAD, ROW_NAME_X};
 use atlas_model::pane::TabId;
-use gpui::{AnyElement, Context, SharedString, Window};
+use gpui::{SharedString, Window};
 use std::time::Instant;
 
 fn column_index(column: DetailsColumn) -> usize {
@@ -162,17 +162,6 @@ pub(crate) fn presented_layout(
         window.request_animation_frame();
     }
     (layout, header)
-}
-
-impl App {
-    pub(crate) fn render_details_view_imm(
-        &mut self,
-        pane_id: TabId,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        self.render_details_canvas(pane_id, window, cx)
-    }
 }
 
 #[cfg(test)]

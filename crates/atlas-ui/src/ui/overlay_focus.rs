@@ -28,7 +28,7 @@
 use crate::app::{App, BatchRenameField};
 use atlas_model::batch_rename::RenameMode;
 use gpui::{Context, FocusHandle, Focusable, Window};
-use gpui_component::input::{Position, SelectToStartOfLine};
+use gpui_component::input::Position;
 use gpui_component::WindowExt;
 
 /// Which of the app's bespoke overlays currently claims the keyboard.

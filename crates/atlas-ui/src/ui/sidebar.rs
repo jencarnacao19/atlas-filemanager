@@ -8,12 +8,11 @@
 use crate::app::nav::NavKind;
 use crate::app::App as AtlasApp;
 use crate::input::action::Action;
-use crate::ui::drag::{file_drag_value, DragView};
 use crate::ui::drag_hover::{
     drag_hover_recorder, drag_hover_recorder_with_drop, sidebar_scroll_recorder, DragHoverCommand,
     DragHoverDropCommand, DragHoverId, DragHoverKind,
 };
-use crate::ui::glass::{control_colors, control_hover, layer_color, GlassExt};
+use crate::ui::glass::{control_colors, control_hover, layer_color};
 use crate::ui::icons::{
     file_type_icon, icon, is_windows_theme, theme_icon, themed_atlas_logo, AtlasIcon,
 };
@@ -36,8 +35,8 @@ use atlas_model::tag_cache::TagId;
 use gpui::prelude::*;
 use gpui::ColorExt as _;
 use gpui::{
-    auto, div, hsla, img, point, px, relative, Anchor, AnimationExt, AnyElement, App, Context,
-    Entity, EventEmitter, FocusHandle, Focusable, Hsla, MouseButton, MouseDownEvent, RenderOnce,
+    auto, div, hsla, img, point, px, Anchor, AnimationExt, AnyElement, App, Context, Entity,
+    EventEmitter, FocusHandle, Focusable, Hsla, MouseButton, MouseDownEvent, RenderOnce,
     SharedString, Styled, WeakEntity, Window,
 };
 use gpui_component::dock::{Panel, PanelControl, PanelEvent};
@@ -1868,6 +1867,8 @@ fn staged_file_meta(path: &std::path::Path) -> (FileKind, Option<String>) {
 }
 
 fn prime_drop_zone_thumbnails(app: &mut AtlasApp, paths: &[PathBuf], windows_theme: bool) {
+    #[cfg(not(target_os = "windows"))]
+    let _ = windows_theme;
     {
         let Ok(mut wanted) = app.thumb_wanted.lock() else {
             return;
@@ -2187,11 +2188,6 @@ pub(crate) fn place_sidebar_drop_zone(app: &mut AtlasApp, dest: PathBuf) {
         // Completion removes only the sources that actually transferred.
         app.execute_drag_hover_drop_command(DragHoverDropCommand::TransferTo(dest), paths, true);
     }
-}
-
-/// A 16px Phosphor icon (`icons/ph/<name>.svg`), tinted with `color`.
-fn ph(name: &str, color: Hsla) -> impl IntoElement {
-    icon(ph_icon(name), 16.0, color)
 }
 
 pub(crate) fn sidebar_shell_tex(
@@ -2588,7 +2584,9 @@ fn collapsed_nav_row(
     let drop_path_external = path.clone();
     let drop_app = app.clone();
     let drop_app_external = app.clone();
+    #[cfg(target_os = "windows")]
     let shell_path = path.clone();
+    #[cfg(target_os = "windows")]
     let shell_app = app.clone();
     let ctx_app = app.clone();
     let ctx_path = path.clone();
@@ -2596,7 +2594,7 @@ fn collapsed_nav_row(
         accent
     } else {
         hsla(
-            (fg.hue.into_positive_degrees() / 360.0),
+            fg.hue.into_positive_degrees() / 360.0,
             fg.saturation,
             fg.lightness,
             0.84,
@@ -2625,6 +2623,8 @@ fn collapsed_nav_row(
             .into_element(),
         )
         .on_prepaint_child(move |_bounds, _window, cx| {
+            #[cfg(not(target_os = "windows"))]
+            let _ = (cx, windows_theme);
             #[cfg(target_os = "windows")]
             if windows_theme {
                 shell_app.update(cx, |this, _cx| {
@@ -2711,7 +2711,7 @@ fn collapsed_virtual_nav_row(
         accent
     } else {
         hsla(
-            (fg.hue.into_positive_degrees() / 360.0),
+            fg.hue.into_positive_degrees() / 360.0,
             fg.saturation,
             fg.lightness,
             0.84,
@@ -2809,13 +2809,15 @@ fn collapsed_bookmark_row(
     let hover_id = DragHoverId::Sidebar(id.to_string());
     let drop_app = app.clone();
     let drop_app_external = app.clone();
+    #[cfg(target_os = "windows")]
     let shell_path = path.clone();
+    #[cfg(target_os = "windows")]
     let shell_app = app.clone();
     let icon_color = if active {
         accent
     } else {
         hsla(
-            (fg.hue.into_positive_degrees() / 360.0),
+            fg.hue.into_positive_degrees() / 360.0,
             fg.saturation,
             fg.lightness,
             0.84,
@@ -2846,6 +2848,8 @@ fn collapsed_bookmark_row(
             .into_element(),
         )
         .on_prepaint_child(move |_bounds, _window, cx| {
+            #[cfg(not(target_os = "windows"))]
+            let _ = (cx, windows_theme);
             #[cfg(target_os = "windows")]
             if windows_theme {
                 shell_app.update(cx, |this, _cx| {
@@ -3033,7 +3037,7 @@ fn collapsed_removable_device_row(
     let mount_path = device.mount_point.clone();
     let dev = device.dev.clone();
     let icon_color = hsla(
-        (fg.hue.into_positive_degrees() / 360.0),
+        fg.hue.into_positive_degrees() / 360.0,
         fg.saturation,
         fg.lightness,
         if is_mounted { 0.85 } else { 0.5 },
@@ -3687,14 +3691,16 @@ fn drive_row(
     let id = SharedString::from(format!("drive-{}", drive.mount_point.display()));
     let hover_id = DragHoverId::Sidebar(format!("drive-{}", drive.mount_point.display()));
     let icon_color = hsla(
-        (fg.hue.into_positive_degrees() / 360.0),
+        fg.hue.into_positive_degrees() / 360.0,
         fg.saturation,
         fg.lightness,
         0.85,
     );
     let drop_app = app.clone();
     let drop_app_external = app.clone();
+    #[cfg(target_os = "windows")]
     let shell_path = path.clone();
+    #[cfg(target_os = "windows")]
     let shell_app = app.clone();
     let row = v_flex()
         .id(id)
@@ -3725,6 +3731,8 @@ fn drive_row(
             .into_element()
         })
         .on_prepaint_child(move |_bounds, _window, cx| {
+            #[cfg(not(target_os = "windows"))]
+            let _ = (cx, windows_theme);
             #[cfg(target_os = "windows")]
             if windows_theme {
                 shell_app.update(cx, |this, _cx| {
@@ -3823,7 +3831,7 @@ fn removable_device_row(
     let dev = device.dev.clone();
     let id = SharedString::from(format!("removable-{}", device.dev));
     let icon_color = hsla(
-        (fg.hue.into_positive_degrees() / 360.0),
+        fg.hue.into_positive_degrees() / 360.0,
         fg.saturation,
         fg.lightness,
         if is_mounted { 0.85 } else { 0.5 },
@@ -4137,7 +4145,9 @@ pub(crate) fn bookmark_row(
     let remove_app = app.clone();
     let drop_app = app.clone();
     let drop_app_external = app.clone();
+    #[cfg(target_os = "windows")]
     let shell_path = path.clone();
+    #[cfg(target_os = "windows")]
     let shell_app = app.clone();
     let group = SharedString::from(format!("bm-row-{index}"));
     let hover_id = DragHoverId::Sidebar(id.to_string());
@@ -4146,7 +4156,7 @@ pub(crate) fn bookmark_row(
         accent
     } else {
         hsla(
-            (fg.hue.into_positive_degrees() / 360.0),
+            fg.hue.into_positive_degrees() / 360.0,
             fg.saturation,
             fg.lightness,
             0.85,
@@ -4212,6 +4222,8 @@ pub(crate) fn bookmark_row(
                 }),
         )
         .on_prepaint_child(move |_bounds, _window, cx| {
+            #[cfg(not(target_os = "windows"))]
+            let _ = (cx, windows_theme);
             #[cfg(target_os = "windows")]
             if windows_theme {
                 shell_app.update(cx, |this, _cx| {
@@ -4297,7 +4309,9 @@ fn nav_row(
     let drop_path_external = path.clone();
     let drop_app = app.clone();
     let drop_app_external = app.clone();
+    #[cfg(target_os = "windows")]
     let shell_path = path.clone();
+    #[cfg(target_os = "windows")]
     let shell_app = app.clone();
     let ctx_app = app.clone();
     let ctx_path = path.clone();
@@ -4307,7 +4321,7 @@ fn nav_row(
     } else {
         // Slightly dimmed icon for inactive rows (Figma: ~85% ink).
         hsla(
-            (fg.hue.into_positive_degrees() / 360.0),
+            fg.hue.into_positive_degrees() / 360.0,
             fg.saturation,
             fg.lightness,
             0.85,
@@ -4338,6 +4352,8 @@ fn nav_row(
             .into_element(),
         )
         .on_prepaint_child(move |_bounds, _window, cx| {
+            #[cfg(not(target_os = "windows"))]
+            let _ = (cx, windows_theme);
             #[cfg(target_os = "windows")]
             if windows_theme {
                 shell_app.update(cx, |this, _cx| {
@@ -4426,7 +4442,7 @@ fn virtual_nav_row(
         accent
     } else {
         hsla(
-            (fg.hue.into_positive_degrees() / 360.0),
+            fg.hue.into_positive_degrees() / 360.0,
             fg.saturation,
             fg.lightness,
             0.85,
@@ -4576,7 +4592,7 @@ fn cloud_remote_row(
     };
     let hover_id = DragHoverId::Sidebar(format!("cloud-remote-{id}"));
     let icon_color = hsla(
-        (fg.hue.into_positive_degrees() / 360.0),
+        fg.hue.into_positive_degrees() / 360.0,
         fg.saturation,
         fg.lightness,
         0.85,
@@ -4676,6 +4692,7 @@ fn cloud_remote_row(
         })
         .context_menu({
             let id2 = remote.id.clone();
+            #[cfg(windows)]
             let is_browse_fallback = matches!(status, RemoteStatus::BrowseFallback(_));
             move |menu, _window, _cx| {
                 let menu = menu
@@ -4802,7 +4819,7 @@ fn add_cloud_row(app: &Entity<AtlasApp>, hover: Hsla, muted: Hsla, fg: Hsla) -> 
 
     let app = app.clone();
     let icon_color = hsla(
-        (muted.hue.into_positive_degrees() / 360.0),
+        muted.hue.into_positive_degrees() / 360.0,
         muted.saturation,
         muted.lightness,
         0.7,

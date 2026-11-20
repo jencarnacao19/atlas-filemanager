@@ -62,19 +62,6 @@ pub(crate) fn thumbnail_size(
     )
 }
 
-/// Shared by retained and IMM surfaces: every preview texture (including PDF,
-/// video, RAW and extension previews) gets the same inner one-pixel outline.
-pub(crate) fn paint_thumbnail(
-    window: &mut gpui::Window,
-    cx: &gpui::App,
-    texture: &Arc<RenderImage>,
-    center: Point<Pixels>,
-    slot_w: f32,
-    slot_h: f32,
-) {
-    paint_thumbnail_state(window, cx, texture, center, slot_w, slot_h, false);
-}
-
 /// Same as [`paint_thumbnail`] with a hover state. The frame is two hairlines so it
 /// reads on any theme and any image edge: an inner neutral line that separates the
 /// picture from its frame, and an outer ring tinted from the theme (foreground at
