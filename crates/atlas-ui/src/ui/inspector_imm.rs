@@ -1865,15 +1865,16 @@ mod tests {
 
     #[test]
     fn test_hex_dump_formatting() {
-        let data = b"Hello, Atlas!";
+        // 26 bytes: one full 16-byte line and a 10-byte tail.
+        let data = b"Hello, Atlas file manager!";
         let lines = format_hex_dump(data, 10);
         assert_eq!(lines.len(), 2);
 
         assert_eq!(lines[0].offset_str, "00000000");
         assert!(lines[0].hex_bytes_str.contains("48 65 6c 6c 6f"));
-        assert_eq!(lines[0].ascii_str, "|Hello, Digital G|");
+        assert_eq!(lines[0].ascii_str, "|Hello, Atlas fil|");
 
         assert_eq!(lines[1].offset_str, "00000010");
-        assert!(lines[1].ascii_str.starts_with("|rove!"));
+        assert!(lines[1].ascii_str.starts_with("|e manager!"));
     }
 }

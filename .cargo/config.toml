@@ -8,6 +8,13 @@
 # large debug builds. It does not change which code is compiled into the binary.
 linker = "rust-lld.exe"
 
+[env]
+# rust-i18n generates one statement per translation key inside a single lazy
+# initializer. Unoptimized builds give every statement its own stack slot, so the
+# first `t!()` needs roughly 2-3 MiB of stack, more than the 2 MiB that test
+# threads get by default. Applies to `cargo test`/`cargo run`, not to binaries.
+RUST_MIN_STACK = "8388608"
+
 [alias]
 # Daily loop: fastest compile, smallest feature surface.
 devfast = "run --no-default-features"

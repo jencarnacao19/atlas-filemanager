@@ -177,6 +177,25 @@ pub struct SidebarRemoveBookmark {
 
 /// Launch the gpui application. The caller owns the tokio runtime and passes its
 /// handle in; gpui drives the UI on the calling (main) thread.
+/// Builds rust-i18n's lazily initialized translation table off the main thread.
+///
+/// The generated initializer holds one statement per translation key, and an
+/// unoptimized build needs a few MiB of stack to run it: more than the 1 MiB
+/// main thread Windows gives by default. Running it on a thread with a large
+/// stack keeps debug builds safe, and it overlaps with the rest of startup.
+/// A `t!()` that arrives first waits on the same one-time initialization.
+fn warm_up_translations() {
+    let spawned = std::thread::Builder::new()
+        .name("atlas-i18n-init".into())
+        .stack_size(32 << 20)
+        .spawn(|| {
+            let _ = rust_i18n::available_locales!();
+        });
+    if let Err(error) = spawned {
+        tracing::warn!(%error, "could not pre-initialize translations");
+    }
+}
+
 pub fn run(
     handle: tokio::runtime::Handle,
     app_started: Instant,
@@ -184,6 +203,7 @@ pub fn run(
     initial_paths: Vec<std::path::PathBuf>,
 ) {
     let run_started = Instant::now();
+    warm_up_translations();
     #[cfg(feature = "ui-lab")]
     let initial_paths = crate::ui::preview_lab::prepare(initial_paths);
     let settings = atlas_core::util::config::load_settings();
