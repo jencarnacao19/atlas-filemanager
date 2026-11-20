@@ -2,9 +2,13 @@ use anyhow::Result;
 use serde::Deserialize;
 use std::time::Duration;
 
+/// Overridable at build time, like the registry base, to leave the r2.dev
+/// development URL for a custom domain.
 #[cfg(windows)]
-const UPDATE_MANIFEST_URL: &str =
-    "https://pub-89dd9e8d0b06444ca2f59e0dc245dbc9.r2.dev/app/windows/latest.json";
+const UPDATE_MANIFEST_URL: &str = match option_env!("ATLAS_UPDATE_MANIFEST_URL") {
+    Some(url) if !url.is_empty() => url,
+    _ => "https://pub-89dd9e8d0b06444ca2f59e0dc245dbc9.r2.dev/app/windows/latest.json",
+};
 
 pub const APP_VERSION: &str = match option_env!("ATLAS_RELEASE_VERSION") {
     Some(version) => version,

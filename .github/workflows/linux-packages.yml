@@ -34,6 +34,13 @@ on:
 permissions:
   contents: read
 
+# Public build-time settings, from repository variables (Settings > Variables).
+# Unset variables are empty, and the app then keeps its built-in defaults.
+env:
+  ATLAS_REGISTRY_PUBLIC_KEY: ${{ vars.ATLAS_REGISTRY_PUBLIC_KEY }}
+  ATLAS_REGISTRY_BASE: ${{ vars.ATLAS_REGISTRY_BASE }}
+  ATLAS_UPDATE_MANIFEST_URL: ${{ vars.ATLAS_UPDATE_MANIFEST_URL }}
+
 jobs:
   build:
     name: Build Linux x86_64 (glibc 2.35)

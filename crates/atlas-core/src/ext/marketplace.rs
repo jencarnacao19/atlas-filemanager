@@ -1,16 +1,35 @@
 //! Remote marketplace client — fetches the R2 registry and downloads extension
 //! zips for installation. The actual install step delegates to `ext::install`.
 
-use anyhow::{ensure, Result};
+use super::signing::{self, SignedDocument};
+use anyhow::{ensure, Context as _, Result};
 use atlas_model::ext_model::{RemoteRegistry, ToolSpec};
 use sha2::{Digest, Sha256};
 use std::io::{Read as _, Write as _};
 use std::path::{Path, PathBuf};
 
-const REGISTRY_BASE: &str = "https://pub-89dd9e8d0b06444ca2f59e0dc245dbc9.r2.dev";
+/// Where the registry lives. Override at build time to move off the r2.dev
+/// development URL onto a custom domain without a code change.
+const REGISTRY_BASE: &str = match option_env!("ATLAS_REGISTRY_BASE") {
+    Some(base) if !base.is_empty() => base,
+    _ => "https://pub-89dd9e8d0b06444ca2f59e0dc245dbc9.r2.dev",
+};
 
-/// Download the remote catalogue from `{REGISTRY_BASE}/registry.json`.
+/// Hex-encoded Ed25519 public key the registry must be signed with, set at
+/// build time (see `docs/registry-signing.md`). When it is set, only
+/// `registry.signed.json` is trusted; when unset or empty, builds fall back to
+/// the unsigned `registry.json`.
+const REGISTRY_PUBLIC_KEY: Option<&str> = option_env!("ATLAS_REGISTRY_PUBLIC_KEY");
+
+/// Download the remote catalogue, verifying its signature when this build
+/// carries a registry public key.
 pub async fn fetch_registry() -> Result<RemoteRegistry> {
+    if let Some(key) = REGISTRY_PUBLIC_KEY.filter(|key| !key.trim().is_empty()) {
+        let url = format!("{REGISTRY_BASE}/registry.signed.json");
+        let doc: SignedDocument = reqwest::get(&url).await?.error_for_status()?.json().await?;
+        signing::verify(&doc, key)?;
+        return serde_json::from_str(&doc.payload).context("parse signed registry");
+    }
     let url = format!("{REGISTRY_BASE}/registry.json");
     let registry: RemoteRegistry = reqwest::get(&url).await?.error_for_status()?.json().await?;
     Ok(registry)
