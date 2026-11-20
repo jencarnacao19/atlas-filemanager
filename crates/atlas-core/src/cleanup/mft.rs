@@ -12,7 +12,7 @@ use std::{
 };
 
 const MASK: u64 = (1 << 48) - 1;
-const UNSAFE_ATTRIBUTES: u32 = 0x400 | 0x1000 | 0x40000 | 0x400000;
+const UNSAFE_ATTRIBUTES: u32 = 0x400 | 0x1000 | 0x40000 | 0x0040_0000;
 
 fn interrupted() -> io::Error {
     io::Error::new(io::ErrorKind::Interrupted, "Cancelled")
@@ -85,7 +85,7 @@ fn build(
     let mut visited = 0u32;
     while let Some((record, id, path)) = queue.pop() {
         visited += 1;
-        if visited % 4096 == 0 && !control() {
+        if visited.is_multiple_of(4096) && !control() {
             return Err(interrupted());
         }
         let (s, e) = (starts[record as usize], starts[record as usize + 1]);

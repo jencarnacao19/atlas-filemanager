@@ -2022,7 +2022,6 @@ fn drop_zone_item(
         )
         .on_drag_alt({
             let app = app.clone();
-            let drag_path = drag_path;
             move |_cursor_offset, cursor_style, _window, cx| {
                 if app.read(&*cx).rubber.is_some() {
                     return crate::ui::drag::empty_any_drag(cx);
@@ -3746,7 +3745,7 @@ fn drive_row(
     {
         row.context_menu({
             let lens_path = drive.mount_point.clone();
-            let properties_path = drive.mount_point.clone();
+            let properties_path = drive.mount_point;
             move |menu, _window, _cx| {
                 menu.menu(
                     rust_i18n::t!("sidebar_analyze_space"),
@@ -4697,8 +4696,7 @@ pub(crate) fn native_cloud_folders() -> Vec<(String, PathBuf)> {
         std::thread::spawn(|| {
             let folders = scan_native_cloud_folders();
             let mut cache = CACHE
-                .get()
-                .unwrap()
+                .get_or_init(|| Mutex::new(Snapshot::default()))
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             cache.folders = folders;

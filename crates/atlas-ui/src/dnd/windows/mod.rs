@@ -105,7 +105,7 @@ struct PendingDrag {
 
 thread_local! {
     static PENDING_DRAG: std::cell::Cell<Option<PendingDrag>> =
-        std::cell::Cell::new(None);
+        const { std::cell::Cell::new(None) };
 }
 
 /// WndProc hook. Intercepts `WM_ATLAS_START_DRAG` and calls `DoDragDrop` there,
@@ -134,7 +134,7 @@ unsafe extern "system" fn atlas_wndproc(
         }
     }
     if msg == WM_ATLAS_START_DRAG {
-        let pending = PENDING_DRAG.with(|p| p.take());
+        let pending = PENDING_DRAG.with(std::cell::Cell::take);
         if let Some(pd) = pending {
             if let Some(items) = pd.archive_items {
                 if !items.is_empty() {
@@ -153,7 +153,7 @@ unsafe extern "system" fn atlas_wndproc(
         }
         return LRESULT(0);
     }
-    let orig = hook.map(|(original, _)| original).unwrap_or(0);
+    let orig = hook.map_or(0, |(original, _)| original);
     if orig != 0 {
         // SAFETY: orig is a valid WNDPROC stored during setup_dnd.
         // SAFETY: orig is the valid WNDPROC isize returned by SetWindowLongPtrW.
@@ -176,10 +176,10 @@ unsafe extern "system" fn atlas_wndproc(
 /// returns; the `WNDPROC` chain forwards it to gpui's handler.
 unsafe fn inject_mouse_up(hwnd: HWND) {
     let mut pt = POINT { x: 0, y: 0 };
-    let _ = GetCursorPos(&mut pt);
-    let _ = ScreenToClient(hwnd, &mut pt);
+    let _ = GetCursorPos(&raw mut pt);
+    let _ = ScreenToClient(hwnd, &raw mut pt);
     // Pack (x, y) into lParam: low word = x, high word = y.
-    let lparam = LPARAM(((pt.y as u32) << 16 | (pt.x as u16 as u32)) as isize);
+    let lparam = LPARAM(((pt.y as u32) << 16 | u32::from(pt.x as u16)) as isize);
     let _ = PostMessageW(Some(hwnd), WM_LBUTTONUP, WPARAM(0), lparam);
 }
 
@@ -347,7 +347,7 @@ pub fn start_drag_real(hwnd_raw: isize, paths: &[PathBuf], allowed: DROPEFFECT) 
     }
 
     let mut effect = DROPEFFECT_NONE;
-    let hr = unsafe { DoDragDrop(&data_obj, &source, allowed, &mut effect) };
+    let hr = unsafe { DoDragDrop(&data_obj, &source, allowed, &raw mut effect) };
 
     // Some targets only report via CFSTR_PERFORMEDDROPEFFECT on the data object.
     let performed_val = performed.load(std::sync::atomic::Ordering::Relaxed);
@@ -407,6 +407,8 @@ pub fn start_drag_copy_only(hwnd_raw: isize, paths: &[PathBuf]) {
 /// Extracts `items` (archive_path, inner_path pairs) to a session-unique temp
 /// directory synchronously, then delegates to `start_drag_and_handle`.
 /// The temp directory is left on disk; the OS (or next startup) cleans it up.
+// reason: creates the drag staging dir once, before OLE takes the drag.
+#[allow(clippy::disallowed_methods)]
 pub fn start_drag_archive(hwnd_raw: isize, items: &[(PathBuf, PathBuf)], queue: Option<&DndQueue>) {
     if items.is_empty() {
         return;
@@ -415,8 +417,7 @@ pub fn start_drag_archive(hwnd_raw: isize, items: &[(PathBuf, PathBuf)], queue: 
     // Build a unique temp session dir under %TEMP%\atlas-dnd.
     let session = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_micros())
-        .unwrap_or(0);
+        .map_or(0, |d| d.as_micros());
     let temp_dir = std::env::temp_dir()
         .join("atlas-dnd")
         .join(session.to_string());
@@ -456,8 +457,7 @@ pub fn start_drag_archive(hwnd_raw: isize, items: &[(PathBuf, PathBuf)], queue: 
         for inner in inners {
             let name = inner
                 .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_else(|| "file".to_string());
+                .map_or_else(|| "file".to_string(), |n| n.to_string_lossy().into_owned());
             let dest = temp_dir.join(&name);
             match provider.extract_to(inner, &dest) {
                 Ok(()) => extracted.push(dest),

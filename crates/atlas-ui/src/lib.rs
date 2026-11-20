@@ -5,6 +5,10 @@
 //!
 // reason: gpui's actions! macro derives PartialEq (not Eq) on every action struct.
 #![allow(clippy::derive_partial_eq_without_eq)]
+// reason: rust-i18n generates its translation table as one large initializer,
+// which is the frame this lint reports. `warm_up_translations` runs it on a
+// thread with a 32 MiB stack. Attributes on the macro call do not reach it.
+#![allow(clippy::large_stack_frames)]
 
 rust_i18n::i18n!("locales", fallback = "en");
 
@@ -252,9 +256,19 @@ pub fn run(
         // for custom user themes are deferred to the background so they do not block startup.
         let themes_dir = atlas_core::util::config::themes_dir();
         cx.spawn(async move |cx| {
-            if let Err(err) = std::fs::create_dir_all(&themes_dir)
-                .and_then(|()| std::fs::write(themes_dir.join("atlas-themes.json"), json))
-            {
+            // `cx.spawn` runs on the main thread, so the file write itself goes to
+            // the background executor and the watcher is installed once it lands.
+            let dir = themes_dir.clone();
+            let persisted = cx
+                .background_executor()
+                .spawn(async move {
+                    // reason: runs on the background executor, not the UI thread.
+                    #[allow(clippy::disallowed_methods)]
+                    std::fs::create_dir_all(&dir)
+                        .and_then(|()| std::fs::write(dir.join("atlas-themes.json"), json))
+                })
+                .await;
+            if let Err(err) = persisted {
                 tracing::error!(?err, "failed to persist bundled themes to themes_dir");
             }
             () = cx.update(|cx| {

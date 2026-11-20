@@ -217,7 +217,7 @@ impl App {
                         p.history_forward.clone(),
                     ),
                 )),
-                _ => None,
+                Tile::Container(_) => None,
             })
             .collect();
         self.drag_hover.nav_snapshot = Some(snap);
@@ -283,7 +283,7 @@ impl App {
                 // Re-list the restored location so the view matches the route again.
                 let restore = self.state.pane_tree.tiles.get(id).and_then(|t| match t {
                     Tile::Pane(p) => Some(p.location.clone()),
-                    _ => None,
+                    Tile::Container(_) => None,
                 });
                 if let Some(loc) = restore {
                     if let Some(ts) = self.state.tab_states.get_mut(&id) {
@@ -590,7 +590,7 @@ impl App {
                 .downcast_ref::<crate::ui::root::DraggedCloudFiles>()
         });
         let intent = if let Some(cloud) = cloud {
-            paths = cloud.paths.clone();
+            paths.clone_from(&cloud.paths);
             #[cfg(feature = "provider-host")]
             let allowed = self.cloud_drag_destination_allowed(cloud, &command, shift);
             #[cfg(not(feature = "provider-host"))]
@@ -842,7 +842,7 @@ impl App {
             if contains(*bounds, pos) && self.pane_accepts_visible_drop(*pane) {
                 if let Some(dest) = self
                     .tab_data_for(*pane)
-                    .and_then(|tab| tab.location.fs_dir().map(|path| path.to_path_buf()))
+                    .and_then(|tab| tab.location.fs_dir().map(std::path::Path::to_path_buf))
                 {
                     return Some(dest);
                 }
@@ -1400,9 +1400,9 @@ fn drop_intent(
             let target = normalized(dest);
             let has_valid_source = paths.iter().any(|src| {
                 let source = normalized(src);
-                !target.starts_with(&source)
-                    && !(effect.is_move() && source.parent() == Some(target.as_path()))
-                    && !atlas_core::fs::paths::is_recycle_bin_path(src)
+                !(target.starts_with(&source)
+                    || atlas_core::fs::paths::is_recycle_bin_path(src)
+                    || effect.is_move() && source.parent() == Some(target.as_path()))
             });
             if atlas_core::fs::paths::is_recycle_bin_path(dest)
                 || (!paths.is_empty() && !has_valid_source)
@@ -1426,7 +1426,7 @@ fn drop_intent(
 
 fn transfer_drop_effect(
     paths: &[PathBuf],
-    dest: &PathBuf,
+    dest: &std::path::Path,
     ctrl: bool,
     shift: bool,
 ) -> crate::dnd::DropEffect {
@@ -1520,6 +1520,7 @@ fn consume_staged_paths(
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)] // reason: test fixtures touch the disk directly.
 mod tests {
     #[cfg(windows)]
     #[test]
@@ -1549,7 +1550,7 @@ mod tests {
             Some("C:/live".into())
         );
         assert_eq!(
-            snapshot.transfer_at(100.0, 50.0, &[child.clone()], true, false),
+            snapshot.transfer_at(100.0, 50.0, &[child], true, false),
             None
         );
         snapshot.tabs.remove(&pane);

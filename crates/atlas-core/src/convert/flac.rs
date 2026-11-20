@@ -91,6 +91,8 @@ fn frame_number(number: u32, bytes: &mut Vec<u8>) {
         bytes.push(number as u8);
         return;
     }
+    // reason: the frame number is bounded by the total sample count, so a length fits.
+    #[allow(clippy::expect_used)]
     let length = (2..=6)
         .find(|length| u64::from(number) < (1_u64 << (5 * length + 1)))
         .expect("FLAC frame number is bounded by the total sample count");

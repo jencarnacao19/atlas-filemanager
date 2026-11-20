@@ -378,8 +378,8 @@ fn extract_selected(
                 check(cancel)?;
                 let mut entry = zip.by_index(index)?;
                 ensure!(
-                    entry.unix_mode().is_none_or(|mode| mode & 0o170000 == 0
-                        || [0o100000, 0o040000].contains(&(mode & 0o170000))),
+                    entry.unix_mode().is_none_or(|mode| mode & 0o170_000 == 0
+                        || [0o100_000, 0o040_000].contains(&(mode & 0o170_000))),
                     "Package contains links or special files"
                 );
                 if entry.is_dir() {
@@ -617,7 +617,7 @@ mod tests {
         let mut cases = vec![source.clone()];
         for extension in ["aiff", "au"] {
             let plan = Plan::build(
-                &[source.clone()],
+                std::slice::from_ref(&source),
                 extension,
                 Settings::default(),
                 Tools::default(),
@@ -628,15 +628,20 @@ mod tests {
             cases.extend(report.outputs());
         }
         if tools.1.mp3 {
-            let plan =
-                Plan::build(&[source.clone()], "mp3", Settings::default(), tools.clone()).unwrap();
+            let plan = Plan::build(
+                std::slice::from_ref(&source),
+                "mp3",
+                Settings::default(),
+                tools.clone(),
+            )
+            .unwrap();
             let report = convert::execute(&plan, &Arc::new(AtomicBool::new(false)), |_, _, _| {});
             assert!(report.errors().is_empty(), "{:?}", report.errors());
             cases.extend(report.outputs());
         }
         for source in &cases {
             let plan = Plan::build(
-                &[source.clone()],
+                std::slice::from_ref(source),
                 "opus",
                 Settings::default(),
                 tools.clone(),
@@ -799,7 +804,7 @@ mod tests {
             .output()
             .unwrap();
         assert!(version.status.success());
-        let evidence = serde_json::json!({"package": "pandoc", "version": "3.12.1", "download_bytes": 42154914_u64, "installed_payload_bytes": 236017543_u64, "sha256": "6ef431cb20b2c24a0371fc19200dc49d452be54b1b5c9239f3462841ef53e587", "binary_bytes": metadata.len(), "license_preserved": true, "reuse_without_download": true, "rst_docx_txt": text, "version_output": String::from_utf8_lossy(&version.stdout)});
+        let evidence = serde_json::json!({"package": "pandoc", "version": "3.12.1", "download_bytes": 42_154_914_u64, "installed_payload_bytes": 236_017_543_u64, "sha256": "6ef431cb20b2c24a0371fc19200dc49d452be54b1b5c9239f3462841ef53e587", "binary_bytes": metadata.len(), "license_preserved": true, "reuse_without_download": true, "rst_docx_txt": text, "version_output": String::from_utf8_lossy(&version.stdout)});
         let artifacts = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../artifacts/handmade-conversion-validation");
         std::fs::write(

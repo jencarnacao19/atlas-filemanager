@@ -72,7 +72,7 @@ fn with_miller_clip(window: &mut Window, bounds: Bounds<Pixels>, draw: impl FnOn
     window.with_content_mask(
         Some(gpui::ContentMask {
             bounds,
-            fade_out: Default::default(),
+            fade_out: gpui::Edges::default(),
         }),
         |window| window.paint_layer(bounds, draw),
     );
@@ -1050,7 +1050,7 @@ impl Element for MillerImmElement {
                                 .accent
                                 .opacity(if row.selected { 0.95 } else { 0.65 });
                             window.paint_quad(
-                                gpui::outline(row_bounds, outline_col, Default::default())
+                                gpui::outline(row_bounds, outline_col, gpui::BorderStyle::default())
                                     .corner_radii(Corners::all(px(4.0 * zoom))),
                             );
                         }

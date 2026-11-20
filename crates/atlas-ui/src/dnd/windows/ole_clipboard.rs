@@ -125,7 +125,11 @@ impl TabTransfer {
                 .map(|row| row.0.path())
                 .collect()
         } else {
-            state.entries.iter().map(|entry| entry.path()).collect()
+            state
+                .entries
+                .iter()
+                .map(atlas_model::file_entry::FileEntry::path)
+                .collect()
         };
         let selected: std::collections::HashSet<_> = self.selected_paths.iter().collect();
         state.selection.selected = rows
@@ -190,7 +194,7 @@ fn tab_snapshot(
         state
             .selected_entries(&tab.view_mode)
             .into_iter()
-            .map(|entry| entry.path())
+            .map(atlas_model::file_entry::FileEntry::path)
             .collect()
     });
     let cursor_path = runtime.and_then(|state| match tab.view_mode {
@@ -204,7 +208,7 @@ fn tab_snapshot(
                     .keyboard_cursor
                     .and_then(|i| column.entries.get(i))
             })
-            .map(|e| e.path()),
+            .map(atlas_model::file_entry::FileEntry::path),
         atlas_model::settings::ViewMode::Tree => state.selection.keyboard_cursor.and_then(|i| {
             state
                 .visible_tree_rows_snapshot()
@@ -215,7 +219,7 @@ fn tab_snapshot(
             .selection
             .keyboard_cursor
             .and_then(|i| state.entries.get(i))
-            .map(|e| e.path()),
+            .map(atlas_model::file_entry::FileEntry::path),
     });
     let miller_columns = runtime.map_or_else(Vec::new, |state| {
         state
@@ -230,13 +234,13 @@ fn tab_snapshot(
                     .selected
                     .iter()
                     .filter_map(|i| column.entries.get(*i))
-                    .map(|e| e.path())
+                    .map(atlas_model::file_entry::FileEntry::path)
                     .collect(),
                 cursor_path: column
                     .selection
                     .keyboard_cursor
                     .and_then(|i| column.entries.get(i))
-                    .map(|e| e.path()),
+                    .map(atlas_model::file_entry::FileEntry::path),
                 scroll_offset: miller_offsets.get(index).copied().unwrap_or_default(),
             })
             .collect()
@@ -316,11 +320,11 @@ pub(crate) fn take_tab_transfer(token: &str) -> Option<TabTransfer> {
     unsafe {
         let object = OleGetClipboard().ok()?;
         let format = fmt_u32(super::clipboard_formats::cf_open_window());
-        let mut medium = object.GetData(&format).ok()?;
+        let mut medium = object.GetData(&raw const format).ok()?;
         let handle = medium.u.hGlobal;
         let size = GlobalSize(handle);
         let ptr = GlobalLock(handle) as *const u8;
-        let result = if ptr.is_null() || size < 4 || size > 16 * 1024 * 1024 {
+        let result = if ptr.is_null() || !(4..=16 * 1024 * 1024).contains(&size) {
             None
         } else {
             let bytes = std::slice::from_raw_parts(ptr, size);
@@ -329,7 +333,7 @@ pub(crate) fn take_tab_transfer(token: &str) -> Option<TabTransfer> {
         if !ptr.is_null() {
             let _ = GlobalUnlock(handle);
         }
-        windows::Win32::System::Ole::ReleaseStgMedium(&mut medium);
+        windows::Win32::System::Ole::ReleaseStgMedium(&raw mut medium);
         result
     }
 }

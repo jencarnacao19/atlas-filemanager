@@ -582,7 +582,7 @@ impl DockSplitAnimation {
                 0.0,
             );
         } else {
-            from = to.clone();
+            from.clone_from(&to);
             from_gap_factors = Self::gap_targets(&from);
         }
         normalize_split_shares_allow_zero(&mut from);
@@ -974,7 +974,7 @@ mod tests {
             start_idx: 0,
             end_idx: 4,
             total_count: 4,
-            bands: Default::default(),
+            bands: atlas_model::grouping::RowBands::default(),
         };
 
         assert_eq!(
@@ -1013,7 +1013,7 @@ mod tests {
             start_idx: 0,
             end_idx: 2,
             total_count: 2,
-            bands: Default::default(),
+            bands: atlas_model::grouping::RowBands::default(),
         };
         assert_eq!(model.hit_entry(point(px(150.0), px(50.0))), Some(5));
         assert_eq!(
@@ -1695,7 +1695,7 @@ impl App {
         #[cfg(windows)]
         if let Some(dest) = self
             .tab_data_for(pane_id)
-            .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+            .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
         {
             crate::perf::count("dnd.pending_zone_push");
             self.pending_pane_zones

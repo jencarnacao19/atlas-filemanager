@@ -292,7 +292,9 @@ impl App {
         let mut profile = atlas_model::profiles::Profile::new(name);
         // Inherit the current look so a new profile doesn't snap to hard defaults.
         profile.workspace = self.state.settings.workspace();
-        profile.theme = self.state.profiles.active().theme.clone();
+        profile
+            .theme
+            .clone_from(&self.state.profiles.active().theme);
         self.state.profiles.profiles.push(profile);
         let new_idx = self.state.profiles.profiles.len() - 1;
         self.switch_profile(new_idx);
@@ -320,6 +322,8 @@ impl App {
 
     /// Build a fresh profile name like "Perfil 2" that doesn't collide with an
     /// existing one.
+    // reason: stops at the first unused number; the profile list is finite.
+    #[allow(clippy::maybe_infinite_iter)]
     fn unique_profile_name(&self) -> String {
         let taken: std::collections::HashSet<&str> = self
             .state
@@ -334,6 +338,8 @@ impl App {
             .unwrap_or_else(|| rust_i18n::t!("profile_default_name", n = 1).to_string())
     }
 
+    // reason: stops at the first unused number; the profile list is finite.
+    #[allow(clippy::maybe_infinite_iter)]
     fn unique_profile_copy_name(&self, base: &str) -> String {
         let taken: std::collections::HashSet<&str> = self
             .state

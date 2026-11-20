@@ -1208,6 +1208,7 @@ fn fuzzy_score(query: &str, candidate: &str) -> Option<i64> {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)] // reason: tests tweak one field of a default.
 mod tests {
     #[test]
     fn list_keyboard_shift_selects_a_rectangle_and_contracts_from_fixed_anchor() {
@@ -1287,7 +1288,7 @@ mod tests {
             ]
             .into(),
         );
-        tab.set_grouping(super::GroupBy::Name, Default::default());
+        tab.set_grouping(super::GroupBy::Name, std::collections::BTreeSet::default());
         assert_eq!(tab.visible_indices(), &[1, 2, 0]);
         assert_eq!(tab.grouped_row_for_entry(0), Some(4));
         let original = tab.grouped_rows_shared();
@@ -1305,7 +1306,7 @@ mod tests {
         tab.filter = "alpha".into();
         assert!(tab.visible_indices().is_empty());
         assert_eq!(tab.grouped_rows_shared().len(), 1);
-        tab.set_grouping(super::GroupBy::None, Default::default());
+        tab.set_grouping(super::GroupBy::None, std::collections::BTreeSet::default());
         assert_eq!(tab.visible_indices(), &[1]);
     }
     #[test]

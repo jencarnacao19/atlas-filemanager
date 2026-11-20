@@ -220,7 +220,7 @@ impl Element for BubbleMapElement {
         window.with_content_mask(
             Some(ContentMask {
                 bounds,
-                fade_out: Default::default(),
+                fade_out: Edges::default(),
             }),
             |window| {
                 for (i, circle) in cache.circles.iter().enumerate() {
@@ -268,7 +268,7 @@ impl Element for BubbleMapElement {
                             (1. + 0.5 * h) * zoom
                         })),
                         color.opacity(fade * if selected { 0.9 } else { 0.35 + 0.55 * h }),
-                        Default::default(),
+                        gpui::BorderStyle::default(),
                     ));
                     if selected {
                         window.paint_quad(quad(
@@ -277,7 +277,7 @@ impl Element for BubbleMapElement {
                             transparent_black(),
                             Edges::all(px(1.)),
                             color.opacity(0.22),
-                            Default::default(),
+                            gpui::BorderStyle::default(),
                         ));
                     }
                     if circle.radius >= 23. * zoom && t > 0.7 {
@@ -314,7 +314,7 @@ impl Element for BubbleMapElement {
                                     self.fg.opacity(0.55),
                                     Edges::default(),
                                     transparent_black(),
-                                    Default::default(),
+                                    gpui::BorderStyle::default(),
                                 ));
                             }
                             let _ = window.paint_image(

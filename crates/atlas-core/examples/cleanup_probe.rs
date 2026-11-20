@@ -1,4 +1,7 @@
 //! Read-only end-to-end scanner probe. Never prepares or executes cleanup.
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use atlas_core::cleanup::{ScanJob, ScanMode};
 use std::{
     path::PathBuf,

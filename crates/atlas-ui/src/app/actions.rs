@@ -381,7 +381,7 @@ impl App {
                     self.goto_service_generation
                         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                     self.goto_service_cache = None;
-                    self.goto_snapshot = Default::default();
+                    self.goto_snapshot = crate::ui::palette::GotoSnapshot::default();
                     self.goto_service_inflight = None;
                     self.goto_service_failed = None;
                     // Cancel any in-flight exit fade and start fresh.
@@ -712,7 +712,7 @@ impl App {
                         }
                     }
                     if let Some(ts) = self.state.tab_states.get_mut(&tile) {
-                        ts.set_grouping(mode, Default::default());
+                        ts.set_grouping(mode, std::collections::BTreeSet::default());
                         ts.selection.scroll_to_selected = true;
                     }
                     self.dirty_panes.insert(tile);
@@ -749,16 +749,16 @@ impl App {
                                         atlas_model::tab::GroupRow::Header { id, .. } => {
                                             Some(id.clone())
                                         }
-                                        _ => None,
+                                        atlas_model::tab::GroupRow::Entry(_) => None,
                                     })
                                     .collect()
                             })
                     } else {
-                        Default::default()
+                        std::collections::BTreeSet::default()
                     };
                     let mode =
                         if let Some(Tile::Pane(pane)) = self.state.pane_tree.tiles.get_mut(tile) {
-                            pane.collapsed_groups = ids.clone();
+                            pane.collapsed_groups.clone_from(&ids);
                             pane.group_by
                         } else {
                             atlas_model::tab::GroupBy::None
@@ -1010,6 +1010,8 @@ impl App {
                                 .as_millis(),
                             name
                         ));
+                        // reason: creates an empty placeholder in the temp dir before the upload is queued.
+                        #[allow(clippy::disallowed_methods)]
                         let _ = std::fs::write(&tmp, b"");
                         let _ = self
                             .cloud_tx
@@ -1560,7 +1562,7 @@ impl App {
                 }
                 Action::RenameTag { tag, name } => {
                     if let Some(def) = self.state.tag_cache.defs.iter_mut().find(|d| d.id == tag) {
-                        def.name = name.clone();
+                        def.name.clone_from(&name);
                     }
                     let _ = self
                         .tag_db_tx
@@ -1776,7 +1778,11 @@ impl App {
         }
         let text = atlas_core::util::display::clipboard_path_text(paths);
         if let Ok(mut cb) = arboard::Clipboard::new() {
+            // Linux also fills the primary selection below, so keep a copy there.
+            #[cfg(target_os = "linux")]
             let _ = cb.set_text(text.clone());
+            #[cfg(not(target_os = "linux"))]
+            let _ = cb.set_text(text);
             #[cfg(target_os = "linux")]
             {
                 use arboard::{LinuxClipboardKind, SetExtLinux};
@@ -1874,8 +1880,10 @@ impl App {
                 let offset = same_location
                     .then(|| self.scroll_handles.get(&tab))
                     .flatten()
-                    .map(|handle| handle.0.borrow().base_handle.offset())
-                    .unwrap_or_else(|| gpui::point(gpui::px(0.0), gpui::px(0.0)));
+                    .map_or_else(
+                        || gpui::point(gpui::px(0.0), gpui::px(0.0)),
+                        |handle| handle.0.borrow().base_handle.offset(),
+                    );
                 let miller_offsets: Vec<_> = runtime
                     .into_iter()
                     .flat_map(|state| state.miller.columns.iter().enumerate())
@@ -1910,7 +1918,7 @@ impl App {
                     .stdout(std::process::Stdio::null())
                     .stderr(std::process::Stdio::null());
                 use std::os::windows::process::CommandExt;
-                command.creation_flags(0x00000008 | 0x00000200);
+                command.creation_flags(0x0000_0008 | 0x0000_0200);
                 let spawned = command.spawn().map_err(|error| error.to_string());
                 let launched = spawned.is_ok();
                 std::thread::spawn(move || {
@@ -1974,8 +1982,8 @@ impl App {
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
-            const DETACHED_PROCESS: u32 = 0x00000008;
-            const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
+            const DETACHED_PROCESS: u32 = 0x0000_0008;
+            const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
             cmd.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
         }
 

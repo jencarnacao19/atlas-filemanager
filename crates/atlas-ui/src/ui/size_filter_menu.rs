@@ -51,16 +51,16 @@ impl SizeFilter {
         if matches!(entry.kind(), FileKind::Dir) {
             return self == Self::Folders;
         }
-        match (self, entry.size()) {
-            (Self::Unknown, None) => true,
-            (Self::Empty, Some(0)) => true,
-            (Self::Tiny, Some(1..=10_239)) => true,
-            (Self::Small, Some(10_240..=1_048_575)) => true,
-            (Self::Medium, Some(1_048_576..=104_857_599)) => true,
-            (Self::Large, Some(104_857_600..=1_073_741_823)) => true,
-            (Self::Huge, Some(1_073_741_824..)) => true,
-            _ => false,
-        }
+        matches!(
+            (self, entry.size()),
+            (Self::Unknown, None)
+                | (Self::Empty, Some(0))
+                | (Self::Tiny, Some(1..=10_239))
+                | (Self::Small, Some(10_240..=1_048_575))
+                | (Self::Medium, Some(1_048_576..=104_857_599))
+                | (Self::Large, Some(104_857_600..=1_073_741_823))
+                | (Self::Huge, Some(1_073_741_824..))
+        )
     }
 }
 

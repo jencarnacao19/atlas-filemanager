@@ -135,6 +135,8 @@ impl App {
         let selected = if visible.is_empty() {
             0
         } else {
+            // reason: `self.breadcrumb_menu` is checked at the top of this function.
+            #[allow(clippy::unwrap_used)]
             let state = self.breadcrumb_menu.as_mut().unwrap();
             if state.selected >= visible.len() {
                 state.selected = visible.len() - 1;
@@ -142,6 +144,8 @@ impl App {
             }
             state.selected
         };
+        // reason: `self.breadcrumb_menu` is checked at the top of this function.
+        #[allow(clippy::unwrap_used)]
         let scroll = self.breadcrumb_menu.as_ref().unwrap().scroll.clone();
         let (smooth_ease, smooth_boost) =
             crate::app::scroll_smooth_params(self.state.settings.scroll_smoothness);
@@ -152,7 +156,9 @@ impl App {
             .is_some_and(|state| state.scroll_to_selected)
         {
             scroll.scroll_to_item(selected);
-            self.breadcrumb_menu.as_mut().unwrap().scroll_to_selected = false;
+            if let Some(menu) = self.breadcrumb_menu.as_mut() {
+                menu.scroll_to_selected = false;
+            }
         }
 
         let (fg, muted, border) = {
@@ -382,6 +388,9 @@ impl App {
     }
 }
 
+// reason: lists one directory level when the menu opens. Known UI-thread read;
+// move it to a background task if slow (network) folders show up in traces.
+#[allow(clippy::disallowed_methods)]
 fn breadcrumb_items(dir: PathBuf) -> Vec<BreadcrumbMenuItem> {
     let Ok(read_dir) = std::fs::read_dir(dir) else {
         return Vec::new();
@@ -453,6 +462,7 @@ fn breadcrumb_row(
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)] // reason: test fixtures touch the disk directly.
 mod tests {
     use super::*;
     #[test]

@@ -50,7 +50,7 @@ pub(super) fn publish(
             &mut destination_units,
             &destination
                 .file_name()
-                .unwrap_or_else(|| destination.as_os_str())
+                .unwrap_or(destination.as_os_str())
                 .to_string_lossy(),
         );
         description.szMessage = message_units;
@@ -76,8 +76,8 @@ pub(super) fn publish(
         medium.tymed = TYMED_HGLOBAL.0 as u32;
         medium.u.hGlobal = HGLOBAL(allocation as *mut _);
         // Keep ownership locally. SetData clones the block when it accepts it.
-        let _ = object.SetData(&format, &medium, false);
-        ReleaseStgMedium(&mut medium);
+        let _ = object.SetData(&raw const format, &raw const medium, false);
+        ReleaseStgMedium(&raw mut medium);
     }
 }
 
@@ -107,13 +107,13 @@ mod tests {
         ] {
             publish(&object, effect, Some(Path::new(r"C:\Destino 日本語")));
             unsafe {
-                object.QueryGetData(&format).ok().unwrap();
-                let mut medium = object.GetData(&format).unwrap();
+                object.QueryGetData(&raw const format).ok().unwrap();
+                let mut medium = object.GetData(&raw const format).unwrap();
                 let raw = GlobalLock(medium.u.hGlobal).cast::<DROPDESCRIPTION>();
                 assert!(!raw.is_null());
                 let description = raw.read();
                 let _ = GlobalUnlock(medium.u.hGlobal);
-                ReleaseStgMedium(&mut medium);
+                ReleaseStgMedium(&raw mut medium);
                 let image_type = description.r#type;
                 let message = description.szMessage;
                 let insert = description.szInsert;

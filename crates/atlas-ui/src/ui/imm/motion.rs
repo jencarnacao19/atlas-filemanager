@@ -570,6 +570,10 @@ impl<K: Eq + Hash + Clone> RowMotion<K> {
                     },
                 );
             }
+            // reason: the row is inserted just above.
+            #[allow(clippy::expect_used)]
+            // reason: the row is inserted just above.
+            #[allow(clippy::expect_used)]
             let row = self.rows.get_mut(key).expect("row just inserted");
             row.seen = self.frame;
             // Long journeys would sweep across dozens of unrelated files. Land

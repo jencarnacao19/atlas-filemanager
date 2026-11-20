@@ -152,6 +152,8 @@ pub fn find_vscode_theme() -> Option<IconThemeIndex> {
     None
 }
 
+// reason: one directory scan at startup or on profile switch; timed in startup logs.
+#[allow(clippy::disallowed_methods)]
 fn scan_ext_dir(base: &Path) -> Option<IconThemeIndex> {
     let mut best: Option<PathBuf> = None;
     for entry in std::fs::read_dir(base).ok()?.flatten() {
@@ -177,6 +179,8 @@ fn scan_ext_dir(base: &Path) -> Option<IconThemeIndex> {
     None
 }
 
+// reason: part of the same startup / profile-switch scan as `scan_ext_dir`.
+#[allow(clippy::disallowed_methods)]
 fn parse_vscode_theme_json(json_path: &Path, ext_dir: &Path) -> Option<IconThemeIndex> {
     let bytes = std::fs::read(json_path).ok()?;
     let theme: serde_json::Value = serde_json::from_slice(&bytes).ok()?;

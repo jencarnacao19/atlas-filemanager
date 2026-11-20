@@ -1249,6 +1249,8 @@ impl Element for SettingsImmElement {
         }
     }
 
+    // reason: active and hovered tabs share a colour for now.
+    #[allow(clippy::if_same_then_else)]
     fn paint(
         &mut self,
         _id: Option<&GlobalElementId>,
@@ -1287,7 +1289,7 @@ impl Element for SettingsImmElement {
             colors.surface,
             gpui::Edges::all(px(1.0 * zoom)),
             colors.border,
-            Default::default(),
+            gpui::BorderStyle::default(),
         ));
 
         // 3. Header Row
@@ -1353,7 +1355,7 @@ impl Element for SettingsImmElement {
             gpui::outline(
                 search_bounds,
                 colors.border.opacity(0.6),
-                Default::default(),
+                gpui::BorderStyle::default(),
             )
             .corner_radii(px(6.0 * zoom)),
         );
@@ -1477,7 +1479,7 @@ impl Element for SettingsImmElement {
         window.with_content_mask(
             Some(gpui::ContentMask {
                 bounds: content_bounds,
-                fade_out: Default::default(),
+                fade_out: gpui::Edges::default(),
             }),
             |window| {
                 for (idx, row) in layout.rows.iter().enumerate() {
@@ -1503,7 +1505,7 @@ impl Element for SettingsImmElement {
                             } else {
                                 colors.border.opacity(0.35)
                             },
-                            Default::default(),
+                            gpui::BorderStyle::default(),
                         )
                         .corner_radii(px(8.0 * zoom)),
                     );
@@ -1571,7 +1573,7 @@ impl Element for SettingsImmElement {
                                     gpui::outline(
                                         sw_bounds,
                                         colors.foreground.opacity(0.5),
-                                        Default::default(),
+                                        gpui::BorderStyle::default(),
                                     )
                                     .corner_radii(px(sw_h * 0.5)),
                                 );
@@ -1599,7 +1601,7 @@ impl Element for SettingsImmElement {
                                 colors.background.opacity(0.5),
                             );
                             window.paint_quad(
-                                gpui::outline(ctrl_b, colors.border, Default::default())
+                                gpui::outline(ctrl_b, colors.border, gpui::BorderStyle::default())
                                     .corner_radii(px(6.0 * zoom)),
                             );
 
@@ -1681,7 +1683,7 @@ impl Element for SettingsImmElement {
                                 },
                             );
                             window.paint_quad(
-                                gpui::outline(dec_b, colors.border, Default::default())
+                                gpui::outline(dec_b, colors.border, gpui::BorderStyle::default())
                                     .corner_radii(px(5.0 * zoom)),
                             );
                             let minus_line =
@@ -1709,7 +1711,7 @@ impl Element for SettingsImmElement {
                                 },
                             );
                             window.paint_quad(
-                                gpui::outline(inc_b, colors.border, Default::default())
+                                gpui::outline(inc_b, colors.border, gpui::BorderStyle::default())
                                     .corner_radii(px(5.0 * zoom)),
                             );
                             let plus_line =
@@ -1783,7 +1785,7 @@ impl Element for SettingsImmElement {
                                 gpui::outline(
                                     badge_b,
                                     colors.accent.opacity(0.4),
-                                    Default::default(),
+                                    gpui::BorderStyle::default(),
                                 )
                                 .corner_radii(px(5.0 * zoom)),
                             );
@@ -1818,7 +1820,7 @@ impl Element for SettingsImmElement {
                                 },
                             );
                             window.paint_quad(
-                                gpui::outline(btn_b, colors.border, Default::default())
+                                gpui::outline(btn_b, colors.border, gpui::BorderStyle::default())
                                     .corner_radii(px(6.0 * zoom)),
                             );
                             let act_line = shape_text(
@@ -1864,8 +1866,12 @@ impl Element for SettingsImmElement {
                 let tip_b = tip_slot.to_bounds(bounds.origin);
                 paint_rounded(window, tip_b, 6.0 * zoom, colors.surface);
                 window.paint_quad(
-                    gpui::outline(tip_b, colors.accent.opacity(0.35), Default::default())
-                        .corner_radii(px(6.0 * zoom)),
+                    gpui::outline(
+                        tip_b,
+                        colors.accent.opacity(0.35),
+                        gpui::BorderStyle::default(),
+                    )
+                    .corner_radii(px(6.0 * zoom)),
                 );
                 let tip_str = format!("💡 {}", row.tooltip);
                 let tip_line = shape_text_truncated(

@@ -3,6 +3,9 @@
 //! Run with `--features ui-lab`, `ATLAS_PREVIEW_LAB=<output directory>` and
 //! `ATLAS_CONFIG_DIR=<isolated configuration directory>`. The real App renders
 //! in a hidden native window; screenshots use the renderer's GPU readback.
+// reason: a feature-gated diagnostic harness, not shipped app code: it panics on
+// setup failure and writes its evidence to disk on purpose.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use crate::app::{App, PreviewView};
 use anyhow::{ensure, Context as _};
 use atlas_model::preview_cache::PreviewResult;
@@ -200,7 +203,7 @@ fn fixture_image() -> image::RgbaImage {
                     && ((left + 52..left + 74).contains(&x)
                         || (left + 153..left + 175).contains(&x));
                 let mouth = (540..556).contains(&y) && (left + 86..left + 145).contains(&x);
-                let edge = x < left + 8 || x >= left + 222 || y < 374 || y >= 658;
+                let edge = x < left + 8 || x >= left + 222 || !(374..658).contains(&y);
                 let rgba = if eye || mouth || edge {
                     [38, 42, 53, 255]
                 } else {
@@ -302,7 +305,7 @@ pub(crate) fn install(view: &Entity<App>, window: &mut Window, cx: &mut gpui::Ap
             }
         }
         let _ = std::fs::write(lab.directory.join("failed.txt"), "Preview lab timed out\n");
-        let _ = cx.update(|cx| cx.quit());
+        let () = cx.update(|cx| cx.quit());
     })
     .detach();
 }
@@ -355,7 +358,7 @@ impl Lab {
                     state.selection.keyboard_cursor = Some(index);
                     app.state.settings.show_inspector = true;
                     app.preview_view.insert(tab, PreviewView::default());
-                    app.state.profiles.active_mut().theme = theme.to_owned();
+                    theme.clone_into(&mut app.state.profiles.active_mut().theme);
                     app.theme_dirty = true;
                     app.state.tag_cache.defs = vec![
                         atlas_model::tag_cache::TagDef {
@@ -371,9 +374,10 @@ impl Lab {
                             profile: None,
                         },
                     ];
-                    app.state
-                        .tag_cache
-                        .assign_local(atlas_model::tag_cache::TagId(-1), &[path.clone()]);
+                    app.state.tag_cache.assign_local(
+                        atlas_model::tag_cache::TagId(-1),
+                        std::slice::from_ref(&path),
+                    );
                     app.load_preview_gpui(tab, path);
                     app.notify_pane(tab, cx);
                     app.focus_handle.focus(window, cx);
@@ -954,7 +958,7 @@ impl Lab {
                     let tab = app.state.focused_tile;
                     let fixtures = app
                         .tab_data_for(tab)
-                        .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()));
+                        .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf));
                     matches!(
                         app.state.preview.results.get(&tab),
                         Some(PreviewResult::Dir { .. })
@@ -1026,7 +1030,7 @@ impl Lab {
                             .entries
                             .iter()
                             .find(|e| e.name == "layout-notes.md")
-                            .map(|e| e.path())
+                            .map(atlas_model::file_entry::FileEntry::path)
                     });
                     let Some(path) = path else { return false };
                     app.load_preview_gpui(tab, path);

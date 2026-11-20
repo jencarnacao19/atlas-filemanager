@@ -597,7 +597,7 @@ impl App {
         if let Some(Tile::Container(Container::Linear(linear))) =
             self.state.pane_tree.tiles.get_mut(parent_id)
         {
-            linear.shares = anim.to.clone();
+            linear.shares.clone_from(&anim.to);
         }
         self.dock_split_animations.insert(parent_id, anim);
     }

@@ -367,6 +367,8 @@ impl App {
         }
         if !is_dragging && self.state.dragging_pane.is_some() {
             if !self.state.drag_pending {
+                // reason: guarded by the `dragging_pane.is_some()` check above.
+                #[allow(clippy::unwrap_used)]
                 let pane_id = self.state.dragging_pane.unwrap();
                 self.state.dragging_pane = None;
                 self.animate_pane_drag(pane_id, false);
@@ -779,6 +781,8 @@ impl App {
         Some(timed_layout_region("dock.flat_host", DOCK_FLAT_HOST_TIMINGS, host).into_any_element())
     }
 
+    // reason: kept so every level of the recursive layout shares one signature.
+    #[allow(clippy::only_used_in_recursion)]
     fn collect_flat_layout(
         &mut self,
         id: TileId,
@@ -1510,7 +1514,10 @@ impl App {
         } else {
             cx.theme().background
         };
-        let active_id = active.unwrap_or_else(|| *children.first().unwrap());
+        let Some(active_id) = active.or_else(|| children.first().copied()) else {
+            // An empty tab container has nothing to show.
+            return gpui::div().into_any_element();
+        };
         let content = active.map_or_else(
             || {
                 div()

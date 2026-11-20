@@ -23,6 +23,7 @@
 //! 1. Add a variant to [`OverlayClaim`].
 //! 2. Add the state check in [`App::active_claim`] (detection, priority order).
 //! 3. Add the focus-handle arm in [`App::overlay_focus_target`] (resolution).
+//!
 //! That's it — `modal_overlay_active` and `sync_overlay_focus` update automatically.
 
 use crate::app::{App, BatchRenameField};

@@ -315,9 +315,12 @@ impl Session {
         if let Some(dest) = &destination {
             entries.retain(|e| e.id != dest.id);
         }
-        let next = entries.iter_mut().find(|e| e.id == id).unwrap();
+        let next = entries
+            .iter_mut()
+            .find(|e| e.id == id)
+            .context("vault_missing_entry")?;
         next.parent = parent.map(str::to_owned);
-        next.name = name.to_owned();
+        name.clone_into(&mut next.name);
         self.commit_entries(entries)?;
         if let Some(dest) = destination {
             self.retired.push(dest);

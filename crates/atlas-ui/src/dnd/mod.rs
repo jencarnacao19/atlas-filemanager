@@ -220,6 +220,8 @@ pub fn format_uri_list_with_cut(paths: &[PathBuf], is_cut: bool) -> String {
 /// Parses a `text/uri-list` or multi-line text into a list of valid local `PathBuf`s and a cut flag.
 /// Safely ignores comment lines (`#`), empty lines, and non-file schemes.
 /// Decodes percent-encoded characters like `%20`.
+// reason: absolute paths and file URIs are separate cases that resolve the same way.
+#[allow(clippy::if_same_then_else)]
 pub fn parse_uri_list_with_cut(text: &str) -> (Vec<PathBuf>, bool) {
     let mut paths = Vec::new();
     let mut is_cut = false;
@@ -404,7 +406,7 @@ impl DropZones {
 /// Windows Explorer semantics: same volume → move, different volume → copy.
 ///
 /// On platforms without volume concepts (SFTP, cloud), returns `Copy`.
-pub fn default_effect_for_paths(sources: &[PathBuf], dest: &PathBuf) -> DropEffect {
+pub fn default_effect_for_paths(sources: &[PathBuf], dest: &std::path::Path) -> DropEffect {
     let all_same = sources
         .iter()
         .all(|s| atlas_core::fs::paths::same_volume(s, dest));

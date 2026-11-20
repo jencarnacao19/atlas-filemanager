@@ -87,7 +87,7 @@ mod tests {
             start_idx: 4,
             end_idx: 8,
             total_count: 12,
-            bands: Default::default(),
+            bands: atlas_model::grouping::RowBands::default(),
         }
     }
 

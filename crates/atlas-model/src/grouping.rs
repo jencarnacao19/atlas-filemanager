@@ -560,7 +560,7 @@ mod tests {
             .iter()
             .filter_map(|row| match row {
                 GroupRow::Header { id, .. } => Some(id.as_str()),
-                _ => None,
+                GroupRow::Entry(_) => None,
             })
             .collect();
         assert_eq!(
@@ -808,7 +808,7 @@ mod tests {
             rows.iter()
                 .filter_map(|row| match row {
                     GroupRow::Header { id, .. } => Some(id.clone()),
-                    _ => None,
+                    GroupRow::Entry(_) => None,
                 })
                 .collect::<Vec<_>>()
         };

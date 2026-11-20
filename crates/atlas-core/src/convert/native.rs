@@ -525,6 +525,8 @@ pub(super) fn markdown_text(text: &str) -> String {
     result
 }
 
+// reason: one short-lived writer per conversion; boxing buys nothing.
+#[allow(clippy::large_enum_variant)]
 enum ArchiveWriter {
     Zip(zip::ZipWriter<File>),
     Tar(tar::Builder<File>),

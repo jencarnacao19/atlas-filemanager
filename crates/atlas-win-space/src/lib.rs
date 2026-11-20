@@ -1,3 +1,6 @@
+// reason: the disk-space, cleanup and crash engines run on worker threads or in
+// helper processes, never on the GPUI foreground thread the ban protects.
+#![allow(clippy::disallowed_methods)]
 #![cfg(windows)]
 
 pub mod cleanup;

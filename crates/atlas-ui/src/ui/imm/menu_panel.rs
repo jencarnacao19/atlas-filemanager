@@ -181,7 +181,7 @@ impl Element for MenuPanel {
         window.with_content_mask(
             Some(ContentMask {
                 bounds: viewport,
-                fade_out: Default::default(),
+                fade_out: gpui::Edges::default(),
             }),
             |window| {
                 self.rows.prepaint_as_root(
@@ -237,7 +237,7 @@ impl Element for MenuPanel {
             colors.background,
             gpui::Edges::all(px(zoom)),
             colors.border,
-            Default::default(),
+            gpui::BorderStyle::default(),
         ));
         paint_fill(
             window,
@@ -263,7 +263,7 @@ impl Element for MenuPanel {
         window.with_content_mask(
             Some(ContentMask {
                 bounds: ink.search,
-                fade_out: Default::default(),
+                fade_out: gpui::Edges::default(),
             }),
             |window| {
                 let x = ink.search.left() - px(ink.scroll_x);
@@ -330,7 +330,7 @@ impl Element for MenuPanel {
         window.with_content_mask(
             Some(ContentMask {
                 bounds: ink.viewport,
-                fade_out: Default::default(),
+                fade_out: gpui::Edges::default(),
             }),
             |window| self.rows.paint(window, cx),
         );

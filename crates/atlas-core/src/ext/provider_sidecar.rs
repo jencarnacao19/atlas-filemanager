@@ -36,7 +36,7 @@ impl ProviderSidecar {
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
-            cmd.creation_flags(0x08000000);
+            cmd.creation_flags(0x0800_0000);
         }
         let mut child = cmd.spawn().context("start provider sidecar")?;
         let stdin = Arc::new(Mutex::new(
@@ -262,17 +262,19 @@ pub(crate) fn confined_program(extension_dir: &Path, command: &str) -> Result<Pa
     let root = extension_dir
         .canonicalize()
         .context("canonicalize extension directory")?;
+    // Windows file names are case-insensitive, so `Tool.EXE` counts as `.exe`.
+    let stem = Path::new(command)
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("exe"))
+        .then(|| &command[..command.len() - ".exe".len()]);
     let candidates = if cfg!(windows) {
-        if command.ends_with(".exe") {
+        if stem.is_some() {
             vec![command.to_string()]
         } else {
             vec![format!("{command}.exe"), command.to_string()]
         }
-    } else if command.ends_with(".exe") {
-        vec![
-            command.trim_end_matches(".exe").to_string(),
-            command.to_string(),
-        ]
+    } else if let Some(stem) = stem {
+        vec![stem.to_string(), command.to_string()]
     } else {
         vec![command.to_string()]
     };

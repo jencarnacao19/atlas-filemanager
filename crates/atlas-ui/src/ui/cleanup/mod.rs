@@ -901,6 +901,8 @@ impl App {
     pub(crate) fn render_disk_cleanup(&mut self, _cx: &mut Context<Self>) -> gpui::AnyElement {
         use gpui::prelude::*;
         use gpui_component::ActiveTheme;
+        // reason: only called from the overlay stack when `cleanup_panel` is Some.
+        #[allow(clippy::unwrap_used)]
         let panel = self.cleanup_panel.as_ref().unwrap().clone();
         let back = panel.clone();
         let forward = panel.clone();

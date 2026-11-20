@@ -18,9 +18,9 @@ struct CurrentBounds<F> {
     build: F,
 }
 
-impl<F: 'static> IntoElement for CurrentBounds<F>
+impl<F> IntoElement for CurrentBounds<F>
 where
-    F: FnMut(Bounds<Pixels>, &mut Window, &mut App) -> AnyElement,
+    F: FnMut(Bounds<Pixels>, &mut Window, &mut App) -> AnyElement + 'static,
 {
     type Element = Self;
 
@@ -29,9 +29,9 @@ where
     }
 }
 
-impl<F: 'static> Element for CurrentBounds<F>
+impl<F> Element for CurrentBounds<F>
 where
-    F: FnMut(Bounds<Pixels>, &mut Window, &mut App) -> AnyElement,
+    F: FnMut(Bounds<Pixels>, &mut Window, &mut App) -> AnyElement + 'static,
 {
     type RequestLayoutState = ();
     type PrepaintState = AnyElement;

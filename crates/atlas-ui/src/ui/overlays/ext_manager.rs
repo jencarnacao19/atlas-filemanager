@@ -55,6 +55,8 @@ impl App {
                     "",
                 ));
             }
+            // reason: `ext_manager_input` is created at the top of this function.
+            #[allow(clippy::unwrap_used)]
             self.ext_manager_input.clone().unwrap()
         };
         let query: String = input_entity.read(cx).value().to_string();

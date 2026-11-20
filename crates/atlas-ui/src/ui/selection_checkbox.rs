@@ -131,7 +131,7 @@ pub(crate) fn paint_control(
         fill,
         gpui::Edges::all(px(size_px * (1.5 / 14.0))),
         border,
-        Default::default(),
+        gpui::BorderStyle::default(),
     ));
     if state == CheckState::Mixed {
         window.paint_quad(gpui::fill(
@@ -153,7 +153,7 @@ pub(crate) fn paint_control(
             },
             "icons/check.svg".into(),
             None,
-            Default::default(),
+            gpui::TransformationMatrix::default(),
             mark,
             cx,
         );
@@ -194,14 +194,12 @@ pub(crate) fn paint_animated(
 ) {
     let elapsed = selected_at.map(|at| at.elapsed().as_secs_f32());
     let active = !cx.reduce_motion() && elapsed.is_some_and(|t| t < SPRING.settle_secs(0.02));
-    let (progress, scale) = if active {
-        let elapsed = elapsed.unwrap();
-        (
+    let (progress, scale) = match elapsed.filter(|_| active) {
+        Some(elapsed) => (
             (elapsed / ANIM_SECS).clamp(0.0, 1.0),
             SPRING.value(elapsed).max(0.0),
-        )
-    } else {
-        (1.0, 1.0)
+        ),
+        None => (1.0, 1.0),
     };
     if active {
         window.request_animation_frame();
@@ -226,8 +224,9 @@ pub(crate) fn paint_animated(
         .corner_radii(radius),
     );
     window.paint_quad(gpui::fill(bounds, colors.surface).corner_radii(radius));
-    window
-        .paint_quad(gpui::outline(bounds, colors.border, Default::default()).corner_radii(radius));
+    window.paint_quad(
+        gpui::outline(bounds, colors.border, gpui::BorderStyle::default()).corner_radii(radius),
+    );
 
     let check_size = size_px * (0.64 + 0.28 * crate::ui::motion::ease_out_quart(progress));
     let mut mark = colors.mark;
@@ -242,7 +241,7 @@ pub(crate) fn paint_animated(
         },
         SharedString::from("icons/check.svg"),
         None,
-        Default::default(),
+        gpui::TransformationMatrix::default(),
         mark,
         cx,
     );

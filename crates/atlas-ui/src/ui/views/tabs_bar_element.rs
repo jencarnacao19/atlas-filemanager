@@ -558,7 +558,7 @@ impl Element for TabsBarElement {
                 window.with_content_mask(
                     Some(ContentMask {
                         bounds: tab_b.intersect(&bounds),
-                        fade_out: Default::default(),
+                        fade_out: gpui::Edges::default(),
                     }),
                     |window| {
                         window.with_element_opacity(Some(g.opacity), |window| {

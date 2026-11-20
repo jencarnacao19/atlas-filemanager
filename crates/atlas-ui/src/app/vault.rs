@@ -292,14 +292,16 @@ impl App {
                 (&values[0], &values[1])
             };
             if (!password.is_empty() || phase == Phase::Create) && password.chars().count() < 12 {
-                self.vault.as_mut().unwrap().error =
-                    Some(rust_i18n::t!("vault_password_length").to_string());
+                if let Some(d) = self.vault.as_mut() {
+                    d.error = Some(rust_i18n::t!("vault_password_length").to_string());
+                }
                 cx.notify();
                 return;
             }
             if password.as_str() != confirmation.as_str() {
-                self.vault.as_mut().unwrap().error =
-                    Some(rust_i18n::t!("vault_password_mismatch").to_string());
+                if let Some(d) = self.vault.as_mut() {
+                    d.error = Some(rust_i18n::t!("vault_password_mismatch").to_string());
+                }
                 cx.notify();
                 return;
             }
@@ -315,6 +317,8 @@ impl App {
             .collect();
         let path = d.path.clone();
         self.clear_vault_inputs(window, cx);
+        // reason: `self.vault` is checked at the top of `submit_vault`.
+        #[allow(clippy::unwrap_used)]
         let d = self.vault.as_mut().unwrap();
         d.control = Control::default();
         let control = d.control.clone();
@@ -358,6 +362,8 @@ impl App {
                     }
                     let root = s.root().to_path_buf();
                     drop(s);
+                    // reason: runs inside `run_vault_job`, i.e. on `spawn_blocking`.
+                    #[allow(clippy::disallowed_methods)]
                     let removed = std::fs::remove_dir_all(root).is_ok();
                     Outcome::Restored(destination, removed)
                 });
@@ -370,7 +376,7 @@ impl App {
     pub(crate) fn poll_vault(&mut self) -> bool {
         #[cfg(windows)]
         if self.vault_mount.as_ref().is_some_and(|mount| {
-            mount.idle_for() >= Duration::from_secs(300) && !mount.has_open_files()
+            mount.idle_for() >= Duration::from_mins(5) && !mount.has_open_files()
         }) {
             self.close_native_vault(false);
             self.toast_info(rust_i18n::t!("vault_auto_locked").to_string());
@@ -557,7 +563,9 @@ impl App {
                     .retain(|_, watcher| !watcher.watched_path.starts_with(&path));
                 self.purge_private_history(&path);
                 self.request_vault(root, Phase::Manage);
-                self.vault.as_mut().unwrap().session = Some(session);
+                if let Some(d) = self.vault.as_mut() {
+                    d.session = Some(session);
+                }
                 self.vault_phase(Phase::Manage, window, cx);
             }
         }
@@ -593,7 +601,7 @@ impl App {
         self.goto_warm_nucleo.reset();
         self.goto_index_root = None;
         self.goto_service_cache = None;
-        self.goto_snapshot = Default::default();
+        self.goto_snapshot = crate::ui::palette::GotoSnapshot::default();
         self.goto_service_generation.fetch_add(1, Ordering::SeqCst);
         self.content_gen = self.content_gen.wrapping_add(1);
         self.content_results.clear();

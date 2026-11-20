@@ -70,8 +70,7 @@ fn list_sync(sort_col: &SortColumn, sort_dir: &SortDir) -> Vec<FileEntry> {
                 let original_name = meta
                     .original_path
                     .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_else(|| fname.clone());
+                    .map_or_else(|| fname.clone(), |n| n.to_string_lossy().to_string());
                 let kind = if r_path.is_dir() {
                     FileKind::Dir
                 } else {

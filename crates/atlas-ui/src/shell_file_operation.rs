@@ -1,3 +1,6 @@
+// reason: COM glue: these lints fire inside the windows-rs `#[implement]` expansion,
+// and `new` returns the COM interface rather than `Self` by design.
+#![allow(clippy::ref_as_ptr, clippy::inline_always, clippy::new_ret_no_self)]
 #![allow(unsafe_code, non_snake_case)]
 //! Native Windows operations. Run on blocking workers, never GPUI callbacks.
 //! Each call owns an STA and an item progress sink, so cancellation, per-item
@@ -16,9 +19,13 @@ use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL,
     COINIT_APARTMENTTHREADED,
 };
+// reason: the shell COM surface used here spans dozens of names.
+#[allow(clippy::wildcard_imports)]
 use windows::Win32::UI::Shell::*;
 
 /// Create a real Shell link without replacing a pre-existing destination.
+// reason: removes one temporary file after the shell operation completed.
+#[allow(clippy::disallowed_methods)]
 pub(crate) fn create_shortcut(source: PathBuf, destination: PathBuf) -> Result<PathBuf, OpError> {
     let error_path = source.clone();
     std::thread::spawn(move || {
@@ -30,10 +37,8 @@ pub(crate) fn create_shortcut(source: PathBuf, destination: PathBuf) -> Result<P
                 }
             })?;
             let _apartment = Apartment;
-            let name = source
-                .file_name()
-                .map(std::ffi::OsStr::to_os_string)
-                .unwrap_or_else(|| {
+            let name = source.file_name().map_or_else(
+                || {
                     // A copied drive root has no file_name; a literal `C:\` is not
                     // a valid Windows filename for its link.
                     let label: String = source
@@ -46,7 +51,9 @@ pub(crate) fn create_shortcut(source: PathBuf, destination: PathBuf) -> Result<P
                     } else {
                         label.into()
                     }
-                });
+                },
+                std::ffi::OsStr::to_os_string,
+            );
             let suffix = rust_i18n::t!("shortcut_filename_suffix");
             let mut counter = 1u32;
             let target = loop {
@@ -326,7 +333,7 @@ impl IFileOperationProgressSink_Impl for Progress_Impl {
 
 fn error_kind(error: &windows::core::Error) -> OpErrorKind {
     match error.code().0 as u32 {
-        0x800704C7 | 0x80270000 | 0x80270001 | 0x80004004 => OpErrorKind::Cancelled,
+        0x8007_04C7 | 0x8027_0000 | 0x8027_0001 | 0x8000_4004 => OpErrorKind::Cancelled,
         code if code >> 16 == 0x8007 => atlas_core::fs::transfer::io_error_kind(
             &std::io::Error::from_raw_os_error((code & 0xffff) as i32),
         ),

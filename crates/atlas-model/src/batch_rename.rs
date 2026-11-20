@@ -1,5 +1,6 @@
 #![allow(dead_code)] // reason: retained API surface not exercised by every GPUI flow yet
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write as _;
 use std::path::PathBuf;
 
 /// Per-file verdict for the current previews, used to flag rows in the UI and to
@@ -97,8 +98,8 @@ fn valid_date(y: u32, m: u32, d: u32) -> bool {
 fn date_at(chars: &[char], at: usize) -> Option<(usize, u32, u32, u32)> {
     let sep = |i: usize| chars.get(i).is_some_and(|c| matches!(c, '-' | '_' | '.'));
     let bounded = |len: usize| {
-        !(at > 0 && chars[at - 1].is_ascii_digit())
-            && !chars.get(at + len).is_some_and(char::is_ascii_digit)
+        !(chars.get(at + len).is_some_and(char::is_ascii_digit)
+            || at > 0 && chars[at - 1].is_ascii_digit())
     };
     if let (Some(y), true, Some(m), true, Some(d)) = (
         digits(chars, at, 4),
@@ -635,7 +636,7 @@ impl BatchRenameState {
                     continue;
                 };
                 out.extend(&chars[i..t.start]);
-                out.push_str(&format!("{y:04}-{m:02}-{d:02}"));
+                let _ = write!(out, "{y:04}-{m:02}-{d:02}");
                 i = t.end;
             }
             out.extend(&chars[i..]);

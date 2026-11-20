@@ -150,6 +150,8 @@ impl ShellMenuHandle {
 
     /// Seed the menu cache and load shell handlers ahead of the first right-click.
     /// Representative entries live in a temp dir created off the UI thread.
+    // reason: prepares one small probe file for the shell "New" menu enumeration.
+    #[allow(clippy::disallowed_methods)]
     pub fn prewarm(&self) {
         let handle = self.clone();
         let _ = std::thread::Builder::new()
@@ -186,6 +188,8 @@ impl ShellMenuHandle {
 }
 
 /// Spawn the STA worker thread and return a handle. Call once in `App::new`.
+// reason: the shell menu cannot work without its worker thread.
+#[allow(clippy::expect_used)]
 pub fn spawn() -> ShellMenuHandle {
     let requests = Arc::new(Mutex::new(VecDeque::new()));
     let events = Arc::new(Mutex::new(Vec::new()));

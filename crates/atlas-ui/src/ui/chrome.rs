@@ -905,7 +905,7 @@ impl App {
                 tab.refresh_miller_visibility();
                 let counts = if pane_mode == ViewMode::Miller {
                     tab.miller.columns.get(tab.miller.focused).map_or(
-                        Default::default(),
+                        atlas_model::tab::VisibleCounts::default(),
                         |column| {
                             column.visible_counts(&tab.filter, tab.show_files, tab.show_folders)
                         },

@@ -150,8 +150,11 @@ mod tests {
             EntryHoverTooltip::new(content, window, cx)
         });
         cx.run_until_parked();
-        cx.dispatcher
-            .advance_clock(ENTRY_TOOLTIP_LIFETIME - Duration::from_millis(1));
+        cx.dispatcher.advance_clock(
+            ENTRY_TOOLTIP_LIFETIME
+                .checked_sub(Duration::from_millis(1))
+                .unwrap(),
+        );
         cx.run_until_parked();
         window
             .update(cx, |tooltip, _, _| assert!(tooltip.content.is_some()))

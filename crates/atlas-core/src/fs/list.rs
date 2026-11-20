@@ -18,6 +18,8 @@ fn cached_attributes(metadata: Option<&std::fs::Metadata>) -> u32 {
 
 /// Unicode default case folding with unsigned natural numeric ordering. Runs
 /// larger than u64 remain correctly ordered without overflowing or allocating.
+// reason: the clones are rewound copies for the digit comparison below.
+#[allow(clippy::unused_peekable)]
 pub fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
     use std::cmp::Ordering;
     let mut a = a.case_fold().peekable();
@@ -210,7 +212,7 @@ pub async fn list_dir_with_preview(
                 let path = dir.join(&raw.name);
                 let name = raw.name.to_string_lossy().into_owned();
                 let is_dir = raw.attributes & 0x10 != 0;
-                let symlink = matches!(raw.reparse_tag, 0xA000000C | 0xA0000003);
+                let symlink = matches!(raw.reparse_tag, 0xA000_000C | 0xA000_0003);
                 let modified =
                     raw.modified
                         .checked_sub(116_444_736_000_000_000)
@@ -266,14 +268,14 @@ pub async fn list_dir_with_preview(
                 sort_entries(&mut entries, &sort_col, &sort_dir, folder_order);
                 return Ok(entries);
             }
-            return list_dir_portable(
+            list_dir_portable(
                 &dir,
                 show_hidden,
                 &sort_col,
                 &sort_dir,
                 folder_order,
                 preview,
-            );
+            )
         }
         #[cfg(not(windows))]
         list_dir_portable(

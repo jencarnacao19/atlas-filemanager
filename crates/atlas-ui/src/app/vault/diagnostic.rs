@@ -1,4 +1,7 @@
 //! Hidden native render + real controller regression, with isolated test data.
+// reason: a feature-gated diagnostic harness, not shipped app code: it panics on
+// setup failure and writes its evidence to disk on purpose.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use std::path::PathBuf;
 #[cfg(windows)]
 use {

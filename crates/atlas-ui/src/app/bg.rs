@@ -386,12 +386,13 @@ impl App {
                     .dnd
                     .as_ref()
                     .and_then(|d| d.zones.lock().ok())
-                    .map(|z| (z.hit(p.x, p.y).map(|z| TileId(z.pane_id)), z.len()))
-                    .unwrap_or((None, 0));
+                    .map_or((None, 0), |z| {
+                        (z.hit(p.x, p.y).map(|z| TileId(z.pane_id)), z.len())
+                    });
                 let zone_dest = zone_pane
                     .filter(|pane| self.pane_accepts_visible_drop(*pane))
                     .and_then(|pane| self.tab_data_for(pane))
-                    .and_then(|tab| tab.location.fs_dir().map(|path| path.to_path_buf()));
+                    .and_then(|tab| tab.location.fs_dir().map(std::path::Path::to_path_buf));
                 tracing::info!(
                     pane_hit = pane_dest.is_some(),
                     zone_hit = zone_dest.is_some(),
@@ -405,7 +406,7 @@ impl App {
                 // Synthetic position (no real cursor): fall back to the active dir.
                 self.state
                     .active_tab_data()
-                    .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+                    .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
             };
             let Some(dest) = dest else {
                 let dropzone = self.dropzone_bounds.map(|b| {
@@ -949,7 +950,7 @@ impl App {
                                         entry,
                                     })
                                     .or(Some(FsChange::Remove(from))),
-                                other => Some(other),
+                                other @ FsChange::Remove(_) => Some(other),
                             }
                         })
                         .collect();

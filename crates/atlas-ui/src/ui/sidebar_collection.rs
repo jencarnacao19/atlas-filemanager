@@ -112,6 +112,8 @@ impl RenderOnce for ReferenceCollection {
             let amount = (extent + gap) * sample.opacity;
             let offset = presented - layout_offset;
             layout_offset += amount;
+            // reason: interactive samples always come from live references with content.
+            #[allow(clippy::expect_used)]
             let child = if sample.interactive {
                 content
                     .remove(&sample.value.path)

@@ -1,6 +1,9 @@
 //! Hidden, isolated investigation of resize geometry; does not drive desktop input.
 //! cargo run -p atlas-ui --example resize_diagnostic --profile release-perf
 //!   --features ui-lab,perf-log,rar,sevenz -- <output-directory>
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use atlas_ui::{app::App as AtlasApp, assets::AtlasAssets};
 use gpui::prelude::*;
 use gpui::{px, size, Window, WindowBounds, WindowOptions};
@@ -63,7 +66,7 @@ impl gpui::Render for ObservedApp {
         gpui::div().size_full().child(self.app.clone()).child(
             gpui::canvas(
                 |_, _, _| {},
-                move |_, _, window, _| {
+                move |_, (), window, _| {
                     let viewport = window.viewport_size();
                     // During paint, rendered_frame still holds the last completed
                     // scene. Pair it with that frame's viewport, never this frame's.
@@ -143,7 +146,7 @@ fn main() -> anyhow::Result<()> {
     std::fs::create_dir_all(&config)?;
     std::env::set_var("ATLAS_CONFIG_DIR", &config);
     let mut profiles = atlas_model::profiles::ProfileManager::default();
-    profiles.profiles[0].theme = "Atlas Dracula".to_owned();
+    "Atlas Dracula".clone_into(&mut profiles.profiles[0].theme);
     std::fs::write(
         config.join("profiles.json"),
         serde_json::to_vec_pretty(&profiles)?,
@@ -155,7 +158,7 @@ fn main() -> anyhow::Result<()> {
     let rt = runtime.handle().clone();
     let animations = std::env::var_os("RESIZE_PROBE_ANIMATIONS").is_some();
     let split = std::env::var_os("RESIZE_PROBE_SPLIT").is_some();
-    let trace: Trace = Default::default();
+    let trace: Trace = std::rc::Rc::default();
     let settings = atlas_model::settings::Settings {
         disable_animations: !animations,
         autosave_session: false,
@@ -193,7 +196,7 @@ fn main() -> anyhow::Result<()> {
                         let observed = cx.new(|_| ObservedApp {
                             app,
                             trace: paint_trace,
-                            previous_viewport: Default::default(),
+                            previous_viewport: std::rc::Rc::default(),
                         });
                         cx.new(|cx| Root::new(observed, window, cx))
                     },
@@ -232,7 +235,7 @@ fn main() -> anyhow::Result<()> {
                         ("short", 1080., 600.),
                     ] {
                         window.update(cx, |_, window, _| {
-                            window.resize(size(px(width), px(height)))
+                            window.resize(size(px(width), px(height)));
                         })?;
                         // Windows enqueues SetWindowPos on the foreground executor.
                         // Yield to it before recording any of the new-size frames.
@@ -283,7 +286,7 @@ fn main() -> anyhow::Result<()> {
                     directory.join("frame-trace.json"),
                     serde_json::to_vec_pretty(&*trace.borrow()).unwrap(),
                 );
-                let _ = cx.update(|cx| cx.quit());
+                let () = cx.update(|cx| cx.quit());
             })
             .detach();
         });

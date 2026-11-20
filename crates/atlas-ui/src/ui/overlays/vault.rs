@@ -116,7 +116,7 @@ impl App {
                     .primary()
                     .large()
                     .rounded_full()
-                    .bg(gpui::rgb(0xf25c35))
+                    .bg(gpui::rgb(0x00f2_5c35))
                     .text_color(gpui::white())
                     .label(rust_i18n::t!("vault_unlock_action").to_string())
                     .on_click(cx.listener(move |this, _, _, cx| {
@@ -374,6 +374,8 @@ impl App {
         }
         let mut actions = h_flex().gap(s(8.));
         if phase == Phase::Browse && !busy {
+            // reason: only called from `render_vault`, which returns early when `self.vault` is None.
+            #[allow(clippy::unwrap_used)]
             let d = self.vault.as_ref().unwrap();
             let selected = d.selected.as_ref();
             let directory = selected
@@ -433,7 +435,7 @@ impl App {
                     .primary()
                     .large()
                     .rounded_full()
-                    .bg(gpui::rgb(0xf25c35))
+                    .bg(gpui::rgb(0x00f2_5c35))
                     .text_color(gpui::white())
                     .disabled(busy)
                     .label(
@@ -454,16 +456,18 @@ impl App {
 
     #[inline(never)]
     fn render_vault_browser(&mut self, mut body: gpui::Div, cx: &mut Context<Self>) -> gpui::Div {
+        // reason: only called from `render_vault`, which returns early when `self.vault` is None.
+        #[allow(clippy::unwrap_used)]
         let d = self.vault.as_ref().unwrap();
         let preview = d.preview.as_ref().and_then(|preview| match preview {
             PrivatePreview::Text(text) => Some(SharedString::from(
                 text.chars().take(20_000).collect::<String>(),
             )),
-            _ => None,
+            PrivatePreview::Image(_) => None,
         });
         let preview_image = d.preview.as_ref().and_then(|preview| match preview {
             PrivatePreview::Image(image) => Some(image.clone()),
-            _ => None,
+            PrivatePreview::Text(_) => None,
         });
         let has_preview = d.preview.is_some();
         let has_parent = !d.parents.is_empty();
@@ -510,7 +514,7 @@ impl App {
                     .ghost()
                     .label("WinFsp — license and source")
                     .on_click(cx.listener(|_this, _, _, cx| {
-                        cx.open_url("https://github.com/winfsp/winfsp/blob/v2.1/License.txt")
+                        cx.open_url("https://github.com/winfsp/winfsp/blob/v2.1/License.txt");
                     })),
             );
             body = body.child(
@@ -706,6 +710,8 @@ impl App {
 
     #[inline(never)]
     fn render_vault_form(&mut self, mut body: gpui::Div, cx: &mut Context<Self>) -> gpui::Div {
+        // reason: only called from `render_vault`, which returns early when `self.vault` is None.
+        #[allow(clippy::unwrap_used)]
         let d = self.vault.as_ref().unwrap();
         let phase = d.phase;
         let inputs = d.inputs.clone();
@@ -784,7 +790,7 @@ impl App {
                                                     .w(s(40.))
                                                     .h(s(40.))
                                                     .rounded_full()
-                                                    .bg(gpui::rgb(0xf25c35))
+                                                    .bg(gpui::rgb(0x00f2_5c35))
                                                     .text_color(gpui::white())
                                                     .tooltip(
                                                         rust_i18n::t!("vault_unlock_action")

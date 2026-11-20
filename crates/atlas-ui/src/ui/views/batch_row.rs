@@ -96,7 +96,7 @@ pub(super) fn paint_row_edit(
     window.with_content_mask(
         Some(ContentMask {
             bounds: cell,
-            fade_out: Default::default(),
+            fade_out: gpui::Edges::default(),
         }),
         |window| {
             let caret_x = x0 + line.x_for_index(byte_of(&edit.text, edit.caret_col));

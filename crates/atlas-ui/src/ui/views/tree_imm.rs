@@ -739,7 +739,7 @@ impl Element for TreeImmElement {
                     point(bounds.left(), origin.y + px(top)),
                     bounds.bottom_right(),
                 ),
-                fade_out: Default::default(),
+                fade_out: Edges::default(),
             });
             let origin = point(origin.x, origin.y + px(row.dy));
             window.with_content_mask(clip, |window| {
@@ -798,7 +798,7 @@ impl Element for TreeImmElement {
                                 transparent_black(),
                                 Edges::all(px(1.0)),
                                 border_col,
-                                Default::default(),
+                                gpui::BorderStyle::default(),
                             ));
                         }
 

@@ -163,6 +163,8 @@ impl App {
                         atlas_core::ext::install::install_zip(&zip_path)
                             .map_err(|e| e.to_string())?;
                         // Clean up temp zip.
+                        // reason: runs inside the tokio task that installed the package.
+                        #[allow(clippy::disallowed_methods)]
                         let _ = std::fs::remove_file(&zip_path);
                         Ok::<(), String>(())
                     }

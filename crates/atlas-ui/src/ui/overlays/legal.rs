@@ -1,6 +1,8 @@
 //! Offline notices remain available even if the website is unreachable.
 pub(crate) const NOTICES_URL: &str = "atlas:third-party-notices";
 
+// reason: the disk I/O runs on the `std::thread::spawn` below.
+#[allow(clippy::disallowed_methods)]
 pub(crate) fn open_notices() {
     // One-shot disk I/O and launching the text viewer stay off the GPUI thread.
     std::thread::spawn(|| {

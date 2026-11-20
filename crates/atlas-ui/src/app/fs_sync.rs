@@ -263,8 +263,8 @@ impl App {
         let show_hidden = self.state.settings.show_hidden;
         let (col, dir, folder_order) = self.tab_data_for(tile).map_or(
             (
-                Default::default(),
-                Default::default(),
+                atlas_model::file_entry::SortColumn::default(),
+                atlas_model::file_entry::SortDir::default(),
                 FolderOrder::default(),
             ),
             |td| (td.sort_col.clone(), td.sort_dir.clone(), td.folder_order),
@@ -1215,6 +1215,7 @@ pub(crate) fn extract_entry_recursive(
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)] // reason: test fixtures touch the disk directly.
 mod exclusion_tests {
     use super::*;
     #[tokio::test]

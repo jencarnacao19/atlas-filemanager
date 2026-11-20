@@ -1404,6 +1404,8 @@ pub fn detect_lang(ext: &str) -> LangKind {
 }
 
 /// Tokenizes a single line of text with stateful multi-line block comment tracking.
+// reason: the branches mark different token kinds that happen to share a style today.
+#[allow(clippy::if_same_then_else)]
 pub fn tokenize_line(text: &str, ext: &str, in_block_comment: &mut bool) -> Vec<SyntaxToken> {
     let mut tokens = Vec::new();
     let bytes = text.as_bytes();
@@ -2394,8 +2396,11 @@ mod tests {
         assert_eq!(lines.len(), 7);
 
         // Line 0: <!DOCTYPE html>
-        let kinds_0: Vec<TokenKind> = lines[0].iter().map(|(k, _)| *k).collect();
-        assert!(kinds_0.contains(&TokenKind::Preprocessor));
+
+        assert!(lines[0]
+            .iter()
+            .map(|(k, _)| *k)
+            .any(|x| x == TokenKind::Preprocessor));
 
         // Line 1: <html lang="en">
         let kinds_1: Vec<TokenKind> = lines[1].iter().map(|(k, _)| *k).collect();
@@ -2404,8 +2409,11 @@ mod tests {
         assert!(kinds_1.contains(&TokenKind::String)); // "\"en\""
 
         // Line 2: <!-- Title comment -->
-        let kinds_2: Vec<TokenKind> = lines[2].iter().map(|(k, _)| *k).collect();
-        assert!(kinds_2.contains(&TokenKind::Comment));
+
+        assert!(lines[2]
+            .iter()
+            .map(|(k, _)| *k)
+            .any(|x| x == TokenKind::Comment));
 
         // Line 4: <h1>Hello &amp; welcome</h1>
         let kinds_4: Vec<TokenKind> = lines[4].iter().map(|(k, _)| *k).collect();
@@ -2422,8 +2430,11 @@ mod tests {
         assert_eq!(lines[0][0].0, TokenKind::Comment);
         assert_eq!(lines[1][0].0, TokenKind::Comment);
         assert_eq!(lines[2][0].0, TokenKind::Comment);
-        let kinds_3: Vec<TokenKind> = lines[3].iter().map(|(k, _)| *k).collect();
-        assert!(kinds_3.contains(&TokenKind::Keyword)); // "<div"
+
+        assert!(lines[3]
+            .iter()
+            .map(|(k, _)| *k)
+            .any(|x| x == TokenKind::Keyword)); // "<div"
     }
 
     #[test]
@@ -2436,8 +2447,11 @@ mod tests {
         assert_eq!(lines[0][0].0, TokenKind::Comment);
 
         // Line 1: :root
-        let kinds_1: Vec<TokenKind> = lines[1].iter().map(|(k, _)| *k).collect();
-        assert!(kinds_1.contains(&TokenKind::Keyword)); // ":root"
+
+        assert!(lines[1]
+            .iter()
+            .map(|(k, _)| *k)
+            .any(|x| x == TokenKind::Keyword)); // ":root"
 
         // Line 2: --main-bg: #1e1e1e;
         let kinds_2: Vec<TokenKind> = lines[2].iter().map(|(k, _)| *k).collect();
@@ -2445,8 +2459,11 @@ mod tests {
         assert!(kinds_2.contains(&TokenKind::Number)); // "#1e1e1e"
 
         // Line 4: .container {
-        let kinds_4: Vec<TokenKind> = lines[4].iter().map(|(k, _)| *k).collect();
-        assert!(kinds_4.contains(&TokenKind::Type)); // ".container"
+
+        assert!(lines[4]
+            .iter()
+            .map(|(k, _)| *k)
+            .any(|x| x == TokenKind::Type)); // ".container"
 
         // Line 5: display: flex;
         let kinds_5: Vec<TokenKind> = lines[5].iter().map(|(k, _)| *k).collect();
@@ -2500,10 +2517,16 @@ mod tests {
         let code = "def hello():\n    # greeting\n    return 'world'";
         let lines = tokenize_document(code, "py");
         assert_eq!(lines.len(), 3);
-        let kinds_0: Vec<TokenKind> = lines[0].iter().map(|(k, _)| *k).collect();
-        assert!(kinds_0.contains(&TokenKind::Keyword)); // "def"
-        let kinds_1: Vec<TokenKind> = lines[1].iter().map(|(k, _)| *k).collect();
-        assert!(kinds_1.contains(&TokenKind::Comment)); // "# greeting"
+
+        assert!(lines[0]
+            .iter()
+            .map(|(k, _)| *k)
+            .any(|x| x == TokenKind::Keyword)); // "def"
+
+        assert!(lines[1]
+            .iter()
+            .map(|(k, _)| *k)
+            .any(|x| x == TokenKind::Comment)); // "# greeting"
         let kinds_2: Vec<TokenKind> = lines[2].iter().map(|(k, _)| *k).collect();
         assert!(kinds_2.contains(&TokenKind::Keyword)); // "return"
         assert!(kinds_2.contains(&TokenKind::String)); // "'world'"
@@ -2548,11 +2571,20 @@ mod tests {
         let log = "[ERROR] Connection failed\n[WARN] High memory\n[INFO] Starting up";
         let lines = tokenize_document(log, "log");
         assert_eq!(lines.len(), 3);
-        let kinds_0: Vec<TokenKind> = lines[0].iter().map(|(k, _)| *k).collect();
-        assert!(kinds_0.contains(&TokenKind::LogError));
-        let kinds_1: Vec<TokenKind> = lines[1].iter().map(|(k, _)| *k).collect();
-        assert!(kinds_1.contains(&TokenKind::LogWarn));
-        let kinds_2: Vec<TokenKind> = lines[2].iter().map(|(k, _)| *k).collect();
-        assert!(kinds_2.contains(&TokenKind::LogInfo));
+
+        assert!(lines[0]
+            .iter()
+            .map(|(k, _)| *k)
+            .any(|x| x == TokenKind::LogError));
+
+        assert!(lines[1]
+            .iter()
+            .map(|(k, _)| *k)
+            .any(|x| x == TokenKind::LogWarn));
+
+        assert!(lines[2]
+            .iter()
+            .map(|(k, _)| *k)
+            .any(|x| x == TokenKind::LogInfo));
     }
 }

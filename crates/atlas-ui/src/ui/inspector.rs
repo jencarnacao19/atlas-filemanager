@@ -2277,36 +2277,6 @@ impl App {
                 },
             );
         let (total_count, total_size) = (*total_count, *total_size);
-        let mut hero = Vec::new();
-        if let Some(container) = container.as_ref() {
-            let kind = if archive {
-                FileKind::File
-            } else {
-                FileKind::Dir
-            };
-            let extension = archive.then(|| {
-                container
-                    .extension()
-                    .map(|e| e.to_string_lossy().to_lowercase())
-                    .unwrap_or_default()
-            });
-            hero.push(HeroItem::Icon {
-                path: container.clone(),
-                kind,
-                extension,
-            });
-        }
-        for e in entries.iter().filter(|e| !e.is_dir).take(2) {
-            hero.push(HeroItem::Icon {
-                path: if archive {
-                    PathBuf::new()
-                } else {
-                    e.path.clone()
-                },
-                kind: FileKind::File,
-                extension: e.extension.clone(),
-            });
-        }
         // Only real thumbnails are shown; with none there is no hero at all.
         let hero = if ring_cards.is_empty() {
             None
@@ -2940,6 +2910,8 @@ fn finish_stack_swipe(app: &mut App, n: usize, cx: &mut Context<App>) {
     cx.notify();
 }
 
+// reason: only built for the parked `stack_carousel` above.
+#[allow(dead_code)]
 enum HeroItem {
     Icon {
         path: PathBuf,

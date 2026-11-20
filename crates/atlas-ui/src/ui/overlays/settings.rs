@@ -32,6 +32,8 @@ impl App {
                     "",
                 ));
             }
+            // reason: `settings_input` is created at the top of this function.
+            #[allow(clippy::unwrap_used)]
             self.settings_input.clone().unwrap()
         };
         let query = input_entity.read(cx).value().to_string();
@@ -98,6 +100,8 @@ impl App {
                     "",
                 ));
             }
+            // reason: `settings_input` is created at the top of this function.
+            #[allow(clippy::unwrap_used)]
             self.settings_input.clone().unwrap()
         };
         let query = input_entity.read(cx).value().to_string();

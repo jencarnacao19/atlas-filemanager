@@ -1,4 +1,7 @@
 //! Probe the same streaming local index used by the finder, without opening a window.
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use atlas_core::search::nucleo_pool::NucleoPool;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};

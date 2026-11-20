@@ -118,6 +118,8 @@ impl DetailsRowRing {
     }
 
     /// Sync one row into the ring. Runs `fill` only on miss.
+    // reason: the slot is filled just above when it missed.
+    #[allow(clippy::expect_used)]
     pub fn sync_row(
         &mut self,
         row: usize,
@@ -173,6 +175,8 @@ impl DetailsRowRing {
             return;
         }
 
+        // reason: the slot is checked just above.
+        #[allow(clippy::expect_used)]
         let s = self.slots[ix].as_mut().expect("slot checked above");
         if s.selected != selected {
             s.selected_at = selected.then(Instant::now);
@@ -289,7 +293,7 @@ mod tests {
         DetailsRowSlot {
             size: None,
             interactive: true,
-            path: Default::default(),
+            path: std::path::PathBuf::default(),
             row,
             shape_key: key,
             selected_at: None,

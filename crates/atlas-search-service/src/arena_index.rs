@@ -345,16 +345,16 @@ impl ArenaTree {
         // Sort results
         match query.sort.field {
             SearchSortField::Relevance => {
-                results.sort_by(|a, b| b.score.cmp(&a.score));
+                results.sort_by_key(|b| std::cmp::Reverse(b.score));
             }
             SearchSortField::Name => {
                 results.sort_by(|a, b| a.path.file_name().cmp(&b.path.file_name()));
             }
             SearchSortField::Size => {
-                results.sort_by(|a, b| b.size.cmp(&a.size));
+                results.sort_by_key(|b| std::cmp::Reverse(b.size));
             }
             SearchSortField::Modified => {
-                results.sort_by(|a, b| b.modified.cmp(&a.modified));
+                results.sort_by_key(|b| std::cmp::Reverse(b.modified));
             }
             _ => {}
         }

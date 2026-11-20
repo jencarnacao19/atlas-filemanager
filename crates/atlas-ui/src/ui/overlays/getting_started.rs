@@ -619,6 +619,8 @@ impl App {
             || self.state.settings.view_mode.clone(),
             |tab| tab.view_mode.clone(),
         );
+        // reason: the collected tiles end the borrow of `self` before the builder below.
+        #[allow(clippy::needless_collect)]
         let mode_tiles = [
             (
                 ViewMode::Details,

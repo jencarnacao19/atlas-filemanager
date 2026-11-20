@@ -122,6 +122,8 @@ impl App {
         let selected = if items.is_empty() {
             0
         } else {
+            // reason: `self.tag_picker_menu` is checked at the top of this function.
+            #[allow(clippy::unwrap_used)]
             let state = self.tag_picker_menu.as_mut().unwrap();
             if state.selected >= items.len() {
                 state.selected = items.len() - 1;
@@ -135,7 +137,9 @@ impl App {
             .is_some_and(|state| state.scroll_to_selected)
         {
             self.tag_picker_scroll.scroll_to_item(selected);
-            self.tag_picker_menu.as_mut().unwrap().scroll_to_selected = false;
+            if let Some(menu) = self.tag_picker_menu.as_mut() {
+                menu.scroll_to_selected = false;
+            }
         }
 
         // Panel geometry.

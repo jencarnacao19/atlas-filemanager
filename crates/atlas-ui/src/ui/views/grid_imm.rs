@@ -286,7 +286,7 @@ impl GridImmElement {
             colors,
             font,
             font_size,
-            bands: Default::default(),
+            bands: atlas_model::grouping::RowBands::default(),
             style: StyleRefinement::default(),
         }
     }
@@ -841,8 +841,12 @@ impl Element for GridImmElement {
                                     .accent
                                     .opacity(if cell.selected { 0.95 } else { 0.65 });
                             window.paint_quad(
-                                gpui::outline(cell_bounds, outline_color, Default::default())
-                                    .corner_radii(Corners::all(px(6.0 * zoom))),
+                                gpui::outline(
+                                    cell_bounds,
+                                    outline_color,
+                                    gpui::BorderStyle::default(),
+                                )
+                                .corner_radii(Corners::all(px(6.0 * zoom))),
                             );
                         }
 
@@ -1569,7 +1573,10 @@ impl App {
         self.thumb_wanted_by_pane
             .retain(|pane, _| panes.contains_key(pane));
         {
-            let mut wanted = self.thumb_wanted.lock().unwrap();
+            let mut wanted = self
+                .thumb_wanted
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             wanted.clear();
             for paths in self.thumb_wanted_by_pane.values() {
                 wanted.extend(paths.iter().cloned());

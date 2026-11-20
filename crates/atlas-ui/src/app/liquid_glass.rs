@@ -90,6 +90,10 @@ fn decode_png_to_render_image(bytes: &[u8]) -> Option<Arc<RenderImage>> {
 }
 
 fn create_dummy_texture() -> Arc<RenderImage> {
+    // reason: a 1x1 RGBA buffer always matches its dimensions.
+    #[allow(clippy::expect_used)]
+    // reason: a 1x1 RGBA buffer always matches its dimensions.
+    #[allow(clippy::expect_used)]
     let buf = image::RgbaImage::from_raw(1, 1, vec![128, 128, 128, 255]).expect("1x1 buffer");
     Arc::new(RenderImage::new(vec![image::Frame::new(buf)]))
 }

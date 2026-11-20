@@ -183,8 +183,7 @@ pub(crate) fn build_file_any_drag(
     #[cfg(windows)]
     {
         tracing::info!(paths = paths.len(), "dnd file drag source triggered");
-        view.read(&*cx)
-            .trigger_os_drag(paths.clone(), archive_items);
+        view.read(&*cx).trigger_os_drag(paths, archive_items);
         // Invisible zero-size placeholder; OLE provides cursor feedback and a
         // synthetic WM_LBUTTONUP clears gpui's active_drag without firing any
         // on_drop handler (DragNoop has no matching handlers).
@@ -466,6 +465,7 @@ pub(crate) fn resolve_external_drag_payload(
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)] // reason: test fixtures touch the disk directly.
 mod tests {
     use super::*;
 

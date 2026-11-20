@@ -47,7 +47,9 @@ pub fn zip_extension(source_dir: &Path, output_path: &Path) -> Result<()> {
             continue;
         }
 
-        let name = path.strip_prefix(source_dir).unwrap();
+        let name = path
+            .strip_prefix(source_dir)
+            .context("walked path outside the source directory")?;
         if path.is_file() {
             zip.start_file(name.to_string_lossy().replace('\\', "/"), options)?;
             let mut f = File::open(path)?;

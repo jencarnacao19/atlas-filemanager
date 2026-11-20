@@ -1,4 +1,7 @@
 //! Native visual verification without touching desktop input or user settings.
+// reason: a feature-gated diagnostic harness, not shipped app code: it panics on
+// setup failure and writes its evidence to disk on purpose.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use crate::app::App;
 use crate::input::action::Action;
 use anyhow::ensure;
@@ -224,7 +227,7 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                                     app.navigate(pane, child.clone());
                                 }
                                 app.flush_dirty_panes(cx);
-                            })
+                            });
                         })?;
                         for _ in 0..20 {
                             cx.background_executor()
@@ -309,7 +312,7 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                                 gpui::PlatformInput::MouseDown(gpui::MouseDownEvent {
                                     position,
                                     button: gpui::MouseButton::Left,
-                                    modifiers: Default::default(),
+                                    modifiers: gpui::Modifiers::default(),
                                     click_count: 1,
                                     first_mouse: false,
                                 })
@@ -317,7 +320,7 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                                 gpui::PlatformInput::MouseUp(gpui::MouseUpEvent {
                                     position,
                                     button: gpui::MouseButton::Left,
-                                    modifiers: Default::default(),
+                                    modifiers: gpui::Modifiers::default(),
                                     click_count: 1,
                                 })
                             };
@@ -337,7 +340,7 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                     let _ = std::fs::write(directory.join("failed.txt"), format!("{error:#}"));
                 }
                 *result.borrow_mut() = checked;
-                let _ = cx.update(|cx| cx.quit());
+                let () = cx.update(|cx| cx.quit());
             })
             .detach();
         });

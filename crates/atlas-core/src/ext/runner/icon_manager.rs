@@ -250,6 +250,8 @@ pub async fn select_theme_variant(bg_tx: &flume::Sender<BgResult>, data_dir: &Pa
     )
 }
 
+// reason: keeps the same signature as the other icon-manager commands.
+#[allow(clippy::unnecessary_wraps)]
 pub fn reset_default_icons(data_dir: &Path) -> Result<()> {
     let mappings_path = data_dir.join("theme_mappings.json");
     if mappings_path.exists() {

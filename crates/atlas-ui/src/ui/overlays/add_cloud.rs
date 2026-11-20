@@ -62,6 +62,8 @@ impl App {
                 ),
             });
         }
+        // reason: `cloud_add_inputs` is created at the top of this function.
+        #[allow(clippy::unwrap_used)]
         self.cloud_add_inputs.as_ref().unwrap().name.clone()
     }
 
@@ -113,6 +115,8 @@ impl App {
         let focus = self.overlay_focus(cx);
 
         let name_input = self.cloud_add_name_input(window, cx);
+        // reason: `cloud_add_name_input` above creates the inputs.
+        #[allow(clippy::expect_used)]
         let inputs = self
             .cloud_add_inputs
             .as_ref()

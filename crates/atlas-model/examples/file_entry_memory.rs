@@ -1,5 +1,8 @@
 //! Reproducible heap-request comparison; no filesystem or UI is involved.
 //! Run: cargo run -p atlas-model --example file_entry_memory -- <output.json>
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 #![allow(unsafe_code, dead_code)] // allocator instrumentation only, outside production
 
 use atlas_model::file_entry::{FileEntry, FileKind, RecycleBinInfo};

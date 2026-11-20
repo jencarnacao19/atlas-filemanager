@@ -499,7 +499,7 @@ impl Element for DetailsHeaderElement {
                     window.with_content_mask(
                         Some(ContentMask {
                             bounds: name_clip.intersect(&bounds),
-                            fade_out: Default::default(),
+                            fade_out: gpui::Edges::default(),
                         }),
                         |window| {
                             if let Some(line) = &prepaint.name_line {
@@ -555,7 +555,7 @@ impl Element for DetailsHeaderElement {
                     window.with_content_mask(
                         Some(ContentMask {
                             bounds: clip.intersect(&bounds),
-                            fade_out: Default::default(),
+                            fade_out: gpui::Edges::default(),
                         }),
                         |window| {
                             let _ = line.paint(

@@ -655,7 +655,7 @@ impl App {
         let entries: Vec<(String, String, bool)> = cb
             .paths
             .iter()
-            .filter_map(|p| {
+            .map(|p| {
                 let src_str = p.to_string_lossy().replace('\\', "/");
                 let name = atlas_model::remote_path::file_name(&src_str);
                 let dst_str = if dst_path.is_empty() {
@@ -664,7 +664,7 @@ impl App {
                     format!("{}/{}", dst_path.trim_end_matches('/'), name)
                 };
                 let is_dir = is_dir_map.get(p).copied().unwrap_or(false);
-                Some((src_str, dst_str, is_dir))
+                (src_str, dst_str, is_dir)
             })
             .collect();
 

@@ -1,4 +1,7 @@
 //! Read-only: lists what each cleanup category would offer. Never prepares or deletes.
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use atlas_core::cleanup::{categories, ScanJob, ScanMode};
 use std::time::{Duration, Instant};
 fn main() {

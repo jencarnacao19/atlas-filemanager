@@ -12,6 +12,9 @@
 //! # Registration
 //! `setup_dnd()` in the parent module calls `RevokeDragDrop` (removes gpui's
 //! original target) and `RegisterDragDrop` with one `AtlasDropTarget` per window.
+// reason: COM glue: these lints fire inside the windows-rs `#[implement]` expansion,
+// and `new` returns the COM interface rather than `Self` by design.
+#![allow(clippy::ref_as_ptr, clippy::inline_always, clippy::new_ret_no_self)]
 #![allow(unsafe_code)]
 // reason: COM vtable, IDropTargetHelper and raw Win32 calls are inherently unsafe.
 
@@ -63,7 +66,7 @@ pub(super) unsafe fn read_cf_hdrop(data_obj: &IDataObject) -> Vec<PathBuf> {
         lindex: -1,
         tymed: TYMED_HGLOBAL.0 as u32,
     };
-    let Ok(mut medium) = data_obj.GetData(&fmt) else {
+    let Ok(mut medium) = data_obj.GetData(&raw const fmt) else {
         return Vec::new();
     };
     if medium.u.hGlobal.is_invalid() {
@@ -82,7 +85,7 @@ pub(super) unsafe fn read_cf_hdrop(data_obj: &IDataObject) -> Vec<PathBuf> {
             PathBuf::from(s),
         ));
     }
-    ReleaseStgMedium(&mut medium);
+    ReleaseStgMedium(&raw mut medium);
     paths
 }
 
@@ -96,13 +99,16 @@ pub(super) unsafe fn is_atlas_source(data_obj: &IDataObject) -> bool {
         lindex: -1,
         tymed: TYMED_HGLOBAL.0 as u32,
     };
-    data_obj.QueryGetData(&fmt).is_ok()
+    data_obj.QueryGetData(&raw const fmt).is_ok()
 }
 
 /// Extract virtual-file paths from `CFSTR_FILEDESCRIPTORW` + `CFSTR_FILECONTENTS`.
 ///
 /// Each virtual file is extracted to `%TEMP%\atlas-dnd\<session_id>\<name>`.
 /// Returns real paths to the extracted temporaries.
+// reason: OLE hands over virtual-file contents in the drop callback; they are
+// staged to the temp dir before the move/copy job takes over.
+#[allow(clippy::disallowed_methods)]
 pub(super) unsafe fn read_virtual_files(data_obj: &IDataObject) -> Vec<PathBuf> {
     use windows::Win32::Foundation::HGLOBAL;
     use windows::Win32::System::Com::TYMED_ISTREAM;
@@ -115,7 +121,7 @@ pub(super) unsafe fn read_virtual_files(data_obj: &IDataObject) -> Vec<PathBuf> 
         lindex: -1,
         tymed: TYMED_HGLOBAL.0 as u32,
     };
-    let Ok(mut desc_medium) = data_obj.GetData(&desc_fmt) else {
+    let Ok(mut desc_medium) = data_obj.GetData(&raw const desc_fmt) else {
         return Vec::new();
     };
     if desc_medium.u.hGlobal.is_invalid() {
@@ -125,18 +131,21 @@ pub(super) unsafe fn read_virtual_files(data_obj: &IDataObject) -> Vec<PathBuf> 
     // The HGLOBAL holds a FILEGROUPDESCRIPTORW: u32 cItems + cItems * FILEDESCRIPTORW.
     let ptr = GlobalLock(desc_medium.u.hGlobal) as *const u8;
     if ptr.is_null() {
-        ReleaseStgMedium(&mut desc_medium);
+        ReleaseStgMedium(&raw mut desc_medium);
         return Vec::new();
     }
 
-    let count = (ptr as *const u32).read() as usize;
-    let first_desc = ptr.add(std::mem::size_of::<u32>()) as *const FILEDESCRIPTORW;
+    // reason: GlobalLock returns GlobalAlloc memory, which is 8-byte aligned.
+    #[allow(clippy::cast_ptr_alignment)]
+    let count = ptr.cast::<u32>().read() as usize;
+    let first_desc = ptr
+        .add(std::mem::size_of::<u32>())
+        .cast::<FILEDESCRIPTORW>();
 
     // Prepare the temp directory.
     let session_id = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_micros())
-        .unwrap_or(0);
+        .map_or(0, |d| d.as_micros());
     let tmp_dir = std::env::temp_dir()
         .join("atlas-dnd")
         .join(session_id.to_string());
@@ -169,7 +178,7 @@ pub(super) unsafe fn read_virtual_files(data_obj: &IDataObject) -> Vec<PathBuf> 
             lindex: i as i32,
             tymed: TYMED_HGLOBAL.0 as u32 | TYMED_ISTREAM.0 as u32,
         };
-        let Ok(mut content_medium) = data_obj.GetData(&content_fmt) else {
+        let Ok(mut content_medium) = data_obj.GetData(&raw const content_fmt) else {
             continue;
         };
 
@@ -197,11 +206,11 @@ pub(super) unsafe fn read_virtual_files(data_obj: &IDataObject) -> Vec<PathBuf> 
             }
         }
 
-        ReleaseStgMedium(&mut content_medium);
+        ReleaseStgMedium(&raw mut content_medium);
     }
 
     let _ = GlobalUnlock(desc_medium.u.hGlobal);
-    ReleaseStgMedium(&mut desc_medium);
+    ReleaseStgMedium(&raw mut desc_medium);
     result
 }
 
@@ -253,15 +262,15 @@ impl AtlasDropTarget {
             .ok()
         };
 
-        let target: IDropTarget = AtlasDropTarget {
+        let target: IDropTarget = Self {
             hwnd,
             scale_factor,
             zones,
             action_queue,
             helper,
             last_effect: std::cell::Cell::new(DROPEFFECT_NONE),
-            active_data: Default::default(),
-            description_target: Default::default(),
+            active_data: std::cell::RefCell::default(),
+            description_target: std::cell::RefCell::default(),
         }
         .into();
 
@@ -273,7 +282,7 @@ impl AtlasDropTarget {
     fn to_logical(&self, pt: &POINTL) -> (f32, f32) {
         let mut p = POINT { x: pt.x, y: pt.y };
         unsafe {
-            let _ = ScreenToClient(self.hwnd, &mut p);
+            let _ = ScreenToClient(self.hwnd, &raw mut p);
         }
         (
             p.x as f32 / self.scale_factor,
@@ -307,7 +316,7 @@ impl AtlasDropTarget {
                     target.as_ref().map(|t| t.1.as_path()),
                 );
             }
-            *self.description_target.borrow_mut() = target.clone();
+            self.description_target.borrow_mut().clone_from(&target);
         }
         match target.map(|(effect, _)| effect) {
             Some(crate::dnd::DropEffect::Move) => windows::Win32::System::Ole::DROPEFFECT_MOVE,
@@ -370,7 +379,8 @@ impl IDropTarget_Impl for AtlasDropTarget_Impl {
             tymed: TYMED_HGLOBAL.0 as u32,
         };
         let effect = unsafe {
-            if data_obj.QueryGetData(&hdrop_fmt).is_ok() || data_obj.QueryGetData(&virt_fmt).is_ok()
+            if data_obj.QueryGetData(&raw const hdrop_fmt).is_ok()
+                || data_obj.QueryGetData(&raw const virt_fmt).is_ok()
             {
                 DROPEFFECT_COPY
             } else {
@@ -487,10 +497,10 @@ impl IDropTarget_Impl for AtlasDropTarget_Impl {
         // Try virtual format first (WinRAR, 7-Zip, Outlook attachments…).
         let paths = unsafe {
             let virt = read_virtual_files(data_obj);
-            if !virt.is_empty() {
-                virt
-            } else {
+            if virt.is_empty() {
                 read_cf_hdrop(data_obj)
+            } else {
+                virt
             }
         };
 
@@ -532,9 +542,9 @@ unsafe fn write_stream_to_file(
     loop {
         let mut read: u32 = 0;
         let hr = stream.Read(
-            buf.as_mut_ptr() as *mut _,
+            buf.as_mut_ptr().cast(),
             buf.len() as u32,
-            Some(&mut read),
+            Some(&raw mut read),
         );
         if read == 0 {
             break;

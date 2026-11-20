@@ -123,7 +123,7 @@ impl RenderOnce for BookmarkCollection {
             } else {
                 // Retained exits carry no click, drag or drop handlers.
                 let t = now
-                    .saturating_duration_since(entry.closing.unwrap())
+                    .saturating_duration_since(entry.closing.unwrap_or(now))
                     .as_secs_f32()
                     / 0.12;
                 div()

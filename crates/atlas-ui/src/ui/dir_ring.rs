@@ -60,7 +60,7 @@ impl DirRing {
     /// Replace the cards; a different folder restarts the ring at its first card.
     pub(crate) fn set_items(&mut self, key: &PathBuf, items: Vec<Arc<RenderImage>>) {
         if self.key != *key {
-            self.key = key.clone();
+            self.key.clone_from(key);
             self.angle = 0.;
             self.velocity = 0.;
         }

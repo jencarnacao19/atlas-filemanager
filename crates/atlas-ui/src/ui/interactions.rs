@@ -1868,6 +1868,10 @@ impl App {
                 return false;
             }
         }
+        // reason: the rename edit is validated just above.
+        #[allow(clippy::expect_used)]
+        // reason: the rename edit is validated just above.
+        #[allow(clippy::expect_used)]
         let edit = self.rename_edit.take().expect("rename validated above");
         self.notify_pane(edit.pane, cx);
         cx.notify();
@@ -2113,7 +2117,7 @@ impl App {
                 .and_then(|ts| ts.miller.columns.get(column))
                 .map(|col| col.selection.clone())
                 .unwrap_or_default(),
-            RubberTarget::Dropzone => Default::default(),
+            RubberTarget::Dropzone => atlas_model::tab::SelectionState::default(),
         };
         let dropzone_base = self.dropzone_selection.clone();
         let origin = Self::clamp_point_to_bounds(target_bounds, pos);
@@ -2244,7 +2248,7 @@ impl App {
                             Some(&flat_visible),
                         );
                         if !found {
-                            query = seed.clone();
+                            query.clone_from(&seed);
                             found = tab.select_typed_prefix_with_indices(
                                 &mode,
                                 &query,

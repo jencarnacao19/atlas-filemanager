@@ -1,4 +1,7 @@
 //! Native format matrix, Miller viewport/scroll QA and Open with keyboard checks.
+// reason: a feature-gated diagnostic harness, not shipped app code: it panics on
+// setup failure and writes its evidence to disk on purpose.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use crate::{
     app::{ext::ExtAction, App},
     input::action::Action,
@@ -8,6 +11,8 @@ use atlas_model::{preview_cache::PreviewResult, settings::ViewMode};
 use gpui::{point, px, size, AnyWindowHandle, AsyncApp, Entity, Keystroke, Window};
 use std::{path::PathBuf, time::Duration};
 
+// reason: drives the gpui test app on its own thread; it is never sent.
+#[allow(clippy::future_not_send)]
 async fn wait_for(
     view: &Entity<App>,
     handle: AnyWindowHandle,
@@ -213,7 +218,7 @@ pub(super) fn install(
                 window.dispatch_keystroke(Keystroke::parse("left")?, cx);
                 window.refresh(); window.draw(cx).clear(cx);
                 crate::ui::shell_context_menu::diagnostic::check_open_with(&view, false, cx)?;
-                view.update(cx, |app, cx| app.close_ctx_menu(cx));
+                view.update(cx, crate::app::App::close_ctx_menu);
                 Ok(())
             })??;
             checks.push("One collapsed Open with group; keyboard expand/collapse, all eight applications, native chooser and search".into());
@@ -226,6 +231,6 @@ pub(super) fn install(
         let _ = std::fs::write(directory.join("checks.json"), serde_json::to_vec_pretty(&checks).unwrap());
         drop(view);
         let _ = handle.update(cx, |_, window, _| window.remove_window());
-        let _ = cx.update(|cx| cx.quit());
+        let () = cx.update(|cx| cx.quit());
     }).detach();
 }

@@ -1,4 +1,6 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
+// reason: a background service process with no UI thread; blocking `std::fs` is fine.
+#![allow(clippy::disallowed_methods)]
 
 #[cfg(not(windows))]
 pub mod arena_index;
@@ -298,8 +300,8 @@ mod windows_impl {
             {
                 let mut volumes = state.volumes.write().unwrap_or_else(|e| e.into_inner());
                 for (letter, index) in volumes.iter_mut() {
-                    match replay_mapped(*letter, index) {
-                        Err(error) => match error {
+                    if let Err(error) = replay_mapped(*letter, index) {
+                        match error {
                             CheckpointError::JournalChanged | CheckpointError::JournalTruncated => {
                                 set_progress(state, *letter, SearchBackendStatus::Loading, 0);
                                 let path = index_path(&data_dir, *letter);
@@ -334,8 +336,7 @@ mod windows_impl {
                                     );
                                 }
                             }
-                        },
-                        Ok(()) => {}
+                        }
                     }
                 }
             }
@@ -717,7 +718,7 @@ mod windows_impl {
                 {
                     return true;
                 }
-                let Some(score) = score_name(&record.name, &query.text) else {
+                let Some(score) = score_name(record.name, &query.text) else {
                     return true;
                 };
                 if !incremental_overflow {
@@ -815,7 +816,7 @@ mod windows_impl {
                             return false;
                         }
                         if !checked.insert((*letter, record.id))
-                            || score_name(&record.name, &suffix).is_none()
+                            || score_name(record.name, &suffix).is_none()
                         {
                             return true;
                         }
@@ -872,7 +873,7 @@ mod windows_impl {
         let rank_started = Instant::now();
         let mut ranked: Vec<_> = candidates.into_iter().map(|value| value.0).collect();
         let candidate_count = ranked.len();
-        ranked.sort_unstable_by(|left, right| right.0.cmp(&left.0));
+        ranked.sort_unstable_by_key(|right| std::cmp::Reverse(right.0));
         let rank_elapsed = rank_started.elapsed();
         let materialize_started = Instant::now();
         let mut results = Vec::with_capacity(query.limit.max(1));

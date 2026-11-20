@@ -195,7 +195,7 @@ impl Worker {
                 self.finish();
                 return;
             }
-            self.snapshot.root = temp.clone();
+            self.snapshot.root.clone_from(&temp);
             self.read_root(&temp);
         } else {
             if policy::protected(&root)
@@ -331,14 +331,13 @@ impl Worker {
     }
     fn read_root(&mut self, root: &Path) {
         #[cfg(windows)]
-        let _lease = match atlas_win_space::cleanup::pin_directory(root, true) {
-            Ok(lease) => lease,
-            Err(_) => {
-                self.snapshot.status = ScanStatus::Failed;
-                self.snapshot.errors += 1;
-                self.snapshot.message = Some("cleanup_unavailable".into());
-                return;
-            }
+        let _lease = if let Ok(lease) = atlas_win_space::cleanup::pin_directory(root, true) {
+            lease
+        } else {
+            self.snapshot.status = ScanStatus::Failed;
+            self.snapshot.errors += 1;
+            self.snapshot.message = Some("cleanup_unavailable".into());
+            return;
         };
         let valid = fs::symlink_metadata(root).is_ok_and(|m| m.is_dir() && !unsafe_entry(&m));
         if !valid
@@ -422,12 +421,11 @@ impl Worker {
             return 0;
         }
         #[cfg(windows)]
-        let _lease = match atlas_win_space::cleanup::pin_directory(path, false) {
-            Ok(lease) => lease,
-            Err(_) => {
-                self.snapshot.skipped += 1;
-                return 0;
-            }
+        let _lease = if let Ok(lease) = atlas_win_space::cleanup::pin_directory(path, false) {
+            lease
+        } else {
+            self.snapshot.skipped += 1;
+            return 0;
         };
         let entries = if let Ok(entries) = fs::read_dir(path) {
             entries
@@ -567,7 +565,7 @@ fn unsafe_entry(metadata: &fs::Metadata) -> bool {
     {
         use std::os::windows::fs::MetadataExt;
         // Reparse points and offline/recall-on-open/data-access files are not traversed.
-        metadata.file_attributes() & (0x400 | 0x1000 | 0x40000 | 0x400000) != 0
+        metadata.file_attributes() & (0x400 | 0x1000 | 0x40000 | 0x0040_0000) != 0
     }
     #[cfg(not(windows))]
     {
@@ -657,7 +655,7 @@ mod tests {
                     .write(true)
                     .open(path)
                     .unwrap()
-                    .set_modified(SystemTime::now() - Duration::from_secs(8 * 24 * 3600))
+                    .set_modified(SystemTime::now() - Duration::from_hours(192))
                     .unwrap();
             }
         }

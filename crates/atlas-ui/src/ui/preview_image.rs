@@ -305,7 +305,7 @@ fn paint_minimap(
             background.opacity(0.92),
             px(1.0),
             border.opacity(0.55),
-            Default::default(),
+            gpui::BorderStyle::default(),
         ));
     });
     window.paint_layer(minimap.frame, |window| {
@@ -345,7 +345,7 @@ fn paint_minimap(
             gpui::transparent_black(),
             px(1.0),
             gpui::hsla(0.0, 0.0, 0.0, 0.6),
-            Default::default(),
+            gpui::BorderStyle::default(),
         ));
         window.paint_quad(gpui::quad(
             visible,
@@ -353,7 +353,7 @@ fn paint_minimap(
             accent.opacity(0.14),
             px(2.0),
             accent,
-            Default::default(),
+            gpui::BorderStyle::default(),
         ));
     });
 }

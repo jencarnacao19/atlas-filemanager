@@ -490,7 +490,11 @@ impl ImmTextInputState {
         let b = slot.to_bounds(origin);
         // Paint background container with subtle border
         paint_rounded(window, b, 6.0, bg);
-        window.paint_quad(gpui::outline(b, border.opacity(0.85), Default::default()));
+        window.paint_quad(gpui::outline(
+            b,
+            border.opacity(0.85),
+            gpui::BorderStyle::default(),
+        ));
 
         let pad_x = 8.0;
         let text_x = b.origin.x + px(pad_x);

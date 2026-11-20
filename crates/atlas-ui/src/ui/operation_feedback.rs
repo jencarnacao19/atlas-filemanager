@@ -350,7 +350,8 @@ pub(crate) fn paint_file_feedback(
         let mut color = color;
         color.alpha = alpha;
         window.paint_quad(
-            gpui::outline(bounds, color, Default::default()).corner_radii(Corners::all(px(radius))),
+            gpui::outline(bounds, color, gpui::BorderStyle::default())
+                .corner_radii(Corners::all(px(radius))),
         );
     }
     if active {

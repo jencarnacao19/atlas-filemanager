@@ -460,7 +460,7 @@ fn scan_stats(paths: &[PathBuf]) -> (u64, u64) {
 fn available_space(dest: &Path) -> Option<u64> {
     #[cfg(windows)]
     {
-        return atlas_win_space::available_space(dest);
+        atlas_win_space::available_space(dest)
     }
     #[cfg(not(windows))]
     let disks = sysinfo::Disks::new_with_refreshed_list();
@@ -1077,9 +1077,10 @@ mod tests {
         let (tx, rx) = flume::unbounded();
         execute(pairs, kind, TransferOrigin::Menu, 1, tx, cancel, Vec::new()).await;
         loop {
-            match rx.recv().expect("channel closed without TransferComplete") {
-                BgResult::TransferComplete { report, .. } => return report,
-                _ => continue,
+            if let BgResult::TransferComplete { report, .. } =
+                rx.recv().expect("channel closed without TransferComplete")
+            {
+                return report;
             }
         }
     }

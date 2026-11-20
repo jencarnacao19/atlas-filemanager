@@ -331,6 +331,8 @@ pub(crate) fn atlas_logo(size: f32) -> AnyElement {
 /// Cache the white artwork for dark surfaces and solid black ink for light ones.
 fn atlas_logo_image(dark: bool) -> std::sync::Arc<gpui::RenderImage> {
     use std::sync::{Arc, LazyLock};
+    // reason: the logo is embedded at compile time and always decodes.
+    #[allow(clippy::expect_used)]
     fn decode(dark: bool) -> Arc<gpui::RenderImage> {
         let mut pixels =
             image::load_from_memory(include_bytes!("../../assets/icons/atlas-logo.png"))

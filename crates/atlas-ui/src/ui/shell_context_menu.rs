@@ -209,6 +209,8 @@ impl AtlasCmd {
             Self::Properties => rust_i18n::t!("root_properties").to_string(),
         }
     }
+    // reason: callers treat this like the other optional row icons.
+    #[allow(clippy::unnecessary_wraps)]
     fn icon(self) -> Option<AtlasIcon> {
         match self {
             Self::DiskCleanup => Some(AtlasIcon::HardDrive),
@@ -536,10 +538,11 @@ impl App {
                                         id,
                                         item_id: item.id,
                                         screen_pt,
-                                    })
+                                    });
                                 }
                                 None => {
-                                    handle.send(crate::shell_menu::ShellMenuRequest::Dismiss { id })
+                                    handle
+                                        .send(crate::shell_menu::ShellMenuRequest::Dismiss { id });
                                 }
                             }
                         }
@@ -611,10 +614,10 @@ impl App {
                         .cloned()
                         .collect();
                     let sel_key = format!("sel|{key}");
-                    if !self.ctx_native.items.contains_key(&sel_key) {
-                        let ui = native_items_to_ui(selection, cx);
-                        self.ctx_native.items.insert(sel_key, ui);
-                    }
+                    self.ctx_native
+                        .items
+                        .entry(sel_key)
+                        .or_insert_with(|| native_items_to_ui(selection, cx));
                     // A folder build doubles as the background (empty-space) menu.
                     if key == "dir" && !self.ctx_native.items.contains_key("bg") {
                         let ui = native_items_to_ui(items, cx);
@@ -1686,16 +1689,12 @@ impl App {
             }
             #[cfg(windows)]
             if expand {
-                let (need, menu_id) = self
-                    .ctx_menu
-                    .as_ref()
-                    .map(|m| {
-                        (
-                            !m.stale && submenu_children_missing(&m.native, id),
-                            m.menu_id,
-                        )
-                    })
-                    .unwrap_or((false, 0));
+                let (need, menu_id) = self.ctx_menu.as_ref().map_or((false, 0), |m| {
+                    (
+                        !m.stale && submenu_children_missing(&m.native, id),
+                        m.menu_id,
+                    )
+                });
                 if need {
                     if let Some(handle) = &self.shell_menu {
                         handle.send(crate::shell_menu::ShellMenuRequest::ExpandSubmenu {
@@ -1828,7 +1827,7 @@ pub(crate) fn show_properties(path: &std::path::Path) {
             ..Default::default()
         };
         unsafe {
-            let _ = ShellExecuteExW(&mut info);
+            let _ = ShellExecuteExW(&raw mut info);
         }
     }
     #[cfg(not(windows))]
@@ -1861,7 +1860,7 @@ pub(crate) fn show_this_pc_properties() {
             ..Default::default()
         };
         unsafe {
-            let _ = ShellExecuteExW(&mut info);
+            let _ = ShellExecuteExW(&raw mut info);
         }
     }
 }
@@ -2037,7 +2036,7 @@ fn cursor_screen_pos() -> (i32, i32) {
     use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
     let mut pt = POINT { x: 0, y: 0 };
     unsafe {
-        let _ = GetCursorPos(&mut pt);
+        let _ = GetCursorPos(&raw mut pt);
     }
     (pt.x, pt.y)
 }

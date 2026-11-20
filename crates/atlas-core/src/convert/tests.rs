@@ -353,7 +353,7 @@ fn handmade_flac_is_lossless_for_all_pcm_depths_channels_and_containers() {
     for bits in [8_u16, 16, 24, 32] {
         for channels in [1_u16, 2, 6, 8] {
             let width = usize::from(bits / 8);
-            let mut state = 0x12345678_u32;
+            let mut state = 0x1234_5678_u32;
             let mut samples = Vec::new();
             // Constant, predictable, noise and full-scale extremes, plus a short tail.
             for frame in 0..12291 {
@@ -628,7 +628,7 @@ fn native_svg_refuses_external_images_and_decompression_bombs() {
     let source = dir.path().join("large.svgz");
     let mut gzip =
         flate2::write::GzEncoder::new(File::create(&source).unwrap(), flate2::Compression::fast());
-    let block = [b' '; 1024 * 1024];
+    let block = vec![b' '; 1024 * 1024];
     for _ in 0..65 {
         gzip.write_all(&block).unwrap();
     }
@@ -774,7 +774,7 @@ fn windows_audio_encodes_and_decodes_without_external_tools() {
             "Missing system {target} encoder"
         );
         let plan = Plan::build(
-            &[source.clone()],
+            std::slice::from_ref(&source),
             target,
             Settings::default(),
             tools.clone(),
@@ -817,7 +817,7 @@ fn windows_audio_encodes_and_decodes_without_external_tools() {
         }
         for target in ["flac", "aiff", "au"] {
             let plan = Plan::build(
-                &[encoded.clone()],
+                std::slice::from_ref(&encoded),
                 target,
                 Settings::default(),
                 tools.clone(),
@@ -1207,7 +1207,7 @@ fn docx_export_is_an_ooxml_package_with_escaped_text() {
 #[test]
 fn installed_ffmpeg_converts_real_audio_when_available() {
     let mut tools = Tools::discover();
-    tools.1 = Default::default(); // This test exercises the optional engine explicitly.
+    tools.1 = crate::convert::tools::SystemAudio::default(); // This test exercises the optional engine explicitly.
     if !tools.has(Tool::Ffmpeg) {
         eprintln!("FFmpeg integration not run: engine not installed");
         return;

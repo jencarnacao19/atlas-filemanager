@@ -124,6 +124,8 @@ impl App {
 /// non-transparent orthogonal neighbors (preserving alpha = 0), the GPU filtered color remains
 /// constant while only alpha transitions smoothly. Outer pixels (like corner (0,0)) remain
 /// clean (0, 0, 0, 0).
+// reason: three channels share one divisor; a guard reads clearer than three checked_div.
+#[allow(clippy::manual_checked_ops)]
 fn bleed_straight_edges(raw: &mut [u8], side: usize) {
     let copy = raw.to_vec();
     for y in 0..side {
@@ -228,6 +230,7 @@ pub fn rasterize(svg_path: &Path) -> Option<Arc<RenderImage>> {
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)] // reason: test fixtures touch the disk directly.
 mod tests {
     use super::*;
 

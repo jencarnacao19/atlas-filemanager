@@ -785,20 +785,21 @@ fn f32_at(bytes: &[u8], at: usize) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fmt::Write as _;
 
     fn cube_obj() -> String {
         let mut text = String::new();
         for z in [0., 1.] {
             for y in [0., 1.] {
                 for x in [0., 1.] {
-                    text.push_str(&format!("v {x} {y} {z}\n"));
+                    let _ = writeln!(text, "v {x} {y} {z}");
                 }
             }
         }
         for face in [
             "1 2 4 3", "5 7 8 6", "1 5 6 2", "3 4 8 7", "1 3 7 5", "2 6 8 4",
         ] {
-            text.push_str(&format!("f {face}\n"));
+            let _ = writeln!(text, "f {face}");
         }
         text
     }

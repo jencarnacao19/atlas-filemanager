@@ -35,6 +35,9 @@ fn button(
 }
 
 impl Render for CleanupPanel {
+    // reason: the inlined element tree is large in unoptimized builds; split this
+    // function if the 1 MiB Windows main thread ever overflows in debug.
+    #[allow(clippy::large_stack_frames)]
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let fg = cx.theme().foreground;
         let muted = super::muted(cx);
@@ -424,8 +427,7 @@ impl Render for CleanupPanel {
             tr("cleanup_cancelling")
         } else if self.tab == Tab::History && self.error.is_some() {
             tr("cleanup_error")
-        } else if self.tab == Tab::History && self.report.is_some() {
-            let report = self.report.as_ref().unwrap();
+        } else if let Some(report) = self.report.as_ref().filter(|_| self.tab == Tab::History) {
             tr(if report.cancelled {
                 "cleanup_cancelled"
             } else if report.error.is_some() || report.results.iter().any(|r| r.error.is_some()) {

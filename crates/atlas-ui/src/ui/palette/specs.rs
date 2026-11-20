@@ -692,10 +692,10 @@ impl App {
 
         let mut search_prefix: Option<gpui::AnyElement> = None;
         let mut sections = if trimmed.is_empty() {
-            self.goto_snapshot = Default::default();
+            self.goto_snapshot = GotoSnapshot::default();
             self.goto_home_sections(focused_tile, pane)
         } else if content_mode {
-            self.goto_snapshot = Default::default();
+            self.goto_snapshot = GotoSnapshot::default();
             // Files whose *contents* matched the latest grep.
             let items: Vec<PaletteItem> = self
                 .content_results
@@ -823,6 +823,8 @@ impl App {
                             atlas_core::search::ServiceResponse::Search(batch) => {
                                 // Validate the small persisted page on the
                                 // blocking worker, alongside the pipe I/O.
+                                // reason: runs on the blocking search worker, next to the pipe I/O.
+                                #[allow(clippy::disallowed_methods)]
                                 let results = batch
                                     .results
                                     .into_iter()
@@ -1418,7 +1420,7 @@ impl App {
             .set("goto_extended_index", &on);
         atlas_core::util::config::save_profiles(&self.state.profiles);
         self.goto_index_root = None;
-        self.goto_snapshot = Default::default();
+        self.goto_snapshot = GotoSnapshot::default();
     }
 
     /// The "search in content" pill at the right of the goto search row.
@@ -1542,9 +1544,7 @@ impl App {
 
         for (decl, (id, title, icon, defs)) in groups.into_iter().enumerate() {
             let refs: Vec<&CommandDef> = defs.iter().collect();
-            let icon = icon;
             let title = title.clone();
-            let id = id;
             if let Some((best, items)) =
                 self.scored_command_items(&refs, false, &pinned, pattern.as_ref())
             {

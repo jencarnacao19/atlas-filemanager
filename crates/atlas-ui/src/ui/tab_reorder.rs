@@ -10,6 +10,8 @@ pub(crate) enum PanelDirection {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+// reason: `Root*` names mirror the dock edges they target.
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum RootDropEdge {
     RootTop,
     RootBottom,

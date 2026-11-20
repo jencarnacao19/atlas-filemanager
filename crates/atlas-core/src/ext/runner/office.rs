@@ -280,7 +280,12 @@ fn pptx_preview(path: &Path) -> PreviewResult {
     };
     let mut names: Vec<String> = (0..zip.len())
         .filter_map(|i| zip.by_index(i).ok().map(|f| f.name().to_string()))
-        .filter(|name| name.starts_with("ppt/slides/slide") && name.ends_with(".xml"))
+        .filter(|name| {
+            name.starts_with("ppt/slides/slide")
+                && Path::new(name)
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("xml"))
+        })
         .collect();
     names.sort();
     let mut slides = Vec::new();

@@ -385,7 +385,7 @@ impl Element for ListImmElement {
             start_idx,
             end_idx,
             total_count,
-            bands: Default::default(),
+            bands: atlas_model::grouping::RowBands::default(),
         };
 
         let content_mask = window.content_mask().bounds;
@@ -733,8 +733,12 @@ impl Element for ListImmElement {
                                     .accent
                                     .opacity(if cell.selected { 0.95 } else { 0.65 });
                             window.paint_quad(
-                                gpui::outline(cell_bounds, outline_color, Default::default())
-                                    .corner_radii(Corners::all(px(4.0 * zoom))),
+                                gpui::outline(
+                                    cell_bounds,
+                                    outline_color,
+                                    gpui::BorderStyle::default(),
+                                )
+                                .corner_radii(Corners::all(px(4.0 * zoom))),
                             );
                         }
 
@@ -1403,7 +1407,7 @@ mod tests {
             start_idx: 0,
             end_idx: 8,
             total_count: 8,
-            bands: Default::default(),
+            bands: atlas_model::grouping::RowBands::default(),
         };
         // Scrolled one column: the left edge shows column 1 (positions 3..6).
         assert_eq!(model.hit_entry(point(px(15.0), px(25.0))), Some(103));

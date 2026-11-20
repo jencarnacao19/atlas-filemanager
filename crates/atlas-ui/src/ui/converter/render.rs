@@ -298,7 +298,9 @@ impl App {
         let count = session.options().len();
         let key = event.keystroke.key.as_str();
         // Keyboard takes over from a stale pointer preview.
-        self.converter.as_mut().unwrap().hovered = None;
+        if let Some(session) = self.converter.as_mut() {
+            session.hovered = None;
+        }
         match key {
             "escape" => self.dismiss_converter(),
             "left" if event.keystroke.modifiers.alt => self.converter_back(),
@@ -310,6 +312,8 @@ impl App {
             _ if !choosing || count == 0 => {}
             "left" | "right" | "up" | "down" | "pageup" | "pagedown" | "tab" | "home" | "end" => {
                 let rings = geometry::rings(count);
+                // reason: `self.converter` is checked at the top of this handler.
+                #[allow(clippy::unwrap_used)]
                 let session = self.converter.as_mut().unwrap();
                 let current = session.selected.min(count - 1);
                 let outward = matches!(key, "up" | "pageup");
@@ -339,6 +343,8 @@ impl App {
             digit if matches!(digit.parse::<usize>(), Ok(1..=9)) => {
                 let rings = geometry::rings(count);
                 let n = digit.parse::<usize>().unwrap_or(1) - 1;
+                // reason: `self.converter` is checked at the top of this handler.
+                #[allow(clippy::unwrap_used)]
                 let session = self.converter.as_mut().unwrap();
                 if let Some(ring) = geometry::ring_of(&rings, session.selected.min(count - 1)) {
                     if n < ring.len {
@@ -476,6 +482,8 @@ impl App {
         let win = window.bounds().size;
         let (ww, wh) = (f32::from(win.width), f32::from(win.height));
         let zoom = f32::from(window.rem_size()) / crate::ui::BASE_PX;
+        // reason: `self.converter` is checked at the top of `render_converter`.
+        #[allow(clippy::unwrap_used)]
         let anchor = *self
             .converter
             .as_mut()
@@ -515,6 +523,8 @@ impl App {
             border.opacity(0.55)
         };
 
+        // reason: `self.converter` is checked at the top of `render_converter`.
+        #[allow(clippy::unwrap_used)]
         let wheel_slot = match &self.converter.as_ref().unwrap().phase {
             Phase::Discovering => v_flex()
                 .size(px(d))
@@ -805,6 +815,8 @@ impl App {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let diameter = geometry::radius(&rings) * 2.0 * scale;
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_ref().unwrap();
         let options = session.options();
         if options.is_empty() {
@@ -857,6 +869,8 @@ impl App {
         };
         let opened = session.opened;
         let app = cx.entity().downgrade();
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_mut().unwrap();
         let view = session
             .wheel
@@ -880,6 +894,8 @@ impl App {
         &mut self,
         cx: &mut Context<Self>,
     ) -> (AnyElement, Option<AnyElement>) {
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_ref().unwrap();
         let (fg, muted, accent, accent_fg, danger) = {
             let t = cx.theme();
@@ -1083,11 +1099,15 @@ impl App {
                     .child(text(note)),
             );
         }
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_ref().unwrap();
         if !enabled || session.package.is_some() || session.package_error.is_some() {
             column = column.child(self.render_conversion_detail(cx));
         }
 
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_ref().unwrap();
         let multi_ring = geometry::rings(session.options().len()).len() > 1;
         let footer = v_flex()
@@ -1138,6 +1158,8 @@ impl App {
     }
 
     fn render_conversion_detail(&mut self, cx: &mut Context<Self>) -> AnyElement {
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_ref().unwrap();
         let options = session.options();
         let Some(option) = options.get(session.selected) else {
@@ -1190,7 +1212,10 @@ impl App {
                     .get(tool)
                     .filter(|_| session.package.is_none())
                 {
-                    let size = format!("{:.1} MiB", request.tool.download_bytes as f64 / 1048576.0);
+                    let size = format!(
+                        "{:.1} MiB",
+                        request.tool.download_bytes as f64 / 1_048_576.0
+                    );
                     detail = detail.child(button(
                         "convert-install-package",
                         rust_i18n::t!("convert_install_package", engine = tool.name(), size = size)
@@ -1205,7 +1230,7 @@ impl App {
                                     "convert_package_disk",
                                     size = format!(
                                         "{:.1} MiB",
-                                        request.tool.installed_bytes as f64 / 1048576.0
+                                        request.tool.installed_bytes as f64 / 1_048_576.0
                                     )
                                 )
                                 .into_owned(),
@@ -1252,12 +1277,12 @@ impl App {
             let label = match package.progress {
                 atlas_core::ext::tool_package::Progress::Download { bytes, total } => {
                     let amount = total.map_or_else(
-                        || format!("{:.1} MiB", bytes as f64 / 1048576.0),
+                        || format!("{:.1} MiB", bytes as f64 / 1_048_576.0),
                         |total| {
                             format!(
                                 "{:.1} / {:.1} MiB",
-                                bytes as f64 / 1048576.0,
-                                total as f64 / 1048576.0
+                                bytes as f64 / 1_048_576.0,
+                                total as f64 / 1_048_576.0
                             )
                         },
                     );
@@ -1313,6 +1338,8 @@ impl App {
         edge_applies: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_ref().unwrap();
         let quality = session.settings.quality;
         let edge = session.settings.max_edge;

@@ -124,6 +124,8 @@ pub(crate) fn row_content_epoch(
     tab.search.generation.hash(&mut epoch);
     tab.show_files.hash(&mut epoch);
     tab.show_folders.hash(&mut epoch);
+    // reason: false positive; the sorted list is read by `hash` just below.
+    #[allow(clippy::collection_is_never_read)]
     let mut types: Vec<_> = types.into_iter().flatten().collect();
     types.sort();
     types.hash(&mut epoch);
@@ -830,7 +832,7 @@ impl Element for DetailsBodyElement {
                             window.paint_quad(gpui::outline(
                                 row_bounds,
                                 outline_color,
-                                Default::default(),
+                                gpui::BorderStyle::default(),
                             ));
                         }
 
@@ -878,7 +880,7 @@ impl Element for DetailsBodyElement {
                                 },
                                 SharedString::from(path),
                                 None,
-                                Default::default(),
+                                gpui::TransformationMatrix::default(),
                                 muted,
                                 cx,
                             );

@@ -80,7 +80,7 @@ impl DocumentRangeSemanticTokensProvider for AtlasSyntaxTokensProvider {
                     | atlas_core::fs::preview::syntax::TokenKind::LogError => 5,
                     atlas_core::fs::preview::syntax::TokenKind::Symbol => 6,
                     atlas_core::fs::preview::syntax::TokenKind::Identifier => 7,
-                    _ => 7,
+                    atlas_core::fs::preview::syntax::TokenKind::Whitespace => 7,
                 };
 
                 let col_start = tok.range.start as u32;

@@ -16,7 +16,7 @@ use std::{
 };
 
 const MAX_DEPTH: usize = 128;
-const UNSAFE_ATTRIBUTES: u32 = 0x400 | 0x1000 | 0x40000 | 0x400000;
+const UNSAFE_ATTRIBUTES: u32 = 0x400 | 0x1000 | 0x40000 | 0x0040_0000;
 
 pub(super) struct Control {
     pub cancel: Arc<AtomicBool>,
@@ -80,7 +80,11 @@ fn visit<'s>(
         return;
     }
     if depth >= MAX_DEPTH || path.as_os_str().len() > 16_384 {
-        shared.builder.lock().unwrap().limited = true;
+        shared
+            .builder
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .limited = true;
         return;
     }
     let mut dirs: Vec<(String, PathBuf)> = Vec::new();
@@ -114,7 +118,10 @@ fn visit<'s>(
     shared.control.files.fetch_add(files, Ordering::Relaxed);
     shared.control.bytes.fetch_add(bytes, Ordering::Relaxed);
     let children: Vec<u32> = {
-        let mut builder = shared.builder.lock().unwrap();
+        let mut builder = shared
+            .builder
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         builder.skipped += skipped;
         if result.is_err() {
             builder.errors += 1;
@@ -167,7 +174,10 @@ pub(super) fn walk(
         }
         let _ = job.join();
     });
-    let builder = shared.builder.into_inner().unwrap();
+    let builder = shared
+        .builder
+        .into_inner()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     Ok(builder.finish(root.to_owned(), ScanBackend::NativeDirectory))
 }
 

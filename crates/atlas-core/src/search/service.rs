@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 pub const PROTOCOL_VERSION: u32 = 1;
 pub const PIPE_PATH: &str = r"\\.\pipe\AtlasSearchService-v1";
 
+// reason: IPC messages are built once per request; boxing buys nothing.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServiceRequest {
     Hello { protocol: u32 },
@@ -292,7 +294,6 @@ mod tests {
 
     #[test]
     #[ignore = "needs a built atlas-search-service executable"]
-
     fn test_find_search_service_exe() {
         let exe = find_search_service_exe();
         assert!(
@@ -303,7 +304,6 @@ mod tests {
 
     #[test]
     #[ignore = "needs the search service and real drives"]
-
     fn test_ensure_service_and_multi_drive_search() {
         let started = ensure_service_started();
         assert!(started, "search service should start and be available");
@@ -322,7 +322,7 @@ mod tests {
             .iter()
             .filter_map(|r| r.path.to_str()?.chars().next())
             .collect();
-        println!("Drives found in search results: {:?}", drive_letters);
+        println!("Drives found in search results: {drive_letters:?}");
         assert!(
             drive_letters.contains(&'C')
                 || drive_letters.contains(&'F')

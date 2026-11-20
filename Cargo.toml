@@ -101,6 +101,36 @@ too_many_arguments = "allow"
 unused_self = "allow"
 # gpui action structs derive Deserialize next to `unsafe impl` glue from gpui.
 unsafe_derive_deserialize = "allow"
+# Arms that happen to share a body still describe different cases.
+match_same_arms = "allow"
+# Builder-style element methods follow gpui, which does not mark them either.
+return_self_not_must_use = "allow"
+# Geometry code uses x/y/w/h-style names on purpose.
+many_single_char_names = "allow"
+fn_params_excessive_bools = "allow"
+# gpui callback and element types are long by nature.
+type_complexity = "allow"
+# Nursery lint with known false positives around guards held across calls.
+significant_drop_tightening = "allow"
+# `{:?}` on paths quotes them in logs, which is the intent.
+unnecessary_debug_formatting = "allow"
+# perf spans are zero-sized without the perf-log feature; `drop(span)` marks
+# where a span ends in every build.
+drop_non_drop = "allow"
+# Mostly flags cheap constructors (`Path::new("")`, small tuples).
+or_fun_call = "allow"
+# `match` arms that log or `continue` read better than `let ... else`.
+manual_let_else = "allow"
+# Exact comparisons against sentinels (opacity 1.0, the max of the same inputs).
+float_cmp = "allow"
+branches_sharing_code = "allow"
+iter_on_single_items = "allow"
+literal_string_with_formatting_args = "allow"
+format_collect = "allow"
+needless_range_loop = "allow"
+# Fields and parameters prefixed `_` are kept alive or platform-gated on purpose.
+used_underscore_binding = "allow"
+useless_let_if_seq = "allow"
 
 # Bundle metadata for `cargo bundle` (cargo install cargo-bundle).
 # Produces a macOS .app / Linux .deb with the icon and identifier below.

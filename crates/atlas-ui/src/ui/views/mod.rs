@@ -271,7 +271,7 @@ impl App {
             .get(pane_id)
             .and_then(|tile| match tile {
                 Tile::Pane(pane) => Some(&pane.location),
-                _ => None,
+                Tile::Container(_) => None,
             })
             .is_some_and(should_suppress_loading);
         match load_state {

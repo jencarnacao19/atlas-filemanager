@@ -55,7 +55,7 @@ pub(crate) fn recycle_bin_contains_items() -> Option<bool> {
         ..Default::default()
     };
     unsafe {
-        SHQueryRecycleBinW(PCWSTR::null(), &mut info).ok()?;
+        SHQueryRecycleBinW(PCWSTR::null(), &raw mut info).ok()?;
     }
     Some(info.i64NumItems > 0)
 }
@@ -132,17 +132,19 @@ fn resize_tier(src: &image::RgbaImage, edge: u32) -> (Vec<u8>, usize, usize) {
     // Premultiply before filtering so transparent edges don't halo.
     let mut pm = src.clone();
     for px in pm.pixels_mut() {
-        let a = px[3] as u32;
+        let a = u32::from(px[3]);
         for c in 0..3 {
-            px[c] = ((px[c] as u32 * a + 127) / 255) as u8;
+            px[c] = ((u32::from(px[c]) * a + 127) / 255) as u8;
         }
     }
     let mut out = image::imageops::resize(&pm, edge, edge, image::imageops::FilterType::Lanczos3);
     for px in out.pixels_mut() {
-        let a = px[3] as u32;
+        let a = u32::from(px[3]);
+        // reason: one guard covers three channel divisions by the same alpha.
+        #[allow(clippy::manual_checked_ops)]
         if a > 0 {
             for c in 0..3 {
-                px[c] = ((px[c] as u32 * 255 + a / 2) / a).min(255) as u8;
+                px[c] = ((u32::from(px[c]) * 255 + a / 2) / a).min(255) as u8;
             }
         }
     }
@@ -394,7 +396,7 @@ fn shell_image_from_parsing_name(
         let got = GetObjectW(
             HGDIOBJ(hbitmap.0),
             size_of::<BITMAP>() as i32,
-            Some(&mut bm as *mut _ as *mut _),
+            Some(std::ptr::from_mut(&mut bm).cast()),
         );
         if got == 0 {
             let _ = DeleteObject(HGDIOBJ(hbitmap.0));
@@ -423,13 +425,13 @@ fn shell_image_from_parsing_name(
         };
         let mut pixels = vec![0u8; w * h * 4];
         // BITMAPINFO = BITMAPINFOHEADER + RGBQUAD[1]; no RGBQUAD needed for 32bpp BI_RGB.
-        let bi_ptr = &mut bi_header as *mut BITMAPINFOHEADER as *mut BITMAPINFO;
+        let bi_ptr = std::ptr::from_mut(&mut bi_header).cast::<BITMAPINFO>();
         let rows = GetDIBits(
             hdc,
             hbitmap,
             0,
             h as u32,
-            Some(pixels.as_mut_ptr() as *mut _),
+            Some(pixels.as_mut_ptr().cast()),
             bi_ptr,
             DIB_RGB_COLORS,
         );
@@ -451,7 +453,7 @@ fn shell_image_from_parsing_name(
             let r = chunk[2];
             let a = if has_alpha { chunk[3] } else { 255 };
             let (r, g, b) = if has_alpha && a != 0 {
-                let un = |c: u8| ((c as u32 * 255) / a as u32).min(255) as u8;
+                let un = |c: u8| ((u32::from(c) * 255) / u32::from(a)).min(255) as u8;
                 (un(r), un(g), un(b))
             } else {
                 (r, g, b)
@@ -479,7 +481,7 @@ mod tests {
         let t0 = std::time::Instant::now();
         let thumb = shell_thumbnail(video, 256);
         let elapsed = t0.elapsed();
-        println!("shell_thumbnail took: {:?}", elapsed);
+        println!("shell_thumbnail took: {elapsed:?}");
         assert!(
             thumb.is_some(),
             "Expected thumbnail from Windows Shell for video"

@@ -117,6 +117,8 @@ fn extract_zip(bytes: &[u8], destination: &Path) -> Result<()> {
     Ok(())
 }
 
+// reason: dispatched alongside the async sidecar commands.
+#[allow(clippy::unused_async)]
 async fn reset_default(request: &SidecarCommandRequest) -> Result<()> {
     let mappings_path = request.data_dir.join("theme_mappings.json");
     if mappings_path.exists() {

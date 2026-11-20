@@ -357,9 +357,7 @@ fn binary_path_uncached(name: &str) -> Option<PathBuf> {
     if direct.is_file() {
         return Some(direct.to_path_buf());
     }
-    let Some(paths) = std::env::var_os("PATH") else {
-        return None;
-    };
+    let paths = std::env::var_os("PATH")?;
     std::env::split_paths(&paths)
         .find_map(|dir| {
             let candidate = dir.join(name);

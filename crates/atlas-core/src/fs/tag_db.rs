@@ -202,7 +202,7 @@ fn handle(
             let _ = bg_tx.send(BgResult::TagAssignmentComplete {
                 tag,
                 paths,
-                result: result.as_ref().map(|()| ()).map_err(ToString::to_string),
+                result: result.as_ref().copied().map_err(ToString::to_string),
             });
             result?;
         }
@@ -366,7 +366,14 @@ mod tests {
                 .unwrap(),
             2
         );
+
+        // reason: collecting drains the channel, so the `recv` below sees only
+
+        // the reply to the next command.
+
+        #[allow(clippy::needless_collect)]
         let events: Vec<_> = rx.try_iter().collect();
+
         assert!(events.into_iter().any(|event| matches!(event,
             BgResult::TagAssignmentComplete { tag: assigned, paths: targets, result: Ok(()) }
                 if assigned == tag && targets == paths

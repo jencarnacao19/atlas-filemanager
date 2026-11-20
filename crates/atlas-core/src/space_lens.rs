@@ -69,7 +69,7 @@ impl Default for SpaceLensState {
         Self {
             watcher: None,
             watch_rx,
-            dir_stats: Default::default(),
+            dir_stats: crate::fs::dir_stats::DirtyDirStats::default(),
             pending_changes: Vec::new(),
             active_path: None,
             items: Vec::new(),
@@ -148,7 +148,7 @@ impl SpaceLensState {
     }
 
     pub fn close(&mut self) {
-        self.dir_stats = Default::default();
+        self.dir_stats = crate::fs::dir_stats::DirtyDirStats::default();
         self.pending_changes.clear();
         self.active_scan_id = self.scan_generation.fetch_add(1, Ordering::Relaxed) + 1;
         self.watcher = None;

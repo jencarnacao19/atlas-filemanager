@@ -51,7 +51,7 @@ pub async fn install_winfsp(progress: impl Fn(u64, u64) + Send + 'static) -> any
 
     // Download the MSI.
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(120))
+        .timeout(std::time::Duration::from_mins(2))
         .build()?;
     let mut response = client
         .get(URL)

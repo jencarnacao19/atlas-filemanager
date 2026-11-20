@@ -1,4 +1,7 @@
 //! Real RC API contract test using two isolated local aliases, never user accounts.
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 #![cfg(feature = "cloud-backend")]
 
 use atlas_core::cloud::provider::{CloudProvider, ProgressSink};

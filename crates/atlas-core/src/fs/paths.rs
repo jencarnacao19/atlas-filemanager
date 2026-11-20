@@ -84,7 +84,9 @@ pub fn list_wsl_roots() -> Vec<PathBuf> {
     let cache_arc = WSL_ROOT_CACHE
         .get_or_init(|| Arc::new(Mutex::new(None)))
         .clone();
-    let mut cache = cache_arc.lock().unwrap();
+    let mut cache = cache_arc
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
 
     if let Some((last_update, roots, is_updating)) = &mut *cache {
         if last_update.elapsed() < WSL_CACHE_TTL {

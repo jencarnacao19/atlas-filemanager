@@ -94,7 +94,9 @@ pub(crate) fn paint_thumbnail_state(
     let theme = cx.theme();
     let dark = theme.is_dark();
     let inner = gpui::black().opacity(if dark { 0.35 } else { 0.12 });
-    window.paint_quad(gpui::outline(bounds, inner, Default::default()).corner_radii(corners));
+    window.paint_quad(
+        gpui::outline(bounds, inner, gpui::BorderStyle::default()).corner_radii(corners),
+    );
     let ring_bounds = bounds.dilate(px(1.0));
     let ring = if hovered {
         theme.accent.opacity(if dark { 0.75 } else { 0.65 })
@@ -102,7 +104,8 @@ pub(crate) fn paint_thumbnail_state(
         theme.foreground.opacity(if dark { 0.16 } else { 0.14 })
     };
     window.paint_quad(
-        gpui::outline(ring_bounds, ring, Default::default()).corner_radii(Corners::all(px(4.0))),
+        gpui::outline(ring_bounds, ring, gpui::BorderStyle::default())
+            .corner_radii(Corners::all(px(4.0))),
     );
 }
 
@@ -172,9 +175,8 @@ impl App {
 
     #[cfg(target_os = "windows")]
     pub(crate) fn request_shell_folder_icon(&mut self) {
-        let folder = std::env::var_os("WINDIR")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
+        let folder =
+            std::env::var_os("WINDIR").map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from);
         self.request_shell_icon_tiers(Self::shell_folder_icon_key(), folder, false);
     }
 
@@ -506,7 +508,7 @@ impl App {
             if visible_only
                 && !wanted
                     .lock()
-                    .unwrap_or_else(|p| p.into_inner())
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .contains(&path)
             {
                 let _ = tx.send(BgResult::GridThumbnailSkipped { path: report });
@@ -517,7 +519,7 @@ impl App {
                 if visible_only
                     && !wanted_check
                         .lock()
-                        .unwrap_or_else(|p| p.into_inner())
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
                         .contains(&path)
                 {
                     return Err(());
@@ -587,6 +589,8 @@ impl App {
 
 /// Decode `path` and box-resize so its longest edge is `max_edge`, returning packed
 /// RGBA8. Returns an empty vec on any failure (cached as a permanent miss).
+// reason: only called from the background thumbnail worker.
+#[allow(clippy::disallowed_methods)]
 fn decode_thumbnail(path: &std::path::Path, max_edge: u32) -> BgResult {
     if atlas_core::fs::preview::is_cloud_placeholder(path) {
         return BgResult::GridThumbnailReady {

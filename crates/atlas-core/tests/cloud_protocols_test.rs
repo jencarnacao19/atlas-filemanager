@@ -1,3 +1,6 @@
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::Arc;

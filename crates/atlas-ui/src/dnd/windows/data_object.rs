@@ -11,6 +11,9 @@
 //!
 //! # Future (Phase 5 — virtual / archive)
 //! Add `CFSTR_FILEDESCRIPTORW` + `CFSTR_FILECONTENTS` (TYMED_ISTREAM) here.
+// reason: COM glue: these lints fire inside the windows-rs `#[implement]` expansion,
+// and `new` returns the COM interface rather than `Self` by design.
+#![allow(clippy::ref_as_ptr, clippy::inline_always, clippy::new_ret_no_self)]
 #![allow(unsafe_code)]
 // reason: COM vtable, HGLOBAL and raw-pointer manipulation are inherently unsafe.
 
@@ -62,7 +65,7 @@ unsafe fn build_hdrop(paths: &[PathBuf]) -> isize {
     if hglobal.is_invalid() {
         return 0;
     }
-    let ptr = GlobalLock(hglobal) as *mut u8;
+    let ptr = GlobalLock(hglobal).cast::<u8>();
     if ptr.is_null() {
         let _ = GlobalFree(Some(hglobal));
         return 0;
@@ -71,12 +74,14 @@ unsafe fn build_hdrop(paths: &[PathBuf]) -> isize {
     // Zero the header.
     std::ptr::write_bytes(ptr, 0, total);
 
-    let df = ptr as *mut DROPFILES;
+    let df = ptr.cast::<DROPFILES>();
     (*df).pFiles = dropfiles_size as u32;
     (*df).fWide = BOOL(1);
 
     // Copy wide chars after the DROPFILES header.
-    let data_ptr = ptr.add(dropfiles_size) as *mut u16;
+    // reason: GlobalAlloc memory is 8-byte aligned and DROPFILES is 20 bytes.
+    #[allow(clippy::cast_ptr_alignment)]
+    let data_ptr = ptr.add(dropfiles_size).cast::<u16>();
     for (i, &ch) in wide.iter().enumerate() {
         data_ptr.add(i).write(ch);
     }
@@ -94,7 +99,7 @@ pub(super) unsafe fn build_bytes_hglobal(bytes: &[u8]) -> isize {
     if hglobal.is_invalid() {
         return 0;
     }
-    let ptr = GlobalLock(hglobal) as *mut u8;
+    let ptr = GlobalLock(hglobal).cast::<u8>();
     if ptr.is_null() {
         let _ = GlobalFree(Some(hglobal));
         return 0;
@@ -110,7 +115,7 @@ pub(super) unsafe fn build_u32_hglobal(value: u32) -> isize {
     if hglobal.is_invalid() {
         return 0;
     }
-    let ptr = GlobalLock(hglobal) as *mut u32;
+    let ptr = GlobalLock(hglobal).cast::<u32>();
     if ptr.is_null() {
         let _ = GlobalFree(Some(hglobal));
         return 0;
@@ -136,7 +141,7 @@ unsafe fn clone_hglobal(src: isize) -> isize {
         let _ = GlobalUnlock(src_hg);
         return 0;
     }
-    let dst_ptr = GlobalLock(dst_hg) as *mut u8;
+    let dst_ptr = GlobalLock(dst_hg).cast::<u8>();
     if dst_ptr.is_null() {
         let _ = GlobalUnlock(src_hg);
         let _ = GlobalFree(Some(dst_hg));
@@ -281,9 +286,9 @@ impl AtlasDataObject {
         // Drop secondary formats whose HGLOBAL failed to build.
         formats.retain(|f| f.hglobal != 0);
         Some(
-            AtlasDataObject {
+            Self {
                 formats,
-                dynamic: Default::default(),
+                dynamic: std::cell::RefCell::default(),
                 performed_effect,
                 cf_performed,
                 on_performed,
@@ -498,17 +503,19 @@ mod ownership_tests {
                 let mut medium: STGMEDIUM = std::mem::zeroed();
                 medium.tymed = TYMED_HGLOBAL.0 as u32;
                 medium.u.hGlobal = HGLOBAL(original as *mut _);
-                object.SetData(&format, &medium, release).unwrap();
+                object
+                    .SetData(&raw const format, &raw const medium, release)
+                    .unwrap();
                 if !release {
-                    ReleaseStgMedium(&mut medium);
+                    ReleaseStgMedium(&raw mut medium);
                 }
-                object.QueryGetData(&format).ok().unwrap();
-                let mut copied = object.GetData(&format).unwrap();
+                object.QueryGetData(&raw const format).ok().unwrap();
+                let mut copied = object.GetData(&raw const format).unwrap();
                 let pointer = GlobalLock(copied.u.hGlobal) as *const u32;
                 assert!(!pointer.is_null());
                 assert_eq!(pointer.read(), value);
                 let _ = GlobalUnlock(copied.u.hGlobal);
-                ReleaseStgMedium(&mut copied);
+                ReleaseStgMedium(&raw mut copied);
             }
             let formats = object.EnumFormatEtc(DATADIR_GET.0 as u32).unwrap();
             let mut found = false;
@@ -516,7 +523,7 @@ mod ownership_tests {
                 let mut item: FORMATETC = std::mem::zeroed();
                 let mut fetched = 0;
                 if formats
-                    .Next(std::slice::from_mut(&mut item), Some(&mut fetched))
+                    .Next(std::slice::from_mut(&mut item), Some(&raw mut fetched))
                     .is_err()
                     || fetched == 0
                 {

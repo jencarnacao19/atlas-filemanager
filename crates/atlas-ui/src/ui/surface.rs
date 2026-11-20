@@ -56,7 +56,7 @@ pub(crate) fn track_hover<K: Clone + PartialEq + 'static>(
     let position = window.mouse_position();
     let current = hover_target(&hits, origin, position, hitbox.is_hovered(window));
     let state = window.use_keyed_state(key, cx, |_, _| None::<K>);
-    state.update(cx, |last, _| *last = current.clone());
+    state.update(cx, |last, _| last.clone_from(&current));
     let owner = window.current_view();
     let hitbox = hitbox.clone();
     window.on_mouse_event::<gpui::MouseMoveEvent>(move |event, phase, window, cx| {
@@ -263,7 +263,7 @@ pub(crate) fn paint_rounded_corners(
         color,
         Edges::all(px(0.0)),
         transparent_black(),
-        Default::default(),
+        gpui::BorderStyle::default(),
     ));
 }
 
@@ -278,7 +278,7 @@ pub(crate) fn paint_svg_icon(
         bounds,
         SharedString::from(path),
         None,
-        Default::default(),
+        gpui::TransformationMatrix::default(),
         color,
         cx,
     );
