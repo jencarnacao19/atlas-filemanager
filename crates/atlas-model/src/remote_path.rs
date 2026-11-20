@@ -17,7 +17,7 @@ fn hex(value: &str) -> String {
         .collect()
 }
 fn unhex(value: &str) -> Option<String> {
-    if value.len() % 2 != 0 {
+    if !value.len().is_multiple_of(2) {
         return None;
     }
     let bytes = (0..value.len())

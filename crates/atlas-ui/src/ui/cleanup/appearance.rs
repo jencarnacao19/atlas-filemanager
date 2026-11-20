@@ -6,7 +6,7 @@ use crate::ui::{
     icons::{is_windows_theme, theme_icon, AtlasIcon},
 };
 use atlas_model::file_entry::FileKind;
-use gpui::{prelude::*, *};
+use gpui::{div, prelude::*, relative, transparent_black, AnyElement, ColorExt, FontWeight, Hsla};
 use gpui_component::{
     button::{Button, ButtonVariants},
     h_flex, v_flex, ActiveTheme, Disableable, Sizable,
@@ -82,7 +82,7 @@ impl CleanupPanel {
                     self.cats
                         .iter()
                         .filter(|c| c.enabled)
-                        .map(|c| c.bytes())
+                        .map(super::CatState::bytes)
                         .sum()
                 ),
                 tr("cleanup_selected_short")

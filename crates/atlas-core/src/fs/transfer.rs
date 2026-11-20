@@ -744,7 +744,7 @@ async fn copy_recursive(src: &Path, dst: &Path, ctx: &mut TransferCtx) -> FileOu
             if let Err(e) = trash_path(dst).await {
                 ctx.errors.push(OpError {
                     path: dst.to_path_buf(),
-                    kind: OpErrorKind::ReplaceFailed(e.to_string()),
+                    kind: OpErrorKind::ReplaceFailed(e),
                 });
                 return FileOutcome::Done;
             }
@@ -791,7 +791,7 @@ async fn copy_recursive(src: &Path, dst: &Path, ctx: &mut TransferCtx) -> FileOu
             if let Err(e) = trash_path(dst).await {
                 ctx.errors.push(OpError {
                     path: dst.to_path_buf(),
-                    kind: OpErrorKind::ReplaceFailed(e.to_string()),
+                    kind: OpErrorKind::ReplaceFailed(e),
                 });
                 return FileOutcome::Done;
             }
@@ -913,7 +913,7 @@ pub async fn execute(
                     } else if let Err(e) = trash_path(&dst).await {
                         report.errors.push(OpError {
                             path: dst.clone(),
-                            kind: OpErrorKind::ReplaceFailed(e.to_string()),
+                            kind: OpErrorKind::ReplaceFailed(e.clone()),
                         });
                         continue;
                     }
@@ -1119,7 +1119,7 @@ mod tests {
         let dir = tmp.path().join("dir");
         let inner = dir.join("inner");
         fs::create_dir_all(&inner).unwrap();
-        let out = validate(&req(vec![dir.clone()], &inner, TransferKind::Move));
+        let out = validate(&req(vec![dir], &inner, TransferKind::Move));
         assert!(out.valid.is_empty());
         assert_eq!(out.errors.len(), 1);
         assert_eq!(out.errors[0].kind, OpErrorKind::SelfNested);
@@ -1188,7 +1188,7 @@ mod tests {
         let src = tmp.path().join("$Rabc123");
         write(&src, "1");
         let names = vec![OsString::from("foto.png")];
-        let (conflicts, clean) = detect_conflicts(&[src.clone()], Some(&names), &dest);
+        let (conflicts, clean) = detect_conflicts(std::slice::from_ref(&src), Some(&names), &dest);
         assert!(conflicts.is_empty());
         let out = build_pairs(&clean, &conflicts, &ConflictPolicy::Ask, &dest);
         assert_eq!(out.pairs[0].src, src);
@@ -1331,7 +1331,7 @@ mod tests {
         let src = tmp.path().join("a.txt");
         write(&src, "new");
         write(&dest.join("a.txt"), "old");
-        let (conflicts, clean) = detect_conflicts(&[src.clone()], None, &dest);
+        let (conflicts, clean) = detect_conflicts(std::slice::from_ref(&src), None, &dest);
         let out = build_pairs(&clean, &conflicts, &ConflictPolicy::RenameAll, &dest);
         let report = run(out.pairs, TransferKind::Move, not_cancelled()).await;
         assert!(report.errors.is_empty(), "{:?}", report.errors);
@@ -1351,7 +1351,7 @@ mod tests {
         let src = tmp.path().join("a.txt");
         write(&src, "new");
         write(&dest.join("a.txt"), "old");
-        let (conflicts, clean) = detect_conflicts(&[src.clone()], None, &dest);
+        let (conflicts, clean) = detect_conflicts(std::slice::from_ref(&src), None, &dest);
         let out = build_pairs(&clean, &conflicts, &ConflictPolicy::OverwriteAll, &dest);
         let report = run(out.pairs, TransferKind::Move, not_cancelled()).await;
         assert!(report.errors.is_empty(), "{:?}", report.errors);
@@ -1368,7 +1368,7 @@ mod tests {
         fs::create_dir(&src_dir).unwrap();
         write(&src_dir.join("new.txt"), "n");
         write(&dest.join("dir").join("keep.txt"), "k");
-        let (conflicts, clean) = detect_conflicts(&[src_dir.clone()], None, &dest);
+        let (conflicts, clean) = detect_conflicts(std::slice::from_ref(&src_dir), None, &dest);
         let out = build_pairs(&clean, &conflicts, &ConflictPolicy::OverwriteAll, &dest);
         let report = run(out.pairs, TransferKind::Copy, not_cancelled()).await;
         assert!(report.errors.is_empty(), "{:?}", report.errors);

@@ -11,7 +11,7 @@ pub(crate) fn loading_spinner(color: Hsla, animate: bool) -> AnyElement {
     let epoch = *EPOCH.get_or_init(Instant::now);
     canvas(
         |_, _, _| (),
-        move |bounds, _, window, _cx| {
+        move |bounds, (), window, _cx| {
             let angle = if animate {
                 angle_degrees(epoch.elapsed().as_secs_f64())
             } else {

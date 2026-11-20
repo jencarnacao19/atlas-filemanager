@@ -278,7 +278,7 @@ fn shortcut_badge(
                     badge_fg,
                 )
             };
-            let start_view = view.clone();
+            let start_view = view;
             let start_id = command_id.clone();
             Some(
                 div()
@@ -886,7 +886,7 @@ impl App {
             .text_xs()
             .font_weight(FontWeight::SEMIBOLD)
             .text_color(text_color)
-            .when(props.collapsible, |header| header.cursor_pointer())
+            .when(props.collapsible, gpui::Styled::cursor_pointer)
             .when(props.selected, |s| s.bg(props.colors.fg.opacity(0.08)))
             .when(!props.selected && props.collapsible, |s| {
                 s.hover(|h| h.bg(props.colors.fg.opacity(0.05)))
@@ -1268,20 +1268,23 @@ impl App {
                                 if is_create {
                                     actions_to_run.push(action.clone());
                                 }
-                                path.map(|p| Action::OpenDirInRightSplit { pane, path: p })
-                                    .unwrap_or_else(|| action.clone())
+                                path.map_or_else(
+                                    || action.clone(),
+                                    |p| Action::OpenDirInRightSplit { pane, path: p },
+                                )
                             } else if m.alt || ((m.control || m.platform) && m.shift) {
                                 if is_create {
                                     actions_to_run.push(action.clone());
                                 }
-                                path.map(|p| Action::OpenDirInBottomSplit { pane, path: p })
-                                    .unwrap_or_else(|| action.clone())
+                                path.map_or_else(
+                                    || action.clone(),
+                                    |p| Action::OpenDirInBottomSplit { pane, path: p },
+                                )
                             } else if m.shift && !m.control && !m.platform && !m.alt {
                                 if is_create {
                                     actions_to_run.push(action.clone());
                                 }
-                                path.map(Action::OpenPathInNewWindow)
-                                    .unwrap_or_else(|| action.clone())
+                                path.map_or_else(|| action.clone(), Action::OpenPathInNewWindow)
                             } else {
                                 action.clone()
                             }

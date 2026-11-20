@@ -58,10 +58,7 @@ pub(super) fn preview_video(path: &Path) -> PreviewResult {
         cmd.creation_flags(0x0800_0000);
     }
 
-    let mut ok = cmd
-        .output()
-        .map(|out| out.status.success())
-        .unwrap_or(false);
+    let mut ok = cmd.output().is_ok_and(|out| out.status.success());
     if !ok {
         let mut retry = Command::new("ffmpeg");
         retry
@@ -82,10 +79,7 @@ pub(super) fn preview_video(path: &Path) -> PreviewResult {
             use std::os::windows::process::CommandExt;
             retry.creation_flags(0x0800_0000);
         }
-        ok = retry
-            .output()
-            .map(|out| out.status.success())
-            .unwrap_or(false);
+        ok = retry.output().is_ok_and(|out| out.status.success());
     }
     if ok {
         if let Ok(img) = image::open(&png_path) {

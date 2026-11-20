@@ -257,7 +257,7 @@ pub fn run(
             {
                 tracing::error!(?err, "failed to persist bundled themes to themes_dir");
             }
-            _ = cx.update(|cx| {
+            () = cx.update(|cx| {
                 if let Err(err) = ThemeRegistry::watch_dir(themes_dir, cx, |cx| {
                     cx.refresh_windows();
                 }) {

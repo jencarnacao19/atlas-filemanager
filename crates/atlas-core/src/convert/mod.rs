@@ -409,7 +409,7 @@ fn execute_one(command: &Command, plan: &Plan, cancel: &AtomicBool) -> Result<Pa
         match output.persist_noclobber(&destination) {
             Ok(()) => return Ok(destination),
             Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => {
-                output = error.path
+                output = error.path;
             }
             Err(error) => return Err(error.error.into()),
         }

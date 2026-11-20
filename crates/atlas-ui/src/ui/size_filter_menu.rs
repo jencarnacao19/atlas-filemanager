@@ -156,7 +156,7 @@ impl App {
             let v = view.clone();
             rows.push(
                 size_filter_row(
-                    SharedString::from(format!("sf-{:?}", bucket)),
+                    SharedString::from(format!("sf-{bucket:?}")),
                     &bucket.label(),
                     checked,
                     fg,

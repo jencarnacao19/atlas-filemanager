@@ -112,8 +112,7 @@ mod tests {
             let sz = tex.size(0);
             assert!(
                 sz.width.0 > 0 && sz.height.0 > 0,
-                "Icon {:?} has invalid dimensions",
-                kind
+                "Icon {kind:?} has invalid dimensions"
             );
         }
 

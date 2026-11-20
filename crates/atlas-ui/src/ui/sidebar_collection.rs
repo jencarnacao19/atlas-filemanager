@@ -152,7 +152,7 @@ impl RenderOnce for ReferenceCollection {
             list = list.child(
                 gpui::canvas(
                     |_, _, _| {},
-                    |_, _, window, _| window.request_animation_frame(),
+                    |_, (), window, _| window.request_animation_frame(),
                 )
                 .size(px(0.0)),
             );

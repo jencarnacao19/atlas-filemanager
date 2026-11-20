@@ -11,7 +11,7 @@ impl App {
         let tile = self.state.focused_tile;
         let dir = self
             .tab_data_for(tile)
-            .and_then(|td| td.location.fs_dir().map(|p| p.to_path_buf()));
+            .and_then(|td| td.location.fs_dir().map(std::path::Path::to_path_buf));
         if let Some(dir) = dir {
             if let Some(tab) = self.state.tab_states.get_mut(&tile) {
                 tab.path_edit.editing = false;
@@ -54,7 +54,7 @@ impl App {
             match action {
                 Action::Navigate { tab, path } => self.navigate(tab, path),
                 Action::NavigateLocation { tab, location } => {
-                    self.navigate_to(tab, location, crate::app::nav::NavKind::Push)
+                    self.navigate_to(tab, location, crate::app::nav::NavKind::Push);
                 }
                 Action::NavigateBack(tab_id) => self.navigate_back(tab_id),
                 Action::NavigateForward(tab_id) => self.navigate_forward(tab_id),
@@ -398,7 +398,7 @@ impl App {
                         let root = self
                             .state
                             .active_tab_data()
-                            .and_then(|td| td.location.fs_dir().map(|p| p.to_path_buf()))
+                            .and_then(|td| td.location.fs_dir().map(std::path::Path::to_path_buf))
                             .unwrap_or_else(|| {
                                 dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"))
                             });
@@ -662,7 +662,7 @@ impl App {
                         .tab_states
                         .get(&tile)
                         .and_then(|ts| ts.entries.get(idx))
-                        .map(|e| (e.path(), e.kind().clone(), e.archive_root().clone()));
+                        .map(|e| (e.path(), e.kind(), e.archive_root()));
                     if let Some((path, kind, archive_root)) = entry {
                         if let Some(archive) = archive_root {
                             // Virtual entry inside an archive.
@@ -951,9 +951,7 @@ impl App {
                             .get(&tile)
                             .map(|ts| ts.entries.iter().map(|e| e.name.to_string()).collect())
                             .unwrap_or_default();
-                        let name = if !existing_names.contains(&*base_name) {
-                            base_name.to_string()
-                        } else {
+                        let name = if existing_names.contains(&*base_name) {
                             let mut i = 1;
                             loop {
                                 let candidate = format!("{base_name} ({i})");
@@ -962,6 +960,8 @@ impl App {
                                 }
                                 i += 1;
                             }
+                        } else {
+                            base_name.to_string()
                         };
                         let parent_str = current_path.replace('\\', "/");
                         let folder_path = if parent_str.is_empty() {
@@ -1036,9 +1036,7 @@ impl App {
                             .get(&tile)
                             .map(|ts| ts.entries.iter().map(|e| e.name.to_string()).collect())
                             .unwrap_or_default();
-                        let name = if !existing_names.contains(&*base_name) {
-                            base_name.to_string()
-                        } else {
+                        let name = if existing_names.contains(&*base_name) {
                             let mut i = 1;
                             loop {
                                 let candidate = format!("{base_name} ({i})");
@@ -1047,6 +1045,8 @@ impl App {
                                 }
                                 i += 1;
                             }
+                        } else {
+                            base_name.to_string()
                         };
                         let parent_str = current_path.replace('\\', "/");
                         let file_path = if parent_str.is_empty() {
@@ -1091,7 +1091,9 @@ impl App {
                         let idx = selection
                             .keyboard_cursor
                             .or_else(|| selection.selected.iter().copied().next())?;
-                        entries.get(idx).map(|entry| entry.path())
+                        entries
+                            .get(idx)
+                            .map(atlas_model::file_entry::FileEntry::path)
                     });
                     if let Some(path) = path {
                         self.pending_rename = Some((tile, path, false));
@@ -1188,11 +1190,10 @@ impl App {
                                     if entry.kind() == FileKind::Dir {
                                         entry.path()
                                     } else {
-                                        entry
-                                            .path()
-                                            .parent()
-                                            .map(std::path::Path::to_path_buf)
-                                            .unwrap_or_else(|| entry.path())
+                                        entry.path().parent().map_or_else(
+                                            || entry.path(),
+                                            std::path::Path::to_path_buf,
+                                        )
                                     }
                                 })
                             });
@@ -1205,11 +1206,10 @@ impl App {
                                     return Some(if entry.kind() == FileKind::Dir {
                                         entry.path()
                                     } else {
-                                        entry
-                                            .path()
-                                            .parent()
-                                            .map(std::path::Path::to_path_buf)
-                                            .unwrap_or_else(|| entry.path())
+                                        entry.path().parent().map_or_else(
+                                            || entry.path(),
+                                            std::path::Path::to_path_buf,
+                                        )
                                     });
                                 }
                             }
@@ -1220,11 +1220,10 @@ impl App {
                                         return Some(if entry.kind() == FileKind::Dir {
                                             entry.path()
                                         } else {
-                                            entry
-                                                .path()
-                                                .parent()
-                                                .map(std::path::Path::to_path_buf)
-                                                .unwrap_or_else(|| entry.path())
+                                            entry.path().parent().map_or_else(
+                                                || entry.path(),
+                                                std::path::Path::to_path_buf,
+                                            )
                                         });
                                     }
                                 }
@@ -1410,7 +1409,7 @@ impl App {
                         .filter(|state| state.miller_visible_indices(column).contains(&idx))
                         .and_then(|ts| ts.miller.columns.get(column))
                         .and_then(|c| c.entries.get(idx))
-                        .map(|e| (e.path(), e.kind().clone(), e.archive_root()));
+                        .map(|e| (e.path(), e.kind(), e.archive_root()));
                     if let Some((path, kind, archive_root)) = info {
                         if kind == FileKind::Dir
                             || (archive_root.is_none()
@@ -1448,16 +1447,16 @@ impl App {
                     }
                 }
                 Action::SelectLeftPanel => {
-                    self.select_spatial_panel(crate::ui::tab_reorder::PanelDirection::Left)
+                    self.select_spatial_panel(crate::ui::tab_reorder::PanelDirection::Left);
                 }
                 Action::SelectRightPanel => {
-                    self.select_spatial_panel(crate::ui::tab_reorder::PanelDirection::Right)
+                    self.select_spatial_panel(crate::ui::tab_reorder::PanelDirection::Right);
                 }
                 Action::SelectPanelAbove => {
-                    self.select_spatial_panel(crate::ui::tab_reorder::PanelDirection::Above)
+                    self.select_spatial_panel(crate::ui::tab_reorder::PanelDirection::Above);
                 }
                 Action::SelectPanelBelow => {
-                    self.select_spatial_panel(crate::ui::tab_reorder::PanelDirection::Below)
+                    self.select_spatial_panel(crate::ui::tab_reorder::PanelDirection::Below);
                 }
                 Action::EvenPanelSiblings => self.even_panels(false),
                 Action::EvenAllPanes => self.even_panels(true),
@@ -1790,7 +1789,7 @@ impl App {
         if self
             .state
             .active_tab_data()
-            .map_or(false, |t| t.location.is_archive())
+            .is_some_and(|t| t.location.is_archive())
         {
             self.toast_error(rust_i18n::t!("root_copy_archive_error").into());
             return;
@@ -1805,7 +1804,7 @@ impl App {
         if self
             .state
             .active_tab_data()
-            .map_or(false, |t| t.location.is_archive())
+            .is_some_and(|t| t.location.is_archive())
         {
             self.toast_error(rust_i18n::t!("root_cut_archive_error").into());
             return;
@@ -1820,7 +1819,7 @@ impl App {
         if self
             .state
             .active_tab_data()
-            .map_or(false, |t| t.location.is_archive())
+            .is_some_and(|t| t.location.is_archive())
         {
             self.toast_error(rust_i18n::t!("root_paste_archive_error").into());
             return;
@@ -2066,7 +2065,7 @@ impl App {
 
         let Some(root) = self
             .tab_data_for(tile)
-            .and_then(|td| td.location.fs_dir().map(|p| p.to_path_buf()))
+            .and_then(|td| td.location.fs_dir().map(std::path::Path::to_path_buf))
         else {
             return;
         };

@@ -44,7 +44,7 @@ impl DownloadStage {
     pub fn check(&mut self, result: anyhow::Result<()>) -> anyhow::Result<()> {
         if result
             .as_ref()
-            .is_err_and(|error| error.is::<OutcomeUnknown>())
+            .is_err_and(anyhow::Error::is::<OutcomeUnknown>)
         {
             // A disconnected backend may still be writing. Keep its private
             // staging directory for reconciliation; never expose it as complete.

@@ -581,7 +581,7 @@ impl App {
                                         .text_color(fg)
                                         .child(tr(topic.id, &format!("s{}", n + 1))),
                                 )
-                                .when_some(via, |col, v| col.child(v))
+                                .when_some(via, gpui::ParentElement::child)
                                 .when(s.icons, |col| {
                                     col.child(icon_theme_pills(&view, fg, muted, border, tile_bg))
                                 }),
@@ -966,11 +966,11 @@ impl App {
                                         .font_weight(gpui::FontWeight::LIGHT)
                                         .child(tr(t.id, &format!("s{}", step + 1))),
                                 )
-                                .when_some(via, |col, v| col.child(v)),
+                                .when_some(via, gpui::ParentElement::child),
                         )
                         .when_some(keystroke, |row, ks| row.child(Kbd::new(ks))),
                 )
-                .when_some(icons_row, |col, r| col.child(r))
+                .when_some(icons_row, gpui::ParentElement::child)
                 .when(
                     current.is_some_and(|s| s.command == Some("ext.manager")),
                     |col| col.child(extension_manager_button(&view, fg, tile_bg)),

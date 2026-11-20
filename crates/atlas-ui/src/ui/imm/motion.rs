@@ -258,96 +258,88 @@ impl<K: Eq + Hash + Clone> GridMotion<K> {
         let mut results = Vec::with_capacity(targets.len());
 
         for (key, index, target) in targets {
-            let item = match self.items.get_mut(key) {
-                Some(existing) => {
-                    // A cell that was not in the previous frame left the realised
-                    // span (scrolled away). Its retained bounds predate any zoom or
-                    // reflow since, so re-entering must snap, never replay a FLIP
-                    // from that stale geometry.
-                    let stale = existing.seen_frame.wrapping_add(1) != current_frame;
-                    existing.seen_frame = current_frame;
-                    if instant || stale {
-                        existing.visual = *target;
-                        existing.target = *target;
-                        existing.animating = false;
-                    } else {
-                        let dx = existing.visual.x - target.x;
-                        let dy = existing.visual.y - target.y;
-                        let dw = existing.visual.w - target.w;
-                        let dh = existing.visual.h - target.h;
-                        let target_changed = (existing.target.x - target.x).abs() > 0.5
-                            || (existing.target.y - target.y).abs() > 0.5
-                            || (existing.target.w - target.w).abs() > 0.5
-                            || (existing.target.h - target.h).abs() > 0.5;
+            let item = if let Some(existing) = self.items.get_mut(key) {
+                // A cell that was not in the previous frame left the realised
+                // span (scrolled away). Its retained bounds predate any zoom or
+                // reflow since, so re-entering must snap, never replay a FLIP
+                // from that stale geometry.
+                let stale = existing.seen_frame.wrapping_add(1) != current_frame;
+                existing.seen_frame = current_frame;
+                if instant || stale {
+                    existing.visual = *target;
+                    existing.target = *target;
+                    existing.animating = false;
+                } else {
+                    let dx = existing.visual.x - target.x;
+                    let dy = existing.visual.y - target.y;
+                    let dw = existing.visual.w - target.w;
+                    let dh = existing.visual.h - target.h;
+                    let target_changed = (existing.target.x - target.x).abs() > 0.5
+                        || (existing.target.y - target.y).abs() > 0.5
+                        || (existing.target.w - target.w).abs() > 0.5
+                        || (existing.target.h - target.h).abs() > 0.5;
 
-                        if target_changed
-                            && (dx.abs() > 0.5
-                                || dy.abs() > 0.5
-                                || dw.abs() > 0.5
-                                || dh.abs() > 0.5)
-                        {
-                            existing.start_delta = GridItemBounds {
-                                x: dx,
-                                y: dy,
-                                w: dw,
-                                h: dh,
+                    if target_changed
+                        && (dx.abs() > 0.5 || dy.abs() > 0.5 || dw.abs() > 0.5 || dh.abs() > 0.5)
+                    {
+                        existing.start_delta = GridItemBounds {
+                            x: dx,
+                            y: dy,
+                            w: dw,
+                            h: dh,
+                        };
+                        existing.target = *target;
+                        existing.start_time = now;
+                        existing.animating = true;
+                        active = true;
+                    } else if existing.animating {
+                        let elapsed = now.saturating_duration_since(existing.start_time);
+                        if elapsed < Self::DURATION {
+                            let t = (elapsed.as_secs_f32() / Self::DURATION.as_secs_f32())
+                                .clamp(0.0, 1.0);
+                            let factor = 1.0 - crate::ui::motion::ease_out_quart(t);
+                            existing.visual = GridItemBounds {
+                                x: existing.target.x + existing.start_delta.x * factor,
+                                y: existing.target.y + existing.start_delta.y * factor,
+                                w: (existing.target.w + existing.start_delta.w * factor).max(1.0),
+                                h: (existing.target.h + existing.start_delta.h * factor).max(1.0),
                             };
-                            existing.target = *target;
-                            existing.start_time = now;
                             existing.animating = true;
                             active = true;
-                        } else if existing.animating {
-                            let elapsed = now.saturating_duration_since(existing.start_time);
-                            if elapsed < Self::DURATION {
-                                let t = (elapsed.as_secs_f32() / Self::DURATION.as_secs_f32())
-                                    .clamp(0.0, 1.0);
-                                let factor = 1.0 - crate::ui::motion::ease_out_quart(t);
-                                existing.visual = GridItemBounds {
-                                    x: existing.target.x + existing.start_delta.x * factor,
-                                    y: existing.target.y + existing.start_delta.y * factor,
-                                    w: (existing.target.w + existing.start_delta.w * factor)
-                                        .max(1.0),
-                                    h: (existing.target.h + existing.start_delta.h * factor)
-                                        .max(1.0),
-                                };
-                                existing.animating = true;
-                                active = true;
-                            } else {
-                                existing.visual = existing.target;
-                                existing.animating = false;
-                            }
                         } else {
-                            existing.visual = *target;
-                            existing.target = *target;
+                            existing.visual = existing.target;
+                            existing.animating = false;
                         }
+                    } else {
+                        existing.visual = *target;
+                        existing.target = *target;
                     }
-                    existing.visual
                 }
-                None => {
-                    self.items.insert(
-                        key.clone(),
-                        GridMotionItem {
-                            visual: *target,
-                            target: *target,
-                            start_delta: GridItemBounds {
-                                x: 0.0,
-                                y: 0.0,
-                                w: 0.0,
-                                h: 0.0,
-                            },
-                            start_time: now,
-                            animating: false,
-                            seen_frame: current_frame,
+                existing.visual
+            } else {
+                self.items.insert(
+                    key.clone(),
+                    GridMotionItem {
+                        visual: *target,
+                        target: *target,
+                        start_delta: GridItemBounds {
+                            x: 0.0,
+                            y: 0.0,
+                            w: 0.0,
+                            h: 0.0,
                         },
-                    );
-                    *target
-                }
+                        start_time: now,
+                        animating: false,
+                        seen_frame: current_frame,
+                    },
+                );
+                *target
             };
 
             results.push((*index, item));
         }
 
-        if self.frame % 30 == 0 {
+        if self.frame.is_multiple_of(30) {
             self.items.retain(|_, item| {
                 item.animating || current_frame.saturating_sub(item.seen_frame) < 120
             });

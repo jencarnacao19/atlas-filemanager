@@ -84,6 +84,23 @@ too_long_first_doc_paragraph = "allow"
 pub_underscore_fields = "allow"
 implicit_hasher = "allow"
 new_without_default = "allow"
+# `mul_add` calls a software fma on x86-64 targets without FMA, which is slower,
+# and UI geometry gains nothing from fused rounding.
+suboptimal_flops = "allow"
+# `pub(crate)` inside private modules is the deliberate visibility style here.
+redundant_pub_crate = "allow"
+# Const-ness of internal helpers is churn with no caller that needs it.
+missing_const_for_fn = "allow"
+# Prose in doc comments names types and paths freely; backticks are optional.
+doc_markdown = "allow"
+# Local helper items next to their single use read better than hoisted ones.
+items_after_statements = "allow"
+# Paint helpers take explicit geometry and colour parameters by design.
+too_many_arguments = "allow"
+# Methods stay on `App` for call-site consistency even when `self` is unused.
+unused_self = "allow"
+# gpui action structs derive Deserialize next to `unsafe impl` glue from gpui.
+unsafe_derive_deserialize = "allow"
 
 # Bundle metadata for `cargo bundle` (cargo install cargo-bundle).
 # Produces a macOS .app / Linux .deb with the icon and identifier below.

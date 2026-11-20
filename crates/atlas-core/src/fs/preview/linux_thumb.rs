@@ -18,7 +18,7 @@ pub fn freedesktop_thumbnail(path: &Path, max_edge: u32) -> Option<(Vec<u8>, usi
 
     let cache_home = std::env::var_os("XDG_CACHE_HOME")
         .map(PathBuf::from)
-        .or_else(|| dirs::cache_dir())
+        .or_else(dirs::cache_dir)
         .unwrap_or_else(|| {
             dirs::home_dir()
                 .map(|h| h.join(".cache"))

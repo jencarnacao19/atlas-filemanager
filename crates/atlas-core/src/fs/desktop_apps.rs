@@ -147,7 +147,9 @@ fn apps_cache_holder() -> Arc<Mutex<Option<(Instant, Vec<DesktopApp>)>>> {
 /// Lists all installed system desktop applications, cached for 10 seconds.
 pub fn list_system_apps() -> Vec<DesktopApp> {
     let holder = apps_cache_holder();
-    let mut lock = holder.lock().unwrap_or_else(|e| e.into_inner());
+    let mut lock = holder
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Some((at, ref apps)) = *lock {
         if at.elapsed() < Duration::from_secs(10) {
             return apps.clone();
@@ -182,7 +184,7 @@ pub fn list_system_apps() -> Vec<DesktopApp> {
         }
     }
 
-    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    apps.sort_by_key(|a| a.name.to_lowercase());
     *lock = Some((Instant::now(), apps.clone()));
     apps
 }
@@ -378,7 +380,7 @@ mod tests {
 
     #[test]
     fn test_parse_desktop_entry() {
-        let sample = r#"
+        let sample = r"
 [Desktop Entry]
 Type=Application
 Name=Audacity Audio Editor
@@ -388,7 +390,7 @@ Icon=audacity
 MimeType=audio/mpeg;audio/flac;audio/x-wav;
 Terminal=false
 NoDisplay=false
-"#;
+";
         let app = DesktopApp::parse_str("audacity.desktop", sample).expect("failed to parse");
         assert_eq!(app.id, "audacity.desktop");
         assert!(app.name.contains("Audacity"));
@@ -400,21 +402,21 @@ NoDisplay=false
 
     #[test]
     fn test_skip_non_application_or_hidden() {
-        let sample_hidden = r#"
+        let sample_hidden = r"
 [Desktop Entry]
 Type=Application
 Name=Hidden App
 Exec=hidden
 NoDisplay=true
-"#;
+";
         assert!(DesktopApp::parse_str("hidden.desktop", sample_hidden).is_none());
 
-        let sample_service = r#"
+        let sample_service = r"
 [Desktop Entry]
 Type=Service
 Name=Service
 Exec=service
-"#;
+";
         assert!(DesktopApp::parse_str("service.desktop", sample_service).is_none());
     }
 

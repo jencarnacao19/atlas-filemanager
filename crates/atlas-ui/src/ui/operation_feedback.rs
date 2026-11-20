@@ -151,7 +151,7 @@ impl App {
                 .unwrap_or(&ts.entries)
                 .iter()
                 .filter(|entry| candidates.contains(&entry.path()))
-                .map(|entry| entry.path())
+                .map(atlas_model::file_entry::FileEntry::path)
                 .collect();
             let types = self.type_filters.get(&pane);
             let shown: HashSet<_> = ts
@@ -167,7 +167,7 @@ impl App {
                         })
                 })
                 .filter(|entry| known.contains(&entry.path()))
-                .map(|entry| entry.path())
+                .map(atlas_model::file_entry::FileEntry::path)
                 .collect();
             let hidden: Vec<_> = known.difference(&shown).cloned().collect();
             self.operation_feedback

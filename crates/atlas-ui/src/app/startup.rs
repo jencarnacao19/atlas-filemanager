@@ -568,7 +568,7 @@ impl App {
                         delay = app.maintenance_delay();
                         if app.close_after_tab_transfer {
                             let _ = cx.update_window(window_handle, |_, window, _| {
-                                window.remove_window()
+                                window.remove_window();
                             });
                         }
                     })

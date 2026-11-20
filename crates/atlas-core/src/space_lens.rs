@@ -93,7 +93,7 @@ impl SpaceLensState {
         while let Ok(result) = self.watch_rx.try_recv() {
             match result {
                 atlas_model::app_state::BgResult::FsChanges { changes, .. } => {
-                    self.apply_fs_changes(&changes)
+                    self.apply_fs_changes(&changes);
                 }
                 atlas_model::app_state::BgResult::FsEvent(path) => {
                     self.dir_stats.dirty.insert(path);

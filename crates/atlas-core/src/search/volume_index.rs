@@ -152,7 +152,7 @@ impl VolumeIndex {
     /// surrounding byte stream, avoiding JSON field names, escaping and decimal expansion.
     pub fn write_binary(&self, mut writer: impl Write) -> io::Result<()> {
         writer.write_all(b"ATLSIDX2")?;
-        write_varint(&mut writer, self.schema as u64)?;
+        write_varint(&mut writer, u64::from(self.schema))?;
         write_bytes(&mut writer, self.volume_id.as_bytes())?;
         write_varint(&mut writer, self.journal_id)?;
         write_varint(&mut writer, zigzag(self.next_usn))?;

@@ -65,7 +65,7 @@ impl Location {
 
     /// Navigate one level up, returning the parent `Location`.
     /// Returns `None` at filesystem roots and for tags/remotes.
-    pub fn ascend(&self) -> Option<Location> {
+    pub fn ascend(&self) -> Option<Self> {
         match self {
             Self::Directory(p) => {
                 let parent = p.parent()?;

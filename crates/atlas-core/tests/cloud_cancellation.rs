@@ -12,7 +12,7 @@ fn size_on_disk(path: &Path) -> u64 {
         .into_iter()
         .filter_map(Result::ok)
         .filter_map(|entry| entry.metadata().ok())
-        .filter(|metadata| metadata.is_file())
+        .filter(std::fs::Metadata::is_file)
         .map(|metadata| metadata.len())
         .sum()
 }

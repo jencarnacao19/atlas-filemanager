@@ -70,10 +70,10 @@ pub(super) fn pack(weights: &[u64], width: f32, height: f32) -> Vec<Circle> {
         x1 = x1.max(c.0 + r);
         y1 = y1.max(c.1 + r);
     }
-    let scale = (width as f64 / (x1 - x0)).min(height as f64 / (y1 - y0)) * 0.98;
+    let scale = (f64::from(width) / (x1 - x0)).min(f64::from(height) / (y1 - y0)) * 0.98;
     let (ox, oy) = (
-        width as f64 * 0.5 - (x0 + x1) * 0.5 * scale,
-        height as f64 * 0.5 - (y0 + y1) * 0.5 * scale,
+        f64::from(width) * 0.5 - (x0 + x1) * 0.5 * scale,
+        f64::from(height) * 0.5 - (y0 + y1) * 0.5 * scale,
     );
     placed
         .iter()

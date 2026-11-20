@@ -100,12 +100,12 @@ impl SidebarPanel {
     ) -> Self {
         cx.observe(&app, |this: &mut Self, app, cx| {
             let next = sidebar_fingerprint(app.read(cx));
-            if this.sidebar_fingerprint != next {
+            if this.sidebar_fingerprint == next {
+                crate::perf::count("sidebar.invalidate.skipped");
+            } else {
                 this.sidebar_fingerprint = next;
                 crate::perf::count("sidebar.invalidate.changed");
                 cx.notify();
-            } else {
-                crate::perf::count("sidebar.invalidate.skipped");
             }
         })
         .detach();
@@ -293,7 +293,7 @@ fn sidebar_fingerprint(app: &AtlasApp) -> u64 {
         match &remote.status {
             RemoteStatus::Mounted(path) => path.hash(&mut hasher),
             RemoteStatus::BrowseFallback(message) | RemoteStatus::Error(message) => {
-                message.hash(&mut hasher)
+                message.hash(&mut hasher);
             }
             _ => {}
         }
@@ -473,8 +473,8 @@ fn profile_menu_profile_row(
         })
         .collect::<Vec<_>>();
 
-    let row_app = app.clone();
-    let row_popover = popover.clone();
+    let row_app = app;
+    let row_popover = popover;
     h_flex()
         .id(SharedString::from(format!("profile-menu-row-{index}")))
         .group(row_group)
@@ -538,7 +538,7 @@ fn profile_menu_action_button(
             s.invisible()
                 .group_hover(row_group.clone(), gpui::Styled::visible)
         })
-        .when(confirming && !is_delete, |s| s.invisible())
+        .when(confirming && !is_delete, gpui::Styled::invisible)
         .when(confirming && is_delete, |s| {
             s.bg(danger.opacity(0.14)).text_color(danger)
         })
@@ -886,7 +886,7 @@ fn atlas_launcher_row(
         .into_element();
 
     let hover_app = app.clone();
-    let click_app = app.clone();
+    let click_app = app;
     let row = h_flex()
         .id(id)
         .w_full()
@@ -1096,7 +1096,7 @@ impl Render for SidebarPanel {
             .map(|t| t.location.clone());
         let current_path = current_location
             .as_ref()
-            .and_then(|l| l.fs_dir().map(|p| p.to_path_buf()));
+            .and_then(|l| l.fs_dir().map(std::path::Path::to_path_buf));
 
         let (active_profile_name, sidebar_collapsed) = {
             let app_ref = app.read(cx);
@@ -1726,7 +1726,7 @@ fn sidebar_drop_zone(
         })
         .on_prepaint_child(move |_bounds, _window, cx| {
             app_prime.update(cx, |this, _cx| {
-                prime_drop_zone_thumbnails(this, &staged_paths, windows_theme)
+                prime_drop_zone_thumbnails(this, &staged_paths, windows_theme);
             });
         })
         .child(
@@ -1752,7 +1752,7 @@ fn sidebar_drop_zone(
                                 .justify_center()
                                 .rounded(px(6.))
                                 .text_color(action_color)
-                                .when(count == 0, |s| s.invisible())
+                                .when(count == 0, gpui::Styled::invisible)
                                 .when(can_place, |s| {
                                     s.cursor_pointer()
                                         .hover(move |s| s.bg(controls.hover).text_color(fg))
@@ -1785,7 +1785,7 @@ fn sidebar_drop_zone(
                                 .justify_center()
                                 .rounded(px(6.))
                                 .text_color(action_color)
-                                .when(count == 0, |s| s.invisible())
+                                .when(count == 0, gpui::Styled::invisible)
                                 .hover(move |s| s.bg(controls.hover).text_color(fg))
                                 .tooltip(move |window, cx| {
                                     Tooltip::new(clear_tip.clone()).build(window, cx)
@@ -1862,7 +1862,7 @@ fn staged_file_meta(path: &std::path::Path) -> (FileKind, Option<String>) {
     let extension = path
         .extension()
         .and_then(|ext| ext.to_str())
-        .map(|ext| ext.to_ascii_lowercase());
+        .map(str::to_ascii_lowercase);
     (kind, extension)
 }
 
@@ -1924,10 +1924,10 @@ fn drop_zone_item(
     let drag_path = path.clone();
     let rect_path = path.clone();
     let select_path = path.clone();
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.display().to_string());
+    let name = path.file_name().map_or_else(
+        || path.display().to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    );
     div()
         .id(group.clone())
         .group(group.clone())
@@ -2022,7 +2022,7 @@ fn drop_zone_item(
         )
         .on_drag_alt({
             let app = app.clone();
-            let drag_path = drag_path.clone();
+            let drag_path = drag_path;
             move |_cursor_offset, cursor_style, _window, cx| {
                 if app.read(&*cx).rubber.is_some() {
                     return crate::ui::drag::empty_any_drag(cx);
@@ -2133,47 +2133,6 @@ fn sidebar_drop_drag_paths(
         }
     }
     vec![path.to_path_buf()]
-}
-
-#[cfg(test)]
-mod dropzone_selection_tests {
-    use super::sidebar_drop_drag_paths;
-    use atlas_model::app_state::StagedDrop;
-    use atlas_model::tab::SelectionState;
-    use std::path::PathBuf;
-
-    #[test]
-    fn dropzone_drag_preserves_the_complete_group_in_shelf_order() {
-        let staged: Vec<_> = ["c.txt", "a.txt", "b.txt"]
-            .map(|name| StagedDrop {
-                path: PathBuf::from(name),
-                from_self: true,
-            })
-            .into();
-        let visible: Vec<_> = staged.iter().map(|item| item.path.clone()).collect();
-        let mut selection = SelectionState::default();
-        selection.select(visible[0].clone(), &visible, false, false);
-        selection.select(visible[2].clone(), &visible, true, false);
-        assert_eq!(
-            sidebar_drop_drag_paths(&staged, &selection.selected, &visible[1]),
-            visible
-        );
-    }
-
-    #[test]
-    fn dropzone_drag_ignores_removed_paths_and_unselected_groups() {
-        let staged = [StagedDrop {
-            path: PathBuf::from("a.txt"),
-            from_self: true,
-        }];
-        let selected = [PathBuf::from("removed.txt"), PathBuf::from("a.txt")].into();
-        assert_eq!(
-            sidebar_drop_drag_paths(&staged, &selected, &staged[0].path),
-            [PathBuf::from("a.txt")]
-        );
-        let other = PathBuf::from("other.txt");
-        assert_eq!(sidebar_drop_drag_paths(&staged, &selected, &other), [other]);
-    }
 }
 
 pub(crate) fn place_sidebar_drop_zone(app: &mut AtlasApp, dest: PathBuf) {
@@ -2321,10 +2280,10 @@ fn render_collapsed_sections(
                 .into_iter()
                 .filter_map(|(icon, label, p)| p.map(|p| (icon, label, p)))
                 .collect();
-                if !places.is_empty() || matches!(current_location, Some(Location::RecycleBin)) {
-                    if before {
-                        col = col.child(collapsed_divider());
-                    }
+                if (!places.is_empty() || matches!(current_location, Some(Location::RecycleBin)))
+                    && before
+                {
+                    col = col.child(collapsed_divider());
                 }
                 for (icon_name, label, path) in places {
                     let active = current.is_some_and(|c| c == path.as_path());
@@ -2460,7 +2419,7 @@ fn render_collapsed_sections(
                         device
                             .mount_point
                             .as_ref()
-                            .map_or(false, |mp| c == mp.as_path())
+                            .is_some_and(|mp| c == mp.as_path())
                     });
                     col = col.child(collapsed_removable_device_row(device, app, style, active));
                     section_has_items = true;
@@ -2479,10 +2438,10 @@ fn render_collapsed_sections(
                     col = col.child(collapsed_divider());
                 }
                 for path in recent {
-                    let label = path
-                        .file_name()
-                        .map(|n| n.to_string_lossy().into_owned())
-                        .unwrap_or_else(|| path.display().to_string());
+                    let label = path.file_name().map_or_else(
+                        || path.display().to_string(),
+                        |n| n.to_string_lossy().into_owned(),
+                    );
                     let active = current.is_some_and(|c| c == path.as_path());
                     let shell_tex = sidebar_shell_tex(app, &path, windows_theme, cx);
                     col = col.child(collapsed_nav_row(
@@ -2578,7 +2537,7 @@ fn collapsed_nav_row(
         ..
     } = style;
     let app = app.clone();
-    let tooltip = label.clone();
+    let tooltip = label;
     let hover_id = DragHoverId::Sidebar(id.to_string());
     let drop_path = path.clone();
     let drop_path_external = path.clone();
@@ -2703,7 +2662,7 @@ fn collapsed_virtual_nav_row(
         ..
     } = style;
     let app = app.clone();
-    let tooltip = label.clone();
+    let tooltip = label;
     let hover_id = DragHoverId::Sidebar(id.to_string());
     let request_recycle_icon = loc == Location::RecycleBin;
     let recycle_icon_app = app.clone();
@@ -2805,7 +2764,7 @@ fn collapsed_bookmark_row(
     let drop_dest = path.clone();
     let external_dest = path.clone();
     let app = app.clone();
-    let tooltip = label.clone();
+    let tooltip = label;
     let hover_id = DragHoverId::Sidebar(id.to_string());
     let drop_app = app.clone();
     let drop_app_external = app.clone();
@@ -2916,7 +2875,7 @@ fn collapsed_tag_row(
     hover: Hsla,
 ) -> impl IntoElement {
     let app = app.clone();
-    let tooltip = name.clone();
+    let tooltip = name;
     let rgb =
         gpui::rgb((u32::from(color[0]) << 16) | (u32::from(color[1]) << 8) | u32::from(color[2]));
     let hover_id = DragHoverId::Sidebar(format!("rail-tag-{}", id.0));
@@ -3049,9 +3008,9 @@ fn collapsed_removable_device_row(
         format!("{} [{}]", device.label, rust_i18n::t!("cloud_ctx_mount"))
     };
 
-    let click_app = app.clone();
-    let click_mount_path = mount_path.clone();
-    let click_dev = dev.clone();
+    let click_app = app;
+    let click_mount_path = mount_path;
+    let click_dev = dev;
 
     div()
         .id(SharedString::from(format!("rail-removable-{}", device.dev)))
@@ -3108,7 +3067,7 @@ fn collapsed_cloud_remote_row(
     };
     let app_click = app.clone();
     let id = SharedString::from(format!("rail-cloud-{}", remote.id));
-    let label = remote.name.clone();
+    let label = remote.name;
     let hover_id = DragHoverId::Sidebar(id.to_string());
     h_flex()
         .id(id)
@@ -3380,7 +3339,7 @@ fn render_section_body(
                         device
                             .mount_point
                             .as_ref()
-                            .map_or(false, |mp| c == mp.as_path())
+                            .is_some_and(|mp| c == mp.as_path())
                     });
                     col = col.child(removable_device_row(device, app, style, active));
                 }
@@ -3397,10 +3356,10 @@ fn render_section_body(
                 .collect();
             let mut items = Vec::with_capacity(recent.len());
             for path in recent {
-                let label = path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| path.display().to_string());
+                let label = path.file_name().map_or_else(
+                    || path.display().to_string(),
+                    |n| n.to_string_lossy().into_owned(),
+                );
                 let active = current.is_some_and(|c| c == path.as_path());
                 let shell_tex = sidebar_shell_tex(app, &path, windows_theme, cx);
                 let key = path.clone();
@@ -3845,8 +3804,8 @@ fn removable_device_row(
         rust_i18n::t!("cloud_ctx_mount").to_string()
     };
 
-    let click_app = app.clone();
-    let click_mount_path = mount_path.clone();
+    let click_app = app;
+    let click_mount_path = mount_path;
     let click_dev = dev.clone();
 
     let subtitle = if is_mounted {
@@ -3873,7 +3832,7 @@ fn removable_device_row(
         .h(crate::ui::rem_px(if windows_theme { 48.0 } else { 44.0 }))
         .child(
             RowInk::new(
-                device.label.clone(),
+                device.label,
                 RowIcon::Theme(AtlasIcon::Usb, icon_color),
                 fg,
                 windows_theme,
@@ -3883,7 +3842,7 @@ fn removable_device_row(
         )
         .child(
             div()
-                .id(SharedString::from(format!("eject-btn-{}", dev)))
+                .id(SharedString::from(format!("eject-btn-{dev}")))
                 .size(crate::ui::rem_px(20.))
                 .flex()
                 .items_center()
@@ -3975,7 +3934,7 @@ fn section_header(
         .rounded(px(6.))
         .hover(|s| s.bg(hover))
         .h(crate::ui::rem_px(28.0))
-        .child(RowInk::new(label.to_string(), RowIcon::None, muted, false).into_element())
+        .child(RowInk::new(label, RowIcon::None, muted, false).into_element())
         .child(chevron)
         .on_mouse_down(MouseButton::Left, move |_ev, _window, cx| {
             app_click.update(cx, |this, cx| {
@@ -4625,24 +4584,22 @@ fn cloud_remote_row(
             )
             .into_element(),
         )
-        .when_some(hover_action.clone(), |row, action| {
-            match drop_dest.clone() {
-                Some(dest) => row.on_prepaint_child(drag_hover_recorder_with_drop(
-                    hover_id,
-                    DragHoverKind::Nav,
-                    DragHoverCommand::Process(action),
-                    DragHoverDropCommand::TransferTo(dest),
-                    &app,
-                )),
-                None => row.on_prepaint_child(drag_hover_recorder(
-                    hover_id,
-                    DragHoverKind::Nav,
-                    DragHoverCommand::Process(action),
-                    &app,
-                )),
-            }
+        .when_some(hover_action, |row, action| match drop_dest.clone() {
+            Some(dest) => row.on_prepaint_child(drag_hover_recorder_with_drop(
+                hover_id,
+                DragHoverKind::Nav,
+                DragHoverCommand::Process(action),
+                DragHoverDropCommand::TransferTo(dest),
+                &app,
+            )),
+            None => row.on_prepaint_child(drag_hover_recorder(
+                hover_id,
+                DragHoverKind::Nav,
+                DragHoverCommand::Process(action),
+                &app,
+            )),
         })
-        .when_some(drop_dest.clone(), |row, dest| {
+        .when_some(drop_dest, |row, dest| {
             let drop_dest = dest.clone();
             let drop_dest_ext = dest;
             let drop_app = app.clone();
@@ -4691,7 +4648,7 @@ fn cloud_remote_row(
             });
         })
         .context_menu({
-            let id2 = remote.id.clone();
+            let id2 = remote.id;
             #[cfg(windows)]
             let is_browse_fallback = matches!(status, RemoteStatus::BrowseFallback(_));
             move |menu, _window, _cx| {
@@ -4730,7 +4687,7 @@ pub(crate) fn native_cloud_folders() -> Vec<(String, PathBuf)> {
     let mut cache = CACHE
         .get_or_init(|| Mutex::new(Snapshot::default()))
         .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if !cache.pending
         && cache
             .updated
@@ -4743,7 +4700,7 @@ pub(crate) fn native_cloud_folders() -> Vec<(String, PathBuf)> {
                 .get()
                 .unwrap()
                 .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             cache.folders = folders;
             cache.updated = Some(Instant::now());
             cache.pending = false;
@@ -4851,4 +4808,45 @@ fn add_cloud_row(app: &Entity<AtlasApp>, hover: Hsla, muted: Hsla, fg: Hsla) -> 
                 cx.notify();
             });
         })
+}
+
+#[cfg(test)]
+mod dropzone_selection_tests {
+    use super::sidebar_drop_drag_paths;
+    use atlas_model::app_state::StagedDrop;
+    use atlas_model::tab::SelectionState;
+    use std::path::PathBuf;
+
+    #[test]
+    fn dropzone_drag_preserves_the_complete_group_in_shelf_order() {
+        let staged: Vec<_> = ["c.txt", "a.txt", "b.txt"]
+            .map(|name| StagedDrop {
+                path: PathBuf::from(name),
+                from_self: true,
+            })
+            .into();
+        let visible: Vec<_> = staged.iter().map(|item| item.path.clone()).collect();
+        let mut selection = SelectionState::default();
+        selection.select(visible[0].clone(), &visible, false, false);
+        selection.select(visible[2].clone(), &visible, true, false);
+        assert_eq!(
+            sidebar_drop_drag_paths(&staged, &selection.selected, &visible[1]),
+            visible
+        );
+    }
+
+    #[test]
+    fn dropzone_drag_ignores_removed_paths_and_unselected_groups() {
+        let staged = [StagedDrop {
+            path: PathBuf::from("a.txt"),
+            from_self: true,
+        }];
+        let selected = [PathBuf::from("removed.txt"), PathBuf::from("a.txt")].into();
+        assert_eq!(
+            sidebar_drop_drag_paths(&staged, &selected, &staged[0].path),
+            [PathBuf::from("a.txt")]
+        );
+        let other = PathBuf::from("other.txt");
+        assert_eq!(sidebar_drop_drag_paths(&staged, &selected, &other), [other]);
+    }
 }

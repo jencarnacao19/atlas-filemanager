@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(300);
+const REQUEST_TIMEOUT: Duration = Duration::from_mins(5);
 
 pub struct ProviderSidecar {
     child: Child,
@@ -147,7 +147,7 @@ impl ProviderSidecar {
         use atlas_model::provider_protocol::Operation;
         if control
             .as_ref()
-            .is_some_and(|control| control.is_cancelled())
+            .is_some_and(super::super::cloud::control::TransferControl::is_cancelled)
         {
             return Err(crate::cloud::control::TransferCancelled.into());
         }
@@ -187,7 +187,7 @@ impl ProviderSidecar {
                     let (cancel_id, cancel_rx) = self.begin_request(Operation::CancelRequest { request_id: id })
                         .map_err(|error| crate::cloud::control::OutcomeUnknown(format!("Cannot request backend cancellation: {error}")))?;
                     let _cleanup = PendingRequest { id: cancel_id, pending: self.pending.clone(), cancel_on_drop: None };
-                    let ack = tokio::time::timeout(Duration::from_secs(60), cancel_rx.recv_async()).await
+                    let ack = tokio::time::timeout(Duration::from_mins(1), cancel_rx.recv_async()).await
                         .map_err(|_| crate::cloud::control::OutcomeUnknown("Cancellation acknowledgement timed out; backend outcome is unknown".into()))?
                         .map_err(|error| crate::cloud::control::OutcomeUnknown(format!("Cancellation acknowledgement was lost: {error}")))?;
                     if ack.version != VERSION || !matches!(ack.result, ResultPayload::Ok { .. }) {
@@ -279,7 +279,7 @@ pub(crate) fn confined_program(extension_dir: &Path, command: &str) -> Result<Pa
     let program = candidates
         .into_iter()
         .find_map(|cmd| root.join(cmd).canonicalize().ok())
-        .ok_or_else(|| anyhow::anyhow!("resolve sidecar in {:?}", root))?;
+        .ok_or_else(|| anyhow::anyhow!("resolve sidecar in {root:?}"))?;
     if !program.starts_with(&root) || !program.is_file() {
         bail!("provider sidecar must be a file inside its extension directory");
     }

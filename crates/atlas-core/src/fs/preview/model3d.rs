@@ -834,7 +834,7 @@ mod tests {
             "buffers": [{"byteLength": 36}]
         });
         let mut json = serde_json::to_vec(&json).unwrap();
-        while json.len() % 4 != 0 {
+        while !json.len().is_multiple_of(4) {
             json.push(b' ');
         }
         let mut glb = b"glTF".to_vec();

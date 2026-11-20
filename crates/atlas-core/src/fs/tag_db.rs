@@ -202,7 +202,7 @@ fn handle(
             let _ = bg_tx.send(BgResult::TagAssignmentComplete {
                 tag,
                 paths,
-                result: result.as_ref().map(|_| ()).map_err(ToString::to_string),
+                result: result.as_ref().map(|()| ()).map_err(ToString::to_string),
             });
             result?;
         }

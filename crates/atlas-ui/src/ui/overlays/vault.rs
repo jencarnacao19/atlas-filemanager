@@ -143,7 +143,7 @@ impl App {
             if e == rust_i18n::t!("vault_password_mismatch").as_ref() {
                 Some(if d.phase == Phase::Manage { 2 } else { 1 })
             } else if e == rust_i18n::t!("vault_password_length").as_ref() {
-                Some(if d.phase == Phase::Manage { 1 } else { 0 })
+                Some(i32::from(d.phase == Phase::Manage))
             } else {
                 None
             }
@@ -152,8 +152,7 @@ impl App {
         let name = d
             .session
             .as_ref()
-            .map(|s| s.name().to_owned())
-            .unwrap_or_else(|| d.name.clone());
+            .map_or_else(|| d.name.clone(), |s| s.name().to_owned());
         let progress = d.control.completed.load(Ordering::Relaxed);
         let total = d.control.total.load(Ordering::Relaxed);
         let (surface, fg, muted, border, danger) = {
@@ -320,7 +319,7 @@ impl App {
                                 .text_size(s(27.))
                                 .font_weight(gpui::FontWeight::SEMIBOLD)
                                 .child(if phase == Phase::Browse {
-                                    name.clone()
+                                    name
                                 } else {
                                     rust_i18n::t!(title_key).to_string()
                                 }),
@@ -477,7 +476,7 @@ impl App {
             d.selected
                 .as_ref()
                 .and_then(|id| d.session.as_ref()?.entry(id))
-                .map_or(name.clone(), |entry| entry.name.clone())
+                .map_or(name, |entry| entry.name.clone())
         } else {
             d.parents
                 .last()
@@ -718,7 +717,7 @@ impl App {
             if e == rust_i18n::t!("vault_password_mismatch").as_ref() {
                 Some(if phase == Phase::Manage { 2 } else { 1 })
             } else if e == rust_i18n::t!("vault_password_length").as_ref() {
-                Some(if phase == Phase::Manage { 1 } else { 0 })
+                Some(usize::from(phase == Phase::Manage))
             } else {
                 None
             }
@@ -770,7 +769,7 @@ impl App {
                                                         d.reveal = !d.reveal;
                                                         for input in &d.inputs {
                                                             input.update(cx, |i, cx| {
-                                                                i.set_masked(!d.reveal, window, cx)
+                                                                i.set_masked(!d.reveal, window, cx);
                                                             });
                                                         }
                                                     }
@@ -792,7 +791,7 @@ impl App {
                                                             .to_string(),
                                                     )
                                                     .on_click(cx.listener(|this, _, w, cx| {
-                                                        this.submit_vault(w, cx)
+                                                        this.submit_vault(w, cx);
                                                     })),
                                             )
                                         }),

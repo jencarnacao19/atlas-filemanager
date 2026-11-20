@@ -169,7 +169,7 @@ impl RenderOnce for BookmarkCollection {
             list = list.child(
                 gpui::canvas(
                     |_, _, _| {},
-                    |_, _, window, _| window.request_animation_frame(),
+                    |_, (), window, _| window.request_animation_frame(),
                 )
                 .size(px(0.0)),
             );
@@ -214,10 +214,10 @@ pub(crate) fn insert_references(
         if let Some(index) = bookmarks.iter().position(|b| &b.path == path) {
             moved.push(bookmarks.remove(index));
         } else {
-            let name = path
-                .file_name()
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_else(|| path.display().to_string());
+            let name = path.file_name().map_or_else(
+                || path.display().to_string(),
+                |name| name.to_string_lossy().into_owned(),
+            );
             moved.push(atlas_model::profiles::Bookmark::new(name, path.clone()));
         }
     }
@@ -367,7 +367,7 @@ impl RenderOnce for InsertionLane {
                     app.mark_drag_committed();
                     insert_references(
                         &mut app.state.profiles.active_mut().bookmarks,
-                        &[drag.path.clone()],
+                        std::slice::from_ref(&drag.path),
                         index,
                     );
                     atlas_core::util::config::save_profiles(&app.state.profiles);

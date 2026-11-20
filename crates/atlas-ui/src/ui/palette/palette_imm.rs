@@ -60,7 +60,7 @@ pub(crate) fn row_tops(heights: &[f32], pad: f32) -> (Vec<f32>, f32) {
 pub(crate) fn visible_rows(tops: &[f32], heights: &[f32], from: f32, to: f32) -> Range<usize> {
     let (mut lo, mut hi) = (0, tops.len());
     while lo < hi {
-        let mid = (lo + hi) / 2;
+        let mid = usize::midpoint(lo, hi);
         if tops[mid] + heights[mid] <= from {
             lo = mid + 1;
         } else {

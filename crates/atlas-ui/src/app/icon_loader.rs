@@ -236,8 +236,7 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
+            .map_or(0, |d| d.as_nanos());
         let test_svg_path = temp_dir.join(format!("test_icon_{nanos}.svg"));
         let svg_data = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="40" fill="#ff8000" />
@@ -289,8 +288,7 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
+            .map_or(0, |d| d.as_nanos());
         let test_svg_path = temp_dir.join(format!("test_multi_{nanos}.svg"));
         // Folder-shaped SVG with rounded corners
         let svg_data = r##"<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -323,8 +321,7 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
+            .map_or(0, |d| d.as_nanos());
         let test_svg_path = temp_dir.join(format!("test_corners_{nanos}.svg"));
         let svg_data = r##"<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M10 4H4c-1.11 0-2 .89-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8c0-1.11-.9-2-2-2h-8l-2-2z" fill="#45403d" />
@@ -349,23 +346,32 @@ mod tests {
                 semi_transparent_count += 1;
                 // Anti-aliased boundary pixels must preserve the #45403d hue without dark degradation
                 assert!(
-                    r >= 55 && r <= 80,
+                    (55..=80).contains(&r),
                     "Red should be around 69 on boundary pixels, got {r}"
                 );
                 assert!(
-                    g >= 50 && g <= 75,
+                    (50..=75).contains(&g),
                     "Green should be around 64 on boundary pixels, got {g}"
                 );
                 assert!(
-                    b >= 45 && b <= 70,
+                    (45..=70).contains(&b),
                     "Blue should be around 61 on boundary pixels, got {b}"
                 );
             } else if a == 0 && (r > 0 || g > 0 || b > 0) {
                 color_bled_transparent_count += 1;
                 // The 1-pixel bleed buffer must preserve the true straight color so GPU interpolation doesn't darken
-                assert!(r >= 55 && r <= 80, "Red bleed must be around 69, got {r}");
-                assert!(g >= 50 && g <= 75, "Green bleed must be around 64, got {g}");
-                assert!(b >= 45 && b <= 70, "Blue bleed must be around 61, got {b}");
+                assert!(
+                    (55..=80).contains(&r),
+                    "Red bleed must be around 69, got {r}"
+                );
+                assert!(
+                    (50..=75).contains(&g),
+                    "Green bleed must be around 64, got {g}"
+                );
+                assert!(
+                    (45..=70).contains(&b),
+                    "Blue bleed must be around 61, got {b}"
+                );
             }
         }
 

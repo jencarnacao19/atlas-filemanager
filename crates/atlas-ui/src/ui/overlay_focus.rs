@@ -77,7 +77,11 @@ impl App {
         if self.cleanup_panel.is_some() {
             return Some(OverlayClaim::DiskCleanup);
         }
-        if self.converter.as_ref().is_some_and(|s| s.visible()) {
+        if self
+            .converter
+            .as_ref()
+            .is_some_and(super::converter::Session::visible)
+        {
             return Some(OverlayClaim::Converter);
         }
         if self.tag_picker_menu.is_some() {

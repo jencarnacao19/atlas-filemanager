@@ -164,18 +164,16 @@ pub fn component_noise(name: &str, query: &str) -> u8 {
     }
     if name.starts_with('.') && name != "." && name != ".." {
         2
-    } else if matches!(
-        name.as_str(),
-        "appdata"
-            | "node_modules"
-            | "target"
-            | "__pycache__"
-            | "$recycle.bin"
-            | "system volume information"
-    ) {
-        1
     } else {
-        0
+        u8::from(matches!(
+            name.as_str(),
+            "appdata"
+                | "node_modules"
+                | "target"
+                | "__pycache__"
+                | "$recycle.bin"
+                | "system volume information"
+        ))
     }
 }
 

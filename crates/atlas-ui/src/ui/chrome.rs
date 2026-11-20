@@ -59,7 +59,7 @@ impl App {
                     .when(!is_glass, |s| {
                         s.border_1().border_color(cx.theme().border.opacity(0.60))
                     })
-                    .when(glass_shadows_enabled(), |s| s.shadow_lg())
+                    .when(glass_shadows_enabled(), gpui::Styled::shadow_lg)
                     .cursor_pointer()
                     .text_color(muted)
                     .motion_feedback()
@@ -93,7 +93,7 @@ impl App {
     pub(crate) fn render_crumb_strip(
         &self,
         pane_id: TabId,
-        view: &Entity<App>,
+        view: &Entity<Self>,
         fg: Hsla,
         muted: Hsla,
         border: Hsla,
@@ -182,7 +182,7 @@ impl App {
     fn render_crumb_strip_body(
         &self,
         pane_id: TabId,
-        view: &Entity<App>,
+        view: &Entity<Self>,
         fg: Hsla,
         muted: Hsla,
         border: Hsla,
@@ -225,7 +225,7 @@ impl App {
                 std::sync::Arc::new(crate::ui::chrome_imm::path_with_ghost_segments(dir, trail));
             let is_bookmarked = if let Some(path) = self
                 .tab_data_for(pane_id)
-                .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+                .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
             {
                 self.state
                     .profiles
@@ -295,8 +295,7 @@ impl App {
                         .state
                         .cloud
                         .remote(id)
-                        .map(|r| r.name.clone())
-                        .unwrap_or_else(|| id.clone());
+                        .map_or_else(|| id.clone(), |r| r.name.clone());
                     remote_breadcrumb(
                         view,
                         pane_id,
@@ -340,8 +339,8 @@ impl App {
             .when(!is_glass, |s| {
                 s.border_b_1().border_color(border.opacity(0.45))
             })
-            .when(!windows_theme, |s| s.text_sm())
-            .when(windows_theme, |s| s.text_base())
+            .when(!windows_theme, gpui::Styled::text_sm)
+            .when(windows_theme, gpui::Styled::text_base)
             .text_color(muted)
             .cursor_pointer()
             .on_mouse_down(MouseButton::Left, move |_ev, _window, cx| {
@@ -391,7 +390,7 @@ impl App {
                 enabled: up_location.is_some(),
                 action: Action::NavigateUp(pane_id),
                 view: view.clone(),
-                recent: recent_locations.clone(),
+                recent: recent_locations,
                 icon_color: fg,
                 hover_bg: button_hover,
                 windows_theme,
@@ -399,7 +398,7 @@ impl App {
             .child(bookmark_button(
                 pane_id,
                 view.clone(),
-                bookmark_target.clone(),
+                bookmark_target,
                 fg,
                 button_hover,
                 windows_theme,
@@ -464,7 +463,7 @@ impl App {
     fn bookmark_target_for_pane(&self, pane_id: TabId) -> Option<BookmarkTarget> {
         let path = self
             .tab_data_for(pane_id)
-            .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))?;
+            .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))?;
         let name = path
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
@@ -498,17 +497,18 @@ impl App {
     ) -> (AnyElement, AnyElement) {
         // Mirror the per-tab toggles into the TabState so its cached filtering
         // (and the counts below) pick them up.
-        let (folder_order, show_files, show_folders, is_branch_view) = self
-            .tab_data_for(pane_id)
-            .map(|td| {
-                (
-                    td.folder_order,
-                    td.show_files,
-                    td.show_folders,
-                    td.is_branch_view,
-                )
-            })
-            .unwrap_or((atlas_model::pane::FolderOrder::default(), true, true, false));
+        let (folder_order, show_files, show_folders, is_branch_view) =
+            self.tab_data_for(pane_id).map_or(
+                (atlas_model::pane::FolderOrder::default(), true, true, false),
+                |td| {
+                    (
+                        td.folder_order,
+                        td.show_files,
+                        td.show_folders,
+                        td.is_branch_view,
+                    )
+                },
+            );
         if let Some(ts) = self.state.tab_states.get_mut(&pane_id) {
             ts.set_visibility(show_files, show_folders);
             ts.is_branch_view = is_branch_view;
@@ -606,7 +606,7 @@ impl App {
         let focused = self.state.focused_tile == pane_id;
         if !focused {
             let badge: AnyElement = if active {
-                let open_view = view.clone();
+                let open_view = view;
                 h_flex()
                     .id(SharedString::from(format!("filter-badge-{}", pane_id.0)))
                     .absolute()
@@ -924,7 +924,7 @@ impl App {
                     on_color: Hsla,
                     tip: String,
                     action: Action,
-                    view: Entity<App>| {
+                    view: Entity<Self>| {
             div()
                 .id(SharedString::from(id))
                 .flex()
@@ -1023,7 +1023,7 @@ impl App {
             controls.foreground,
             windows_theme,
         ))
-        .tooltip(format!("{} - Ctrl+scroll", view_label))
+        .tooltip(format!("{view_label} - Ctrl+scroll"))
         // Anchored to the bottom so the menu opens upward, above the icon.
         .dropdown_menu_with_anchor(
             gpui::Anchor::BottomRight,
@@ -1041,7 +1041,7 @@ impl App {
                                    label: String,
                                    mode: ViewMode,
                                    active: bool,
-                                   view: Entity<App>,
+                                   view: Entity<Self>,
                                    slider: Entity<SliderState>| {
                             h_flex()
                                 .id(SharedString::from(format!(
@@ -1315,7 +1315,7 @@ impl App {
                         })
                     ),
                     Action::ToggleShowFiles(pane_id),
-                    view.clone(),
+                    view,
                 )
                 .child(div().text_xs().child(file_label)),
             )
@@ -1762,10 +1762,10 @@ fn breadcrumb_segment(props: BreadcrumbSegmentProps) -> gpui::Stateful<gpui::Div
             cx.stop_propagation();
         });
 
-    let drop_command = props
-        .drop_dest
-        .map(DragHoverDropCommand::TransferTo)
-        .unwrap_or_else(|| crate::ui::drag_hover::location_drop_command(&props.location));
+    let drop_command = props.drop_dest.map_or_else(
+        || crate::ui::drag_hover::location_drop_command(&props.location),
+        DragHoverDropCommand::TransferTo,
+    );
     {
         let drop_v = props.view.clone();
         let drop_v_external = props.view.clone();
@@ -1902,10 +1902,10 @@ fn archive_breadcrumb(
         view: view.clone(),
         tile,
         id: SharedString::from(format!("crumb-archive-{}", tile.0)),
-        label: archive
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_else(|| archive.display().to_string()),
+        label: archive.file_name().map_or_else(
+            || archive.display().to_string(),
+            |name| name.to_string_lossy().into_owned(),
+        ),
         location: Location::Archive {
             archive: archive_target,
             inner: PathBuf::new(),

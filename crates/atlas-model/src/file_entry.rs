@@ -348,7 +348,7 @@ mod tests {
         assert!(first.is_readonly());
         assert!(second.is_cloud_placeholder());
         assert!(!second.is_readonly());
-        let mut reversed = [second.clone(), first.clone()];
+        let mut reversed = [second, first.clone()];
         reversed[1].set_display_name("search label".into());
         assert_eq!(reversed[0].file_id(), Some(1 << 100));
         assert_eq!(reversed[1].file_id(), Some(u128::MAX));

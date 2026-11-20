@@ -168,7 +168,7 @@ impl App {
             package_error: None,
             #[cfg(feature = "conversion-lab")]
             wheel_bounds: None,
-            tx: tx.clone(),
+            tx,
             rx,
         });
         self.refresh_conversion_tools();
@@ -322,7 +322,7 @@ impl App {
                             finished_ok = true;
                             break;
                         } else if !errors.is_empty() {
-                            let err_str = errors[0].to_string();
+                            let err_str = errors[0].clone();
                             toast = Some((
                                 atlas_model::overlay::ToastKind::Error,
                                 rust_i18n::t!("convert_toast_failed", error = err_str).into_owned(),

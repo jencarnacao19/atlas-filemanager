@@ -524,17 +524,17 @@ impl Element for DetailsBodyElement {
                         for column in DetailsColumn::DEFAULT_ORDER {
                             let text: SharedString = match column {
                                 DetailsColumn::Size => {
-                                    crate::ui::views::details::entry_display_size(&entry)
+                                    crate::ui::views::details::entry_display_size(entry)
                                         .clone()
                                         .into()
                                 }
                                 DetailsColumn::Modified => {
-                                    crate::ui::views::details::entry_display_date(&entry)
+                                    crate::ui::views::details::entry_display_date(entry)
                                         .clone()
                                         .into()
                                 }
                                 DetailsColumn::Type => {
-                                    crate::ui::views::details::entry_type_label(&entry)
+                                    crate::ui::views::details::entry_type_label(entry)
                                         .clone()
                                         .into()
                                 }
@@ -610,7 +610,7 @@ impl Element for DetailsBodyElement {
                         .and_then(|entry_idx| {
                             app.state.tab_states.get(&pane_id)?.entries.get(*entry_idx)
                         })
-                        .map(|entry| entry.path())
+                        .map(atlas_model::file_entry::FileEntry::path)
                         .unwrap_or_default();
                     (path, row.selected && show_checkboxes)
                 })
@@ -1094,7 +1094,7 @@ impl Element for DetailsBodyElement {
                                 cx,
                             ),
                             MouseButton::Right => {
-                                this.details_right_mouse_down(pane_id, hit, pos, window, cx)
+                                this.details_right_mouse_down(pane_id, hit, pos, window, cx);
                             }
                             _ => {}
                         }

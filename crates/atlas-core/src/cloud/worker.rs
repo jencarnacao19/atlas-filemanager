@@ -535,10 +535,10 @@ impl Worker {
                 }
                 self.set_state(id, |state| match state {
                     TransferState::Running | TransferState::Pausing => {
-                        *state = TransferState::Cancelling
+                        *state = TransferState::Cancelling;
                     }
                     TransferState::Queued | TransferState::Paused => {
-                        *state = TransferState::Cancelled
+                        *state = TransferState::Cancelled;
                     }
                     _ => {}
                 });
@@ -1311,6 +1311,37 @@ fn remote_dirs(paths: impl IntoIterator<Item = String>) -> Vec<String> {
     })
 }
 
+/// Map a provider entry to a `FileEntry` for the file views. The path is the
+/// remote-relative path (a stable key); the owning tab's `TabSource::Remote`
+/// marks it as remote so navigation/open route through the worker.
+fn remote_to_file_entry(e: RemoteEntry) -> FileEntry {
+    let kind = if e.is_dir {
+        FileKind::Dir
+    } else {
+        FileKind::File
+    };
+    let modified = e
+        .modified
+        .and_then(|secs| u64::try_from(secs).ok())
+        .map(|secs| UNIX_EPOCH + Duration::from_secs(secs));
+    FileEntry::from(atlas_model::file_entry::FileEntryData {
+        name: e.name.into(),
+        path: PathBuf::from(e.path),
+        kind,
+        size: (!e.is_dir
+            && !e
+                .mime
+                .as_deref()
+                .is_some_and(|mime| mime.starts_with("application/vnd.google-apps.")))
+        .then_some(e.size),
+        modified,
+        _is_hidden: false,
+        _is_symlink: false,
+        archive_root: None,
+        recycle_info: None,
+    })
+}
+
 #[cfg(test)]
 mod remote_change_tests {
     use super::*;
@@ -1405,7 +1436,7 @@ mod remote_change_tests {
                 id: 1001,
                 state: TransferState::Queued,
                 ..completed
-            })
+            });
         });
         assert_eq!(worker.transfers.len(), MAX_COMPLETED_HISTORY + 1);
         assert!(matches!(
@@ -1424,7 +1455,7 @@ mod remote_change_tests {
                 remote_parent("photos/a.jpg"),
                 remote_parent("b.jpg"),
             ]),
-            vec!["docs".to_string(), "photos".to_string(), "".to_string()]
+            vec!["docs".to_string(), "photos".to_string(), String::new()]
         );
     }
 
@@ -1482,37 +1513,6 @@ mod remote_change_tests {
         assert_eq!(snapshot[0].bytes_done, 1000);
         assert!(bg_rx.is_empty());
     }
-}
-
-/// Map a provider entry to a `FileEntry` for the file views. The path is the
-/// remote-relative path (a stable key); the owning tab's `TabSource::Remote`
-/// marks it as remote so navigation/open route through the worker.
-fn remote_to_file_entry(e: RemoteEntry) -> FileEntry {
-    let kind = if e.is_dir {
-        FileKind::Dir
-    } else {
-        FileKind::File
-    };
-    let modified = e
-        .modified
-        .and_then(|secs| u64::try_from(secs).ok())
-        .map(|secs| UNIX_EPOCH + Duration::from_secs(secs));
-    FileEntry::from(atlas_model::file_entry::FileEntryData {
-        name: e.name.into(),
-        path: PathBuf::from(e.path),
-        kind,
-        size: (!e.is_dir
-            && !e
-                .mime
-                .as_deref()
-                .is_some_and(|mime| mime.starts_with("application/vnd.google-apps.")))
-        .then_some(e.size),
-        modified,
-        _is_hidden: false,
-        _is_symlink: false,
-        archive_root: None,
-        recycle_info: None,
-    })
 }
 
 #[cfg(windows)]

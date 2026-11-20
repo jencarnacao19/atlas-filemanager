@@ -123,9 +123,7 @@ fn route_info(source: &Path, option: &ConversionOption, tools: &Tools) -> RouteI
             matches!(dst, "jpg" | "webp" | "avif" | "heic" | "jxl")
         }
         Some(Backend::SystemAudio) => matches!(dst, "mp3" | "aac" | "m4a"),
-        Some(
-            Backend::SystemVideo | Backend::External(Tool::Ffmpeg) | Backend::External(Tool::Opus),
-        ) => true,
+        Some(Backend::SystemVideo | Backend::External(Tool::Ffmpeg | Tool::Opus)) => true,
         _ => false,
     };
     let edge = matches!(
@@ -307,7 +305,7 @@ impl App {
             "right" if event.keystroke.modifiers.alt => self.converter_forward(),
             "enter" if choosing => self.start_conversion(),
             "i" if choosing && event.keystroke.modifiers.alt => {
-                self.activate_selected_conversion_engine()
+                self.activate_selected_conversion_engine();
             }
             _ if !choosing || count == 0 => {}
             "left" | "right" | "up" | "down" | "pageup" | "pagedown" | "tab" | "home" | "end" => {
@@ -453,7 +451,7 @@ impl App {
                             .on_mouse_down(
                                 MouseButton::Left,
                                 cx.listener(|app, _, _, cx| {
-                                    if app.converter.as_ref().is_some_and(|s| s.running()) {
+                                    if app.converter.as_ref().is_some_and(super::Session::running) {
                                         app.cancel_conversion();
                                     }
                                     app.dismiss_converter();
@@ -690,7 +688,7 @@ impl App {
             .relative()
             .left(px(if place.stack { 0.0 } else { info_dx }))
             .top(px(if place.stack { info_dy } else { 0.0 }))
-            .when(place.stack, |s| s.w_full())
+            .when(place.stack, gpui::Styled::w_full)
             .when(!place.stack, |s| s.w(px(place.info_w)))
             .h(px(place.info_h))
             .justify_between()
@@ -713,8 +711,11 @@ impl App {
             .h(px(place.height))
             .flex()
             .items_center()
-            .when(place.stack, |s| s.flex_col())
-            .when(!place.stack && place.info_left, |s| s.flex_row_reverse())
+            .when(place.stack, gpui::Styled::flex_col)
+            .when(
+                !place.stack && place.info_left,
+                gpui::Styled::flex_row_reverse,
+            )
             .gap(px(place.gap))
             .p(px(place.pad))
             .text_color(fg)
@@ -978,7 +979,7 @@ impl App {
                         "convert-cancel",
                         text("convert_cancel"),
                         cx,
-                        App::cancel_conversion,
+                        Self::cancel_conversion,
                     ));
             }
             return (column.into_any_element(), None);
@@ -1181,7 +1182,7 @@ impl App {
                             app.handle_ext_action(crate::app::ext::ExtAction::SetEnabled {
                                 id: id.clone(),
                                 enabled: true,
-                            })
+                            });
                         },
                     ));
                 } else if let Some(request) = session
@@ -1244,7 +1245,7 @@ impl App {
                 "convert-rescan",
                 text("convert_rescan"),
                 cx,
-                App::refresh_conversion_tools,
+                Self::refresh_conversion_tools,
             ));
         }
         if let Some(package) = &session.package {
@@ -1289,7 +1290,7 @@ impl App {
                         },
                     ),
                     cx,
-                    App::cancel_conversion_package,
+                    Self::cancel_conversion_package,
                 ));
             }
         }
@@ -1373,7 +1374,7 @@ impl App {
                         "convert-folder",
                         text("convert_folder"),
                         cx,
-                        App::choose_conversion_directory,
+                        Self::choose_conversion_directory,
                     ))
                     .when(custom_dir, |s| {
                         s.child(value_button(

@@ -735,7 +735,7 @@ impl App {
     pub(crate) fn handle_cloud_bg(&mut self, result: BgResult) {
         match result {
             BgResult::CloudProviderStopped { uninstall, result } => {
-                self.complete_cloud_shutdown(uninstall, result)
+                self.complete_cloud_shutdown(uninstall, result);
             }
             BgResult::CloudRcloneProgress { done, total } => {
                 self.state.cloud.rclone_progress = Some((done, total));

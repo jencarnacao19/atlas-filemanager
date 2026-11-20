@@ -113,34 +113,6 @@ fn same_path(a: &std::path::Path, b: &std::path::Path) -> bool {
     transfer::paths_equal_ci(a, b)
 }
 
-#[cfg(test)]
-mod batch_plan_tests {
-    use super::plan_batch_renames;
-    use std::path::PathBuf;
-
-    fn p(name: &str) -> PathBuf {
-        PathBuf::from("dir").join(name)
-    }
-
-    #[test]
-    fn shifted_numbers_park_before_landing() {
-        let steps = plan_batch_renames(&[(p("01.png"), p("02.png")), (p("02.png"), p("03.png"))]);
-        // 01→02 lands on a member, so it parks; 02→03 is free and goes first
-        // (vacating 02) before the parked file finishes.
-        assert_eq!(steps.len(), 3);
-        assert_eq!(steps[0].0, p("01.png"));
-        assert!(steps[0].1.to_string_lossy().contains(".atlas-rename-"));
-        assert_eq!(steps[1], (p("02.png"), p("03.png")));
-        assert_eq!(steps[2].1, p("02.png"));
-    }
-
-    #[test]
-    fn independent_renames_stay_direct_and_noops_vanish() {
-        let steps = plan_batch_renames(&[(p("a.png"), p("b.png")), (p("c.png"), p("c.png"))]);
-        assert_eq!(steps, vec![(p("a.png"), p("b.png"))]);
-    }
-}
-
 impl App {
     /// Rename many files in one ordered task (see [`plan_batch_renames`]); each step
     /// reports like a normal rename so the listing refreshes as before.
@@ -434,10 +406,7 @@ impl App {
             TransferKind::Copy => rust_i18n::t!("op_copying").to_string(),
             TransferKind::Move => rust_i18n::t!("op_moving").to_string(),
         };
-        let (op_id, cancel) = self
-            .state
-            .ops
-            .start_op_labeled(pairs.len(), label.to_string());
+        let (op_id, cancel) = self.state.ops.start_op_labeled(pairs.len(), label);
         let tx = self.tx.clone();
         let affected: Vec<_> = affected.into_iter().collect();
         self.operation_feedback.borrow_mut().begin(
@@ -600,24 +569,15 @@ impl App {
                 }
             }
 
-            match sys_files {
-                Some((sys_paths, ext_cut)) => {
-                    if let Some(internal) = &self.state.ops.clipboard {
-                        if internal.paths == sys_paths {
-                            Some((
-                                internal.paths.clone(),
-                                internal.target_names.clone(),
-                                internal.is_cut,
-                                TransferOrigin::Paste,
-                            ))
-                        } else {
-                            let origin = if ext_cut {
-                                TransferOrigin::PasteExternalCut
-                            } else {
-                                TransferOrigin::Paste
-                            };
-                            Some((sys_paths, None, ext_cut, origin))
-                        }
+            if let Some((sys_paths, ext_cut)) = sys_files {
+                if let Some(internal) = &self.state.ops.clipboard {
+                    if internal.paths == sys_paths {
+                        Some((
+                            internal.paths.clone(),
+                            internal.target_names.clone(),
+                            internal.is_cut,
+                            TransferOrigin::Paste,
+                        ))
                     } else {
                         let origin = if ext_cut {
                             TransferOrigin::PasteExternalCut
@@ -626,29 +586,35 @@ impl App {
                         };
                         Some((sys_paths, None, ext_cut, origin))
                     }
+                } else {
+                    let origin = if ext_cut {
+                        TransferOrigin::PasteExternalCut
+                    } else {
+                        TransferOrigin::Paste
+                    };
+                    Some((sys_paths, None, ext_cut, origin))
                 }
-                None => {
-                    let is_remote = self
-                        .state
-                        .ops
-                        .clipboard
-                        .as_ref()
-                        .and_then(|c| c.remote_id.as_ref())
-                        .is_some();
-                    if let Some(text) = &sys_text {
-                        if !text.trim().is_empty() && !is_remote {
-                            self.state.ops.clipboard = None;
-                        }
+            } else {
+                let is_remote = self
+                    .state
+                    .ops
+                    .clipboard
+                    .as_ref()
+                    .and_then(|c| c.remote_id.as_ref())
+                    .is_some();
+                if let Some(text) = &sys_text {
+                    if !text.trim().is_empty() && !is_remote {
+                        self.state.ops.clipboard = None;
                     }
-                    self.state.ops.clipboard.as_ref().map(|c| {
-                        (
-                            c.paths.clone(),
-                            c.target_names.clone(),
-                            c.is_cut,
-                            TransferOrigin::Paste,
-                        )
-                    })
                 }
+                self.state.ops.clipboard.as_ref().map(|c| {
+                    (
+                        c.paths.clone(),
+                        c.target_names.clone(),
+                        c.is_cut,
+                        TransferOrigin::Paste,
+                    )
+                })
             }
         };
 
@@ -1064,5 +1030,33 @@ impl App {
             }
             self.state.ops.undo_stack.undo.push_back(entry);
         }
+    }
+}
+
+#[cfg(test)]
+mod batch_plan_tests {
+    use super::plan_batch_renames;
+    use std::path::PathBuf;
+
+    fn p(name: &str) -> PathBuf {
+        PathBuf::from("dir").join(name)
+    }
+
+    #[test]
+    fn shifted_numbers_park_before_landing() {
+        let steps = plan_batch_renames(&[(p("01.png"), p("02.png")), (p("02.png"), p("03.png"))]);
+        // 01→02 lands on a member, so it parks; 02→03 is free and goes first
+        // (vacating 02) before the parked file finishes.
+        assert_eq!(steps.len(), 3);
+        assert_eq!(steps[0].0, p("01.png"));
+        assert!(steps[0].1.to_string_lossy().contains(".atlas-rename-"));
+        assert_eq!(steps[1], (p("02.png"), p("03.png")));
+        assert_eq!(steps[2].1, p("02.png"));
+    }
+
+    #[test]
+    fn independent_renames_stay_direct_and_noops_vanish() {
+        let steps = plan_batch_renames(&[(p("a.png"), p("b.png")), (p("c.png"), p("c.png"))]);
+        assert_eq!(steps, vec![(p("a.png"), p("b.png"))]);
     }
 }

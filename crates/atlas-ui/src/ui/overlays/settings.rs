@@ -617,7 +617,7 @@ impl App {
                                                             app.state.settings = settings;
                                                             rust_i18n::set_locale("en"); // auto fallback for now
                                                             cx.notify();
-                                                        })
+                                                        });
                                                     }
                                                 })
                                         })
@@ -649,7 +649,7 @@ impl App {
                                                             app.state.settings = settings;
                                                             rust_i18n::set_locale("en");
                                                             cx.notify();
-                                                        })
+                                                        });
                                                     }
                                                 })
                                         })
@@ -681,7 +681,7 @@ impl App {
                                                             app.state.settings = settings;
                                                             rust_i18n::set_locale("es");
                                                             cx.notify();
-                                                        })
+                                                        });
                                                     }
                                                 })
                                         }),
@@ -950,7 +950,7 @@ impl App {
                             "set-inspector",
                             |app| {
                                 app.state.settings.show_inspector =
-                                    !app.state.settings.show_inspector
+                                    !app.state.settings.show_inspector;
                             },
                             view.clone(),
                         ))
@@ -1223,7 +1223,7 @@ impl App {
                                     inspector_placement == InspectorPlacement::Global,
                                     |app| {
                                         app.state.settings.inspector_placement =
-                                            InspectorPlacement::Global
+                                            InspectorPlacement::Global;
                                     },
                                     view.clone(),
                                 ))

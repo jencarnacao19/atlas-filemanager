@@ -102,7 +102,7 @@ impl App {
                     visible
                         .iter()
                         .filter_map(|i| ts.entries.get(*i))
-                        .map(|e| e.path())
+                        .map(atlas_model::file_entry::FileEntry::path)
                         .collect(),
                 )
             }
@@ -134,18 +134,17 @@ impl App {
             return;
         };
         // The anchor row may have collapsed away: pin its nearest visible ancestor.
-        let (index, intra) = match rows.iter().position(|row| *row == path) {
-            Some(index) => (index, intra),
-            None => {
-                let Some(index) = path
-                    .ancestors()
-                    .skip(1)
-                    .find_map(|ancestor| rows.iter().position(|row| row.as_path() == ancestor))
-                else {
-                    return;
-                };
-                (index, 0.0)
-            }
+        let (index, intra) = if let Some(index) = rows.iter().position(|row| *row == path) {
+            (index, intra)
+        } else {
+            let Some(index) = path
+                .ancestors()
+                .skip(1)
+                .find_map(|ancestor| rows.iter().position(|row| row.as_path() == ancestor))
+            else {
+                return;
+            };
+            (index, 0.0)
         };
         let Some(handle) = self.scroll_handles.get(&pane) else {
             return;
@@ -366,7 +365,10 @@ impl App {
                     return;
                 };
                 (
-                    col.entries.iter().map(|entry| entry.path()).collect(),
+                    col.entries
+                        .iter()
+                        .map(atlas_model::file_entry::FileEntry::path)
+                        .collect(),
                     col.selection.clone(),
                 )
             }
@@ -378,7 +380,10 @@ impl App {
                 ts.selection.clone(),
             ),
             _ => (
-                ts.entries.iter().map(|entry| entry.path()).collect(),
+                ts.entries
+                    .iter()
+                    .map(atlas_model::file_entry::FileEntry::path)
+                    .collect(),
                 ts.selection.clone(),
             ),
         };
@@ -448,7 +453,11 @@ impl App {
                 if !matches!(col.load_state, atlas_model::tab::LoadState::Loaded) {
                     return;
                 }
-                let paths: Vec<_> = col.entries.iter().map(|entry| entry.path()).collect();
+                let paths: Vec<_> = col
+                    .entries
+                    .iter()
+                    .map(atlas_model::file_entry::FileEntry::path)
+                    .collect();
                 col.selection = remap(&snapshot.selection, &snapshot.paths, &paths);
             }
             ViewMode::Tree => {
@@ -463,7 +472,11 @@ impl App {
                 if !matches!(ts.load_state, atlas_model::tab::LoadState::Loaded) {
                     return;
                 }
-                let paths: Vec<_> = ts.entries.iter().map(|entry| entry.path()).collect();
+                let paths: Vec<_> = ts
+                    .entries
+                    .iter()
+                    .map(atlas_model::file_entry::FileEntry::path)
+                    .collect();
                 ts.selection = remap(&snapshot.selection, &snapshot.paths, &paths);
             }
         }

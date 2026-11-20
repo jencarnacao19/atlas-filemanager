@@ -82,7 +82,7 @@ fn mkdir_inside(base: &Path, relative: &Path) -> Result<PathBuf> {
                 "Package directory contains a link or file"
             ),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                std::fs::create_dir(&path)?
+                std::fs::create_dir(&path)?;
             }
             Err(error) => return Err(error.into()),
         }
@@ -179,11 +179,11 @@ pub async fn install(
     std::fs::create_dir(&payload)?;
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(15))
-        .timeout(Duration::from_secs(600))
+        .timeout(Duration::from_mins(10))
         .build()?;
     let mut response = tokio::select! {
         result = client.get(url).send() => result?.error_for_status()?,
-        _ = cancelled(&cancel) => bail!("Cancelled"),
+        () = cancelled(&cancel) => bail!("Cancelled"),
     };
     ensure!(
         response.url().scheme() == "https",
@@ -230,7 +230,7 @@ pub async fn install(
     };
     tokio::select! {
         result = transfer => result?,
-        _ = cancelled(&cancel) => bail!("Cancelled"),
+        () = cancelled(&cancel) => bail!("Cancelled"),
     }
     ensure!(
         tool.download_bytes == 0 || bytes == tool.download_bytes,

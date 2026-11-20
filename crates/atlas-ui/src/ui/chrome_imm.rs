@@ -660,7 +660,7 @@ impl Element for ImmChromeElement {
 
         // Handle Clicks via window mouse down listener
         if let Some(app_entity) = self.app.upgrade() {
-            let hit_view = app_entity.clone();
+            let hit_view = app_entity;
             let pane_id = self.pane_id;
             let segs = self.segments.clone();
             let click_hitbox = prepaint.hitbox.clone();
@@ -713,12 +713,12 @@ impl Element for ImmChromeElement {
                             this.activate_tab(pane_id);
                             if let Some(path) = this
                                 .tab_data_for(pane_id)
-                                .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+                                .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
                             {
-                                let name = path
-                                    .file_name()
-                                    .map(|n| n.to_string_lossy().into_owned())
-                                    .unwrap_or_else(|| path.display().to_string());
+                                let name = path.file_name().map_or_else(
+                                    || path.display().to_string(),
+                                    |n| n.to_string_lossy().into_owned(),
+                                );
                                 let idx = this
                                     .state
                                     .profiles

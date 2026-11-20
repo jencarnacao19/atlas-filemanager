@@ -27,7 +27,7 @@ fn sanitize_component(s: &str) -> String {
         })
         .collect();
     // Trim trailing dots and spaces (Windows rejects them).
-    let trimmed = out.trim_end_matches(|c| c == '.' || c == ' ');
+    let trimmed = out.trim_end_matches(['.', ' ']);
     if trimmed.len() < out.len() {
         out.truncate(trimmed.len());
     }

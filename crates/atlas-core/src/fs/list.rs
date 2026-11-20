@@ -137,7 +137,7 @@ pub async fn list_branch_dir_with_preview(
                 let meta = de.metadata().ok();
                 let size = ft
                     .is_file()
-                    .then(|| meta.as_ref().map(|m| m.len()))
+                    .then(|| meta.as_ref().map(std::fs::Metadata::len))
                     .flatten();
                 let modified = meta.as_ref().and_then(|m| m.modified().ok());
                 let name = path.file_name().map_or_else(
@@ -299,7 +299,7 @@ fn list_dir_portable(
 ) -> anyhow::Result<Vec<FileEntry>> {
     let directory = atlas_model::file_entry::EntryDirectory::new(dir.to_path_buf());
     let mut entries = Vec::new();
-    for raw in std::fs::read_dir(&dir)? {
+    for raw in std::fs::read_dir(dir)? {
         let Ok(de) = raw else { continue };
         let path = de.path();
         if !show_hidden
@@ -320,7 +320,7 @@ fn list_dir_portable(
         let meta = de.metadata().ok();
         let size = ft
             .is_file()
-            .then(|| meta.as_ref().map(|m| m.len()))
+            .then(|| meta.as_ref().map(std::fs::Metadata::len))
             .flatten();
         let modified = meta.as_ref().and_then(|m| m.modified().ok());
         let name = path.file_name().map_or_else(
@@ -362,13 +362,13 @@ fn list_dir_portable(
         );
         if entries.len() == 256 {
             let mut first = entries.clone();
-            sort_entries(&mut first, &sort_col, &sort_dir, folder_order);
+            sort_entries(&mut first, sort_col, sort_dir, folder_order);
             if let Some(preview) = preview.take() {
                 preview(first);
             }
         }
     }
-    sort_entries(&mut entries, &sort_col, &sort_dir, folder_order);
+    sort_entries(&mut entries, sort_col, sort_dir, folder_order);
     Ok(entries)
 }
 
@@ -600,8 +600,14 @@ mod tests {
                 let mut sorted = batch.clone();
                 sort_entries(&mut sorted, &SortColumn::Name, &SortDir::Asc, order);
                 assert_eq!(
-                    batch.iter().map(|e| e.path()).collect::<Vec<_>>(),
-                    sorted.iter().map(|e| e.path()).collect::<Vec<_>>()
+                    batch
+                        .iter()
+                        .map(atlas_model::file_entry::FileEntry::path)
+                        .collect::<Vec<_>>(),
+                    sorted
+                        .iter()
+                        .map(atlas_model::file_entry::FileEntry::path)
+                        .collect::<Vec<_>>()
                 );
             }
             assert_eq!(

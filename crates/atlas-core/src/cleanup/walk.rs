@@ -133,7 +133,7 @@ fn visit<'s>(
 }
 
 fn thread_count() -> usize {
-    let cpus = std::thread::available_parallelism().map_or(8, |n| n.get());
+    let cpus = std::thread::available_parallelism().map_or(8, std::num::NonZero::get);
     // Enumeration blocks on the filesystem, so oversubscribe the cores.
     (cpus * 2).clamp(8, 32)
 }
@@ -156,7 +156,7 @@ pub(super) fn walk(
     };
     std::thread::scope(|s| {
         let job = s.spawn(|| {
-            pool.install(|| rayon::scope(|scope| visit(&shared, scope, root.to_owned(), 0, 0)))
+            pool.install(|| rayon::scope(|scope| visit(&shared, scope, root.to_owned(), 0, 0)));
         });
         while !job.is_finished() {
             std::thread::sleep(Duration::from_millis(100));

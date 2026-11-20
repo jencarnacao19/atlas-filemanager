@@ -102,7 +102,7 @@ impl App {
         if !self.state.settings.disable_animations {
             self.dock_split_animations.insert(
                 linear,
-                DockSplitAnimation::new(vec![1.0, 1.0], if before { 0 } else { 1 }),
+                DockSplitAnimation::new(vec![1.0, 1.0], usize::from(!before)),
             );
         }
         self.push_focus_history();
@@ -171,10 +171,10 @@ impl App {
                             from_gap_factors: self
                                 .dock_split_animations
                                 .get(&parent_id)
-                                .map(DockSplitAnimation::gap_factors)
-                                .unwrap_or_else(|| {
-                                    vec![1.0; current_shares.len().saturating_sub(1)]
-                                }),
+                                .map_or_else(
+                                    || vec![1.0; current_shares.len().saturating_sub(1)],
+                                    DockSplitAnimation::gap_factors,
+                                ),
                             started: Instant::now(),
                             from: current_shares,
                             to: target_shares,
@@ -285,7 +285,7 @@ impl App {
             _ => None,
         };
 
-        let (start_path, view_mode, thumbnail_size, preview_enabled) = source_pane_id
+        let source_pane = source_pane_id
             .and_then(|pane_id| self.state.pane_tree.tiles.get(pane_id))
             .and_then(|tile| {
                 if let Tile::Pane(td) = tile {
@@ -293,28 +293,24 @@ impl App {
                 } else {
                     None
                 }
-            })
-            .map(|td| {
-                let path = if let Location::Directory(p) = &td.location {
-                    p.clone()
-                } else {
-                    home.clone()
-                };
-                (
-                    path,
-                    td.view_mode.clone(),
-                    td.thumbnail_size,
-                    td.preview_enabled,
-                )
-            })
-            .unwrap_or_else(|| {
-                (
-                    home,
-                    self.state.settings.view_mode.clone(),
-                    self.state.settings.thumbnail_size,
-                    self.state.settings.show_inspector,
-                )
             });
+        let (start_path, view_mode, thumbnail_size, preview_enabled) = match source_pane {
+            Some(td) => (
+                match &td.location {
+                    Location::Directory(p) => p.clone(),
+                    _ => home,
+                },
+                td.view_mode.clone(),
+                td.thumbnail_size,
+                td.preview_enabled,
+            ),
+            None => (
+                home,
+                self.state.settings.view_mode.clone(),
+                self.state.settings.thumbnail_size,
+                self.state.settings.show_inspector,
+            ),
+        };
 
         let tab_data = TabData::with_view(
             start_path.clone(),
@@ -362,10 +358,9 @@ impl App {
                 .state
                 .tab_states
                 .get(&source_id)
-                .map(|s| s.last_pane_width)
-                .unwrap_or(0.0);
+                .map_or(0.0, |s| s.last_pane_width);
             if source_w > 1.0 {
-                let target_w = if !vertical { source_w / 2.0 } else { source_w };
+                let target_w = if vertical { source_w } else { source_w / 2.0 };
                 if let Some(source_ts) = self.state.tab_states.get_mut(&source_id) {
                     source_ts.last_pane_width = target_w;
                 }
@@ -542,8 +537,7 @@ impl App {
         self.dock_split_animations
             .get(&linear_id)
             .filter(|anim| anim.to.len() == final_shares.len() && !anim.done())
-            .map(DockSplitAnimation::shares)
-            .unwrap_or_else(|| final_shares.to_vec())
+            .map_or_else(|| final_shares.to_vec(), DockSplitAnimation::shares)
     }
 
     fn start_pane_split_close(&mut self, pane_id: TileId) {
@@ -715,7 +709,8 @@ impl App {
         let tabs_id = self.state.pane_tree.tiles.insert_tab_tile(vec![pane_id]);
         if is_root {
             self.state.pane_tree.root = Some(tabs_id);
-        } else if let Some(parent_id) = parent_id {
+        } else {
+            let parent_id = parent_id?;
             if let Some(Tile::Container(container)) = self.state.pane_tree.tiles.get_mut(parent_id)
             {
                 match container {
@@ -731,8 +726,6 @@ impl App {
                     }
                 }
             }
-        } else {
-            return None;
         }
         Some(tabs_id)
     }
@@ -952,8 +945,10 @@ impl App {
         self.dock_split_animations
             .get(&linear_id)
             .filter(|animation| animation.to.len() == child_count)
-            .map(DockSplitAnimation::gap_factors)
-            .unwrap_or_else(|| vec![1.0; child_count.saturating_sub(1)])
+            .map_or_else(
+                || vec![1.0; child_count.saturating_sub(1)],
+                DockSplitAnimation::gap_factors,
+            )
     }
 
     pub(crate) fn remove_panes_from_tree(&mut self, panes: &[TileId]) {
@@ -1216,7 +1211,7 @@ impl App {
             LinearDir::Vertical => self.state.pane_tree.tiles.insert_vertical_tile(children),
         };
 
-        let insert_at = if before { 0 } else { 1 };
+        let insert_at = usize::from(!before);
         let anim = DockSplitAnimation::new(vec![1.0, 1.0], insert_at);
         self.dock_split_animations.insert(linear, anim);
 

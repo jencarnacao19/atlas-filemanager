@@ -73,10 +73,10 @@ impl RowInk {
                 let width = f32::from(bounds.size.width);
                 let height = f32::from(bounds.size.height);
                 let icon_size = (if windows { 18.0 } else { 16.0 }) * zoom;
-                let prefix = if !has_leading {
-                    0.0
-                } else {
+                let prefix = if has_leading {
                     icon_size + (if windows { 10.0 } else { 8.0 }) * zoom
+                } else {
+                    0.0
                 };
                 let detail = self.detail.map(|(label, color)| {
                     shape_text_truncated(

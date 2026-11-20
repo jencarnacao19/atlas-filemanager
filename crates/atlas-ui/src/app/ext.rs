@@ -374,7 +374,7 @@ impl App {
                 td.location
                     .fs_dir()
                     .filter(|p| icons_changed || dirs.iter().any(|d| d.as_path() == *p))
-                    .map(|p| p.to_path_buf())
+                    .map(std::path::Path::to_path_buf)
                     .map(|path| (tile, path, td.sort_col.clone(), td.sort_dir.clone()))
             })
             .collect();

@@ -180,8 +180,9 @@ fn stable_flip_layout_enabled() -> bool {
     *ENABLED.get_or_init(|| {
         std::env::var("ATLAS_STABLE_FLIP_LAYOUT")
             .ok()
-            .map(|value| !matches!(value.as_str(), "" | "0" | "false" | "FALSE" | "off" | "OFF"))
-            .unwrap_or(true)
+            .is_none_or(|value| {
+                !matches!(value.as_str(), "" | "0" | "false" | "FALSE" | "off" | "OFF")
+            })
     })
 }
 
@@ -647,7 +648,7 @@ impl App {
                 let bounds = self
                     .pane_tabs_bounds
                     .get(&pane.tile)
-                    .cloned()
+                    .copied()
                     .unwrap_or_default();
                 let left_shift = if pane.close_axis.0 > 0.0 {
                     current_rect.w - f32::from(bounds.size.width)
@@ -924,14 +925,16 @@ impl App {
                 let start_splitter_gaps = flip_animation
                     .as_ref()
                     .filter(|animation| animation.from_gap_factors.len() == num_splitters)
-                    .map(|animation| {
-                        animation
-                            .from_gap_factors
-                            .iter()
-                            .map(|factor| splitter_size * factor)
-                            .collect::<Vec<_>>()
-                    })
-                    .unwrap_or_else(|| splitter_gaps.clone());
+                    .map_or_else(
+                        || splitter_gaps.clone(),
+                        |animation| {
+                            animation
+                                .from_gap_factors
+                                .iter()
+                                .map(|factor| splitter_size * factor)
+                                .collect::<Vec<_>>()
+                        },
+                    );
                 let available = (span - splitter_gaps.iter().sum::<f32>()).max(0.0);
                 let layout_available = (layout_span - splitter_gaps.iter().sum::<f32>()).max(0.0);
                 let start_available = (span - start_splitter_gaps.iter().sum::<f32>()).max(0.0);
@@ -1117,12 +1120,10 @@ impl App {
 
                 let mut row = if exact_span.is_some() {
                     div().relative()
+                } else if linear.dir == LinearDir::Horizontal {
+                    h_flex()
                 } else {
-                    if linear.dir == LinearDir::Horizontal {
-                        h_flex()
-                    } else {
-                        v_flex()
-                    }
+                    v_flex()
                 }
                 .size_full()
                 .min_w(px(0.))
@@ -1436,7 +1437,7 @@ impl App {
             if let Some(t) = self.tab_data_for(*child) {
                 t.location.display_path().hash(&mut h);
                 if let Some(p) = t.location.fs_dir() {
-                    self.grid_thumbnail(&p.to_path_buf()).is_some().hash(&mut h);
+                    self.grid_thumbnail(p).is_some().hash(&mut h);
                 }
             }
             if let Some(started) = self.tab_closing.get(child) {
@@ -1510,8 +1511,16 @@ impl App {
             cx.theme().background
         };
         let active_id = active.unwrap_or_else(|| *children.first().unwrap());
-        let content = active
-            .map(|id| {
+        let content = active.map_or_else(
+            || {
+                div()
+                    .w_full()
+                    .flex_1()
+                    .min_h(px(0.))
+                    .min_w(px(0.))
+                    .into_any_element()
+            },
+            |id| {
                 if self.should_render_pane_body(id) {
                     // Zed pattern (pane_group.rs:554): pane cached as AnyView. If the
                     // pane was not notified and its bounds did not change, GPUI reuses
@@ -1524,15 +1533,8 @@ impl App {
                     crate::perf::count("render.pane_body_skipped");
                     div().size_full().into_any_element()
                 }
-            })
-            .unwrap_or_else(|| {
-                div()
-                    .w_full()
-                    .flex_1()
-                    .min_h(px(0.))
-                    .min_w(px(0.))
-                    .into_any_element()
-            });
+            },
+        );
         let content = if let Some(active) = active {
             let is_focused = self.state.focused_tile == active;
             let has_filter = self
@@ -1573,10 +1575,10 @@ impl App {
         });
 
         let is_mod = window.modifiers().alt;
-        let activate_drag_app = cx.entity().clone();
-        let activate_drag_app_down = cx.entity().clone();
-        let activate_drag_app_up = cx.entity().clone();
-        let app_for_resize = cx.entity().clone();
+        let activate_drag_app = cx.entity();
+        let activate_drag_app_down = cx.entity();
+        let activate_drag_app_up = cx.entity();
+        let app_for_resize = cx.entity();
 
         let panel = if is_mod {
             div()
@@ -1596,7 +1598,7 @@ impl App {
                         .on_drag_alt(tab_drag_source(
                             TabDrag {
                                 pane_id: active_id,
-                                content: self.get_or_make_file_panel(active_id, cx).clone().into(),
+                                content: self.get_or_make_file_panel(active_id, cx).into(),
                                 size: self.pane_view_bounds.get(&active_id).map(|b| b.size),
                             },
                             move |drag, _pos, _window, cx| {
@@ -1687,9 +1689,9 @@ impl App {
         let mut tab_items = Vec::with_capacity(children.len());
 
         for pane_id in &children {
-            let (label, tag_color) = self
-                .tab_data_for(*pane_id)
-                .map(|t| {
+            let (label, tag_color) = self.tab_data_for(*pane_id).map_or_else(
+                || (rust_i18n::t!("fallback_tab_title").to_string(), None),
+                |t| {
                     let tag_color = match &t.location {
                         Location::Tag(id) => self.state.tag_cache.def(*id).map(|def| def.color),
                         _ => None,
@@ -1697,13 +1699,13 @@ impl App {
                     let label = match &t.location {
                         Location::Tag(id) => self.state.tag_cache.def(*id).map_or_else(
                             || display_name(&t.location.display_path()),
-                            |def| def.name.to_string(),
+                            |def| def.name.clone(),
                         ),
                         _ => display_name(&t.location.display_path()),
                     };
                     (label, tag_color)
-                })
-                .unwrap_or_else(|| (rust_i18n::t!("fallback_tab_title").to_string(), None));
+                },
+            );
 
             tab_items.push(crate::ui::views::tabs_bar_element::TabBarItem {
                 pane_id: *pane_id,
@@ -2036,6 +2038,166 @@ impl App {
     }
 }
 
+pub(crate) struct FastPaneShell {
+    id: gpui::ElementId,
+    tab_strip: gpui::AnyElement,
+    content: gpui::AnyElement,
+    style: gpui::StyleRefinement,
+}
+
+pub(crate) struct FastPaneShellPrepaint {
+    tab_layout: gpui::LayoutId,
+    content_layout: gpui::LayoutId,
+}
+
+impl FastPaneShell {
+    pub(crate) fn new(
+        pane_id: TileId,
+        tab_strip: gpui::AnyElement,
+        content: gpui::AnyElement,
+    ) -> Self {
+        Self {
+            id: gpui::ElementId::Name(gpui::SharedString::from(format!(
+                "pane-shell-{}",
+                pane_id.0
+            ))),
+            tab_strip,
+            content,
+            style: gpui::StyleRefinement::default(),
+        }
+    }
+}
+
+impl gpui::IntoElement for FastPaneShell {
+    type Element = Self;
+    fn into_element(self) -> Self::Element {
+        self
+    }
+}
+
+impl gpui::Styled for FastPaneShell {
+    fn style(&mut self) -> &mut gpui::StyleRefinement {
+        &mut self.style
+    }
+}
+
+impl gpui::Element for FastPaneShell {
+    type RequestLayoutState = FastPaneShellPrepaint;
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<gpui::ElementId> {
+        Some(self.id.clone())
+    }
+
+    fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _id: Option<&gpui::GlobalElementId>,
+        _inspector_id: Option<&gpui::InspectorElementId>,
+        window: &mut gpui::Window,
+        cx: &mut gpui::App,
+    ) -> (gpui::LayoutId, Self::RequestLayoutState) {
+        crate::perf::count("pane.shell.layout");
+        let tab_layout = self.tab_strip.request_layout(window, cx);
+        let content_layout = self.content.request_layout(window, cx);
+
+        let mut style = gpui::Style::default();
+        style.refine(&self.style);
+        style.display = gpui::Display::Flex;
+        style.flex_direction = gpui::FlexDirection::Column;
+
+        let layout_id = window.request_layout(style, vec![tab_layout, content_layout], cx);
+
+        (
+            layout_id,
+            FastPaneShellPrepaint {
+                tab_layout,
+                content_layout,
+            },
+        )
+    }
+
+    fn prepaint(
+        &mut self,
+        _id: Option<&gpui::GlobalElementId>,
+        _inspector_id: Option<&gpui::InspectorElementId>,
+        bounds: gpui::Bounds<gpui::Pixels>,
+        request_layout: &mut Self::RequestLayoutState,
+        window: &mut gpui::Window,
+        cx: &mut gpui::App,
+    ) -> Self::PrepaintState {
+        crate::perf::count("pane.shell.prepaint");
+
+        let tab_bounds = window.layout_bounds(request_layout.tab_layout);
+        let content_bounds = window.layout_bounds(request_layout.content_layout);
+
+        let tab_offset = bounds.origin - tab_bounds.origin;
+        let content_offset = bounds.origin
+            + gpui::Point {
+                x: gpui::px(0.0),
+                y: tab_bounds.size.height,
+            }
+            - content_bounds.origin;
+
+        window.with_content_mask(
+            Some(gpui::ContentMask {
+                bounds,
+                ..Default::default()
+            }),
+            |window| {
+                window.with_element_offset(tab_offset, |window| {
+                    self.tab_strip.prepaint(window, cx);
+                });
+                window.with_element_offset(content_offset, |window| {
+                    self.content.prepaint(window, cx);
+                });
+            },
+        );
+    }
+
+    fn paint(
+        &mut self,
+        _id: Option<&gpui::GlobalElementId>,
+        _inspector_id: Option<&gpui::InspectorElementId>,
+        bounds: gpui::Bounds<gpui::Pixels>,
+        _request_layout: &mut Self::RequestLayoutState,
+        _prepaint: &mut Self::PrepaintState,
+        window: &mut gpui::Window,
+        cx: &mut gpui::App,
+    ) {
+        crate::perf::count("pane.shell.paint");
+        let mut style = gpui::Style::default();
+        style.refine(&self.style);
+        // Each child's Drawable retains the bounds set during prepaint.
+        // CE restricts layout queries and element offsets to the layout phases.
+        style.paint(bounds, window, cx, |window, cx| {
+            self.tab_strip.paint(window, cx);
+            self.content.paint(window, cx);
+        });
+    }
+}
+
+fn tab_drag_source<V: gpui::Render + 'static>(
+    payload: TabDrag,
+    build: impl Fn(&TabDrag, gpui::Point<gpui::Pixels>, &mut Window, &mut gpui::App) -> gpui::Entity<V>
+        + 'static,
+) -> impl Fn(
+    gpui::Point<gpui::Pixels>,
+    Option<gpui::CursorStyle>,
+    &mut Window,
+    &mut gpui::App,
+) -> gpui::AnyDrag {
+    move |offset, cursor, window, cx| {
+        let view = build(&payload, offset, window, cx);
+        gpui::AnyDrag::new(payload.clone(), view)
+            .offset(offset)
+            .cursor_style(cursor)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2266,165 +2428,5 @@ mod tests {
             (10.0, 20.0, 90.0, 400.0)
         );
         assert_eq!(offset, (0.0, 0.0));
-    }
-}
-
-pub(crate) struct FastPaneShell {
-    id: gpui::ElementId,
-    tab_strip: gpui::AnyElement,
-    content: gpui::AnyElement,
-    style: gpui::StyleRefinement,
-}
-
-pub(crate) struct FastPaneShellPrepaint {
-    tab_layout: gpui::LayoutId,
-    content_layout: gpui::LayoutId,
-}
-
-impl FastPaneShell {
-    pub(crate) fn new(
-        pane_id: TileId,
-        tab_strip: gpui::AnyElement,
-        content: gpui::AnyElement,
-    ) -> Self {
-        Self {
-            id: gpui::ElementId::Name(gpui::SharedString::from(format!(
-                "pane-shell-{}",
-                pane_id.0
-            ))),
-            tab_strip,
-            content,
-            style: gpui::StyleRefinement::default(),
-        }
-    }
-}
-
-impl gpui::IntoElement for FastPaneShell {
-    type Element = Self;
-    fn into_element(self) -> Self::Element {
-        self
-    }
-}
-
-impl gpui::Styled for FastPaneShell {
-    fn style(&mut self) -> &mut gpui::StyleRefinement {
-        &mut self.style
-    }
-}
-
-impl gpui::Element for FastPaneShell {
-    type RequestLayoutState = FastPaneShellPrepaint;
-    type PrepaintState = ();
-
-    fn id(&self) -> Option<gpui::ElementId> {
-        Some(self.id.clone())
-    }
-
-    fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
-        None
-    }
-
-    fn request_layout(
-        &mut self,
-        _id: Option<&gpui::GlobalElementId>,
-        _inspector_id: Option<&gpui::InspectorElementId>,
-        window: &mut gpui::Window,
-        cx: &mut gpui::App,
-    ) -> (gpui::LayoutId, Self::RequestLayoutState) {
-        crate::perf::count("pane.shell.layout");
-        let tab_layout = self.tab_strip.request_layout(window, cx);
-        let content_layout = self.content.request_layout(window, cx);
-
-        let mut style = gpui::Style::default();
-        style.refine(&self.style);
-        style.display = gpui::Display::Flex;
-        style.flex_direction = gpui::FlexDirection::Column;
-
-        let layout_id = window.request_layout(style, vec![tab_layout, content_layout], cx);
-
-        (
-            layout_id,
-            FastPaneShellPrepaint {
-                tab_layout,
-                content_layout,
-            },
-        )
-    }
-
-    fn prepaint(
-        &mut self,
-        _id: Option<&gpui::GlobalElementId>,
-        _inspector_id: Option<&gpui::InspectorElementId>,
-        bounds: gpui::Bounds<gpui::Pixels>,
-        request_layout: &mut Self::RequestLayoutState,
-        window: &mut gpui::Window,
-        cx: &mut gpui::App,
-    ) -> Self::PrepaintState {
-        crate::perf::count("pane.shell.prepaint");
-
-        let tab_bounds = window.layout_bounds(request_layout.tab_layout);
-        let content_bounds = window.layout_bounds(request_layout.content_layout);
-
-        let tab_offset = bounds.origin - tab_bounds.origin;
-        let content_offset = bounds.origin
-            + gpui::Point {
-                x: gpui::px(0.0),
-                y: tab_bounds.size.height,
-            }
-            - content_bounds.origin;
-
-        window.with_content_mask(
-            Some(gpui::ContentMask {
-                bounds,
-                ..Default::default()
-            }),
-            |window| {
-                window.with_element_offset(tab_offset, |window| {
-                    self.tab_strip.prepaint(window, cx);
-                });
-                window.with_element_offset(content_offset, |window| {
-                    self.content.prepaint(window, cx);
-                });
-            },
-        );
-    }
-
-    fn paint(
-        &mut self,
-        _id: Option<&gpui::GlobalElementId>,
-        _inspector_id: Option<&gpui::InspectorElementId>,
-        bounds: gpui::Bounds<gpui::Pixels>,
-        _request_layout: &mut Self::RequestLayoutState,
-        _prepaint: &mut Self::PrepaintState,
-        window: &mut gpui::Window,
-        cx: &mut gpui::App,
-    ) {
-        crate::perf::count("pane.shell.paint");
-        let mut style = gpui::Style::default();
-        style.refine(&self.style);
-        // Each child's Drawable retains the bounds set during prepaint.
-        // CE restricts layout queries and element offsets to the layout phases.
-        style.paint(bounds, window, cx, |window, cx| {
-            self.tab_strip.paint(window, cx);
-            self.content.paint(window, cx);
-        });
-    }
-}
-
-fn tab_drag_source<V: gpui::Render + 'static>(
-    payload: TabDrag,
-    build: impl Fn(&TabDrag, gpui::Point<gpui::Pixels>, &mut Window, &mut gpui::App) -> gpui::Entity<V>
-        + 'static,
-) -> impl Fn(
-    gpui::Point<gpui::Pixels>,
-    Option<gpui::CursorStyle>,
-    &mut Window,
-    &mut gpui::App,
-) -> gpui::AnyDrag {
-    move |offset, cursor, window, cx| {
-        let view = build(&payload, offset, window, cx);
-        gpui::AnyDrag::new(payload.clone(), view)
-            .offset(offset)
-            .cursor_style(cursor)
     }
 }

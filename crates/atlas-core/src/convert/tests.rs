@@ -182,7 +182,7 @@ fn pcm_wave(bits: u16, channels: u16, rate: u32, samples: &[u8]) -> Vec<u8> {
     wave.extend_from_slice(b"data");
     wave.extend_from_slice(&length.to_le_bytes());
     wave.extend_from_slice(samples);
-    if length % 2 != 0 {
+    if !length.is_multiple_of(2) {
         wave.push(0);
     }
     wave
@@ -435,7 +435,7 @@ fn handmade_flac_compresses_tones_silence_short_tails_and_multibyte_frame_number
                 let sample = if name == "silence" {
                     0
                 } else {
-                    ((index as f64 * 440.0 * std::f64::consts::TAU / 44100.0).sin() * 16000.0)
+                    ((f64::from(index) * 440.0 * std::f64::consts::TAU / 44100.0).sin() * 16000.0)
                         as i16
                 };
                 sample.to_le_bytes()
@@ -496,7 +496,7 @@ fn subtitle_pipeline_converts_without_engines_and_keeps_originals() {
     std::fs::write(&path, source).unwrap();
     for target in ["vtt", "ass", "smi", "ttml", "lrc", "txt"] {
         let plan = Plan::build(
-            &[path.clone()],
+            std::slice::from_ref(&path),
             target,
             Settings::default(),
             Tools::default(),
@@ -899,7 +899,7 @@ fn native_image_outputs_are_decodable_and_resize_is_bounded() {
     assert_eq!(image::open(&png.outputs()[0]).unwrap().width(), 8);
     for target in ["jpg", "webp", "bmp", "tiff", "gif", "ico"] {
         let plan = Plan::build(
-            &[source.clone()],
+            std::slice::from_ref(&source),
             target,
             Settings {
                 max_edge: Some(10),
@@ -1126,7 +1126,7 @@ fn plan_rejects_directories_missing_engines_and_no_op_batches() {
     let source = dir.path().join("audio.mp3");
     std::fs::write(&source, b"placeholder").unwrap();
     assert!(Plan::build(
-        &[source.clone()],
+        std::slice::from_ref(&source),
         "wav",
         Settings::default(),
         Tools::default()

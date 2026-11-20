@@ -7,7 +7,7 @@ fn main() {
             let start = Instant::now();
             let job = ScanJob::start(root.clone(), 1, ScanMode::Category);
             let snap = loop {
-                let s = job.receiver.recv_timeout(Duration::from_secs(120)).unwrap();
+                let s = job.receiver.recv_timeout(Duration::from_mins(2)).unwrap();
                 if s.status.terminal() {
                     break s;
                 }

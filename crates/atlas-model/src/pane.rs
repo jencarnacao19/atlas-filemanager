@@ -161,20 +161,19 @@ where
 
 impl From<TabDataRaw> for TabData {
     fn from(r: TabDataRaw) -> Self {
-        let location = match r.location {
-            Some(loc) => loc,
-            None => {
-                let path = r.path.unwrap_or_default();
-                match r.source {
-                    TabSource::Directory => Location::Directory(path),
-                    TabSource::Archive { inner } => Location::Archive {
-                        archive: path,
-                        inner,
-                    },
-                    TabSource::Tag(id) => Location::Tag(id),
-                    #[cfg(feature = "provider-host")]
-                    TabSource::Remote { id, path: rpath } => Location::Remote { id, path: rpath },
-                }
+        let location = if let Some(loc) = r.location {
+            loc
+        } else {
+            let path = r.path.unwrap_or_default();
+            match r.source {
+                TabSource::Directory => Location::Directory(path),
+                TabSource::Archive { inner } => Location::Archive {
+                    archive: path,
+                    inner,
+                },
+                TabSource::Tag(id) => Location::Tag(id),
+                #[cfg(feature = "provider-host")]
+                TabSource::Remote { id, path: rpath } => Location::Remote { id, path: rpath },
             }
         };
         // Sanitize corrupted states where both are false

@@ -580,7 +580,7 @@ impl Element for TreeImmElement {
 
                 let size_line = layout.size_slot.map(|slot| {
                     shape_text_truncated(
-                        &crate::ui::views::details::entry_display_size(&entry),
+                        &crate::ui::views::details::entry_display_size(entry),
                         &font,
                         font_size,
                         meta_color,
@@ -591,7 +591,7 @@ impl Element for TreeImmElement {
 
                 let date_line = layout.date_slot.map(|slot| {
                     shape_text_truncated(
-                        &crate::ui::views::details::entry_display_date(&entry),
+                        &crate::ui::views::details::entry_display_date(entry),
                         &font,
                         font_size,
                         meta_color,
@@ -1212,9 +1212,10 @@ impl App {
             .get(&pane_id)
             .filter(|(fp, _, _)| *fp == fingerprint)
             .map(|(_, rows, pending)| (rows.clone(), pending.clone()));
-        let (rows, pending): (Arc<[(FileEntry, usize, bool, bool)]>, Vec<PathBuf>) = match cached {
-            Some(hit) => hit,
-            None => {
+        let (rows, pending): (Arc<[(FileEntry, usize, bool, bool)]>, Vec<PathBuf>) =
+            if let Some(hit) = cached {
+                hit
+            } else {
                 let Some(ts) = self.state.tab_states.get_mut(&pane_id) else {
                     return div().into_any_element();
                 };
@@ -1232,8 +1233,7 @@ impl App {
                 self.tree_rows_cache
                     .insert(pane_id, (fingerprint, rows.clone(), pending.clone()));
                 (rows, pending)
-            }
-        };
+            };
 
         // Fetch children asynchronously if an expanded directory has not loaded them yet.
         for path in pending {
@@ -1282,7 +1282,7 @@ impl App {
                 true,
                 viewport_h,
                 max_scroll,
-                |row| (row < count).then(|| (row as f32 * row_h, row_h)),
+                |row| (row < count).then_some((row as f32 * row_h, row_h)),
             ) {
                 scroll_y = (-f32::from(base_scroll.offset().y)).max(0.0);
             }
@@ -1478,6 +1478,40 @@ impl App {
         .child(self.transition_viewport(pane_id, body))
         .into_any_element()
     }
+}
+
+/// Cheap, order-independent digest of everything `visible_tree_rows` reads: the
+/// root listing, filter/visibility flags, which folders are expanded and the
+/// identity (pointer + length) of each loaded child list.
+fn tree_fingerprint(ts: &atlas_model::tab::TabState) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let hash_one = |value: &dyn Fn(&mut std::collections::hash_map::DefaultHasher)| {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        value(&mut hasher);
+        hasher.finish()
+    };
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    ts.entries_version.hash(&mut hasher);
+    ts.filter.hash(&mut hasher);
+    ts.show_files.hash(&mut hasher);
+    ts.show_folders.hash(&mut hasher);
+    ts.tree.expanded.len().hash(&mut hasher);
+    ts.tree.children.len().hash(&mut hasher);
+    let expanded = ts
+        .tree
+        .expanded
+        .iter()
+        .fold(0_u64, |acc, path| acc ^ hash_one(&|h| path.hash(h)));
+    let children = ts.tree.children.iter().fold(0_u64, |acc, (path, list)| {
+        acc ^ hash_one(&|h| {
+            path.hash(h);
+            (list.as_ptr() as usize).hash(h);
+            list.len().hash(h);
+        })
+    });
+    expanded.hash(&mut hasher);
+    children.hash(&mut hasher);
+    hasher.finish()
 }
 
 #[cfg(test)]
@@ -1680,38 +1714,4 @@ mod tests {
         assert_eq!(rows[5].dy, -60.0);
         assert_eq!(rows[5].clip_top, Some(24.0));
     }
-}
-
-/// Cheap, order-independent digest of everything `visible_tree_rows` reads: the
-/// root listing, filter/visibility flags, which folders are expanded and the
-/// identity (pointer + length) of each loaded child list.
-fn tree_fingerprint(ts: &atlas_model::tab::TabState) -> u64 {
-    use std::hash::{Hash, Hasher};
-    let hash_one = |value: &dyn Fn(&mut std::collections::hash_map::DefaultHasher)| {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        value(&mut hasher);
-        hasher.finish()
-    };
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    ts.entries_version.hash(&mut hasher);
-    ts.filter.hash(&mut hasher);
-    ts.show_files.hash(&mut hasher);
-    ts.show_folders.hash(&mut hasher);
-    ts.tree.expanded.len().hash(&mut hasher);
-    ts.tree.children.len().hash(&mut hasher);
-    let expanded = ts
-        .tree
-        .expanded
-        .iter()
-        .fold(0_u64, |acc, path| acc ^ hash_one(&|h| path.hash(h)));
-    let children = ts.tree.children.iter().fold(0_u64, |acc, (path, list)| {
-        acc ^ hash_one(&|h| {
-            path.hash(h);
-            (list.as_ptr() as usize).hash(h);
-            list.len().hash(h);
-        })
-    });
-    expanded.hash(&mut hasher);
-    children.hash(&mut hasher);
-    hasher.finish()
 }

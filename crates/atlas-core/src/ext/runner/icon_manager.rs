@@ -16,7 +16,7 @@ pub fn run_icon_manager(
 ) {
     let ext_id = cmd.ext_id.clone();
     let cmd_id = cmd.command.id.clone();
-    let data_dir = cmd.ext_dir.clone();
+    let data_dir = cmd.ext_dir;
     let tx = bg_tx.clone();
 
     rt.spawn(async move {
@@ -24,8 +24,7 @@ pub fn run_icon_manager(
             "icon-manager.download-theme" => {
                 let theme_id = answers
                     .get("theme")
-                    .map(String::as_str)
-                    .unwrap_or("PKief/material-icon-theme")
+                    .map_or("PKief/material-icon-theme", String::as_str)
                     .trim();
                 download_and_activate_theme(&tx, &data_dir, theme_id).await
             }
@@ -141,7 +140,7 @@ fn read_package_variants(theme_root: &Path) -> Result<Vec<ThemeVariant>> {
     } else if theme_root.join("package.json").is_file() {
         theme_root.join("package.json")
     } else {
-        anyhow::bail!("no package.json found in {:?}", theme_root);
+        anyhow::bail!("no package.json found in {theme_root:?}");
     };
     let package: serde_json::Value = serde_json::from_reader(std::fs::File::open(package_path)?)?;
 
@@ -306,7 +305,7 @@ fn build_mappings_from_theme_file(
     };
     let theme_file = base.join(theme_rel_path);
     let contents = std::fs::read_to_string(&theme_file)
-        .context(format!("Failed to read theme file at {:?}", theme_file))?;
+        .context(format!("Failed to read theme file at {theme_file:?}"))?;
     let clean = contents
         .lines()
         .filter(|line| !line.trim_start().starts_with("//"))
@@ -349,7 +348,7 @@ fn build_mappings_from_theme_file(
         {
             if let Ok(path) = normalize_icon_path(&base, theme_dir, icon_path) {
                 mappings.insert(
-                    "".to_string(),
+                    String::new(),
                     serde_json::Value::String(path.to_string_lossy().into_owned()),
                 );
             }

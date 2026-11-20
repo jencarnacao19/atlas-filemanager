@@ -37,23 +37,23 @@ pub enum SettingsTab {
 }
 
 impl SettingsTab {
-    pub const ALL: [SettingsTab; 6] = [
-        SettingsTab::General,
-        SettingsTab::Appearance,
-        SettingsTab::Files,
-        SettingsTab::Layout,
-        SettingsTab::Extensions,
-        SettingsTab::About,
+    pub const ALL: [Self; 6] = [
+        Self::General,
+        Self::Appearance,
+        Self::Files,
+        Self::Layout,
+        Self::Extensions,
+        Self::About,
     ];
 
     pub fn from_index(idx: usize) -> Self {
         match idx {
-            1 => SettingsTab::Appearance,
-            2 => SettingsTab::Files,
-            3 => SettingsTab::Layout,
-            4 => SettingsTab::Extensions,
-            5 => SettingsTab::About,
-            _ => SettingsTab::General,
+            1 => Self::Appearance,
+            2 => Self::Files,
+            3 => Self::Layout,
+            4 => Self::Extensions,
+            5 => Self::About,
+            _ => Self::General,
         }
     }
 
@@ -63,23 +63,23 @@ impl SettingsTab {
 
     pub fn label(self) -> &'static str {
         match self {
-            SettingsTab::General => "General",
-            SettingsTab::Appearance => "Appearance",
-            SettingsTab::Files => "Files",
-            SettingsTab::Layout => "Layout",
-            SettingsTab::Extensions => "Extensions",
-            SettingsTab::About => "About",
+            Self::General => "General",
+            Self::Appearance => "Appearance",
+            Self::Files => "Files",
+            Self::Layout => "Layout",
+            Self::Extensions => "Extensions",
+            Self::About => "About",
         }
     }
 
     pub fn icon(self) -> AtlasIcon {
         match self {
-            SettingsTab::General => AtlasIcon::Gear,
-            SettingsTab::Appearance => AtlasIcon::Palette,
-            SettingsTab::Files => AtlasIcon::Folder,
-            SettingsTab::Layout => AtlasIcon::SidebarSimple,
-            SettingsTab::Extensions => AtlasIcon::TerminalWindow,
-            SettingsTab::About => AtlasIcon::House,
+            Self::General => AtlasIcon::Gear,
+            Self::Appearance => AtlasIcon::Palette,
+            Self::Files => AtlasIcon::Folder,
+            Self::Layout => AtlasIcon::SidebarSimple,
+            Self::Extensions => AtlasIcon::TerminalWindow,
+            Self::About => AtlasIcon::House,
         }
     }
 }
@@ -1102,7 +1102,7 @@ impl Element for SettingsImmElement {
             .search_input
             .as_mut()
             .map(|input| input.request_layout(window, cx));
-        let layout_id = window.request_layout(style.clone(), child_layout.into_iter(), cx);
+        let layout_id = window.request_layout(style.clone(), child_layout, cx);
         (layout_id, style)
     }
 
@@ -1226,10 +1226,10 @@ impl Element for SettingsImmElement {
                                     hovered_hit = Some(bar_hit(frac));
                                 }
                             }
-                            SettingControlKind::AboutAction { url, .. } => {
-                                if row.control_slot.contains(local_x, local_y) {
-                                    hovered_hit = Some(SettingsHit::AboutUrl(url));
-                                }
+                            SettingControlKind::AboutAction { url, .. }
+                                if row.control_slot.contains(local_x, local_y) =>
+                            {
+                                hovered_hit = Some(SettingsHit::AboutUrl(url));
                             }
                             _ => {}
                         }
@@ -1806,7 +1806,7 @@ impl Element for SettingsImmElement {
                         SettingControlKind::AboutAction { label, url } => {
                             let btn_b = row.control_slot.to_bounds(bounds.origin);
                             let is_btn_hovered =
-                                prepaint.hovered_hit == Some(SettingsHit::AboutUrl(*url));
+                                prepaint.hovered_hit == Some(SettingsHit::AboutUrl(url));
                             paint_rounded(
                                 window,
                                 btn_b,
@@ -1907,8 +1907,7 @@ impl Element for SettingsImmElement {
         let total_content_h = layout
             .rows
             .last()
-            .map(|r| r.card_slot.y + r.card_slot.h)
-            .unwrap_or(0.0)
+            .map_or(0.0, |r| r.card_slot.y + r.card_slot.h)
             - content_vp.y
             + 24.0 * zoom;
         let max_scroll = (total_content_h - content_vp.h).max(0.0);
@@ -2180,7 +2179,7 @@ impl Element for SettingsImmElement {
         });
 
         // Escape Key Dismiss
-        let app_esc = app_entity.clone();
+        let app_esc = app_entity;
         window.on_key_event::<KeyDownEvent>(move |ev, phase, _window, cx| {
             if phase != DispatchPhase::Bubble || ev.keystroke.key != "escape" {
                 return;

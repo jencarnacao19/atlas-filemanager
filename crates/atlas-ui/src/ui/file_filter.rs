@@ -164,16 +164,16 @@ impl App {
 
     pub(crate) fn flat_visible_counts(&mut self, pane: TabId) -> VisibleCounts {
         self.flat_visible_indices(pane);
-        self.file_filter_projections
-            .get(&pane)
-            .map(|projection| projection.counts)
-            .unwrap_or_else(|| {
+        self.file_filter_projections.get(&pane).map_or_else(
+            || {
                 self.state
                     .tab_states
                     .get_mut(&pane)
-                    .map(|state| state.counts())
+                    .map(atlas_model::tab::TabState::counts)
                     .unwrap_or_default()
-            })
+            },
+            |projection| projection.counts,
+        )
     }
 }
 

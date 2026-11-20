@@ -59,7 +59,7 @@ pub trait ProfileScoped {
 }
 
 /// Persisted preferences for the preview / inspector panel, scoped per profile.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
 pub struct PreviewPrefs {
     /// Show line numbers in the code editor. Defaults to `false`.
     #[serde(default)]
@@ -67,15 +67,6 @@ pub struct PreviewPrefs {
     /// Open files in edit mode (editable) by default. Defaults to `false`.
     #[serde(default)]
     pub edit_mode: bool,
-}
-
-impl Default for PreviewPrefs {
-    fn default() -> Self {
-        Self {
-            show_line_numbers: false,
-            edit_mode: false,
-        }
-    }
 }
 
 /// Marker for [`ProfileScoped`] — stores [`PreviewPrefs`] under key `"preview"`.

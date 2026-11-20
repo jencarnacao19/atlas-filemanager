@@ -24,7 +24,7 @@ use std::path::PathBuf;
 pub mod windows;
 
 pub mod linux {
-    use super::*;
+    use super::{parse_uri_list_bytes, DropZones, PathBuf};
     use std::sync::{Arc, Mutex};
 
     pub const MIME_TEXT_URI_LIST: &str = super::MIME_TEXT_URI_LIST;
@@ -247,14 +247,14 @@ pub fn parse_uri_list_with_cut(text: &str) -> (Vec<PathBuf>, bool) {
             } else {
                 format!("/{rest}")
             })
-        } else if let Some(rest) = trimmed.strip_prefix("file:/") {
-            Some(if rest.starts_with('/') {
-                rest.to_string()
-            } else {
-                format!("/{rest}")
-            })
         } else {
-            None
+            trimmed.strip_prefix("file:/").map(|rest| {
+                if rest.starts_with('/') {
+                    rest.to_string()
+                } else {
+                    format!("/{rest}")
+                }
+            })
         };
 
         if let Some(raw_path) = uri_path {
@@ -312,7 +312,7 @@ impl DropEffect {
     /// Returns `true` when source files should be removed after the drop
     /// (i.e., the operation was effectively a move).
     pub fn is_move(self) -> bool {
-        matches!(self, DropEffect::Move)
+        matches!(self, Self::Move)
     }
 }
 

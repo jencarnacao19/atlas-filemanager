@@ -385,20 +385,19 @@ impl<Pane> Tree<Pane> {
                     }
                 }
 
-                match children.len() {
-                    0 => None,
-                    _ => {
-                        let active = tabs_active
-                            .and_then(|active| children.contains(&active).then_some(active))
-                            .or_else(|| children.first().copied());
-                        if let Some(Tile::Container(Container::Tabs(tabs))) =
-                            self.tiles.map.get_mut(&id)
-                        {
-                            tabs.children = children;
-                            tabs.active = active;
-                        }
-                        Some(id)
+                if children.is_empty() {
+                    None
+                } else {
+                    let active = tabs_active
+                        .and_then(|active| children.contains(&active).then_some(active))
+                        .or_else(|| children.first().copied());
+                    if let Some(Tile::Container(Container::Tabs(tabs))) =
+                        self.tiles.map.get_mut(&id)
+                    {
+                        tabs.children = children;
+                        tabs.active = active;
                     }
+                    Some(id)
                 }
             }
             Err((linear_children, linear_shares)) => {
@@ -537,7 +536,7 @@ mod tests {
                     }
                 );
                 assert_eq!(linear.shares, [1.0, 1.0]);
-                assert_eq!(linear.children[if before { 1 } else { 0 }], nested);
+                assert_eq!(linear.children[usize::from(before)], nested);
                 assert_eq!(tree.tiles.get_pane(&a), Some(&"a"));
                 assert_eq!(
                     tree.visible_panes(),

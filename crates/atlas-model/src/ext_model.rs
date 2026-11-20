@@ -234,7 +234,7 @@ pub fn validate_extension_id(id: &str) -> anyhow::Result<()> {
     if id.contains("..")
         || id.contains('/')
         || id.contains('\\')
-        || id.chars().any(|c| c.is_control())
+        || id.chars().any(char::is_control)
     {
         anyhow::bail!("Extension ID contains invalid or traversal characters: {id:?}");
     }

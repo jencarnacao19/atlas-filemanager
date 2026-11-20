@@ -826,14 +826,18 @@ mod tests {
         let mut opening = DockSplitAnimation::new(vec![1.0, 1.0], 1);
         assert_eq!(opening.from[1], 0.0);
         assert!(opening.from[0] > 0.0);
-        opening.started = Instant::now() - DockSplitAnimation::DURATION;
+        opening.started = Instant::now()
+            .checked_sub(DockSplitAnimation::DURATION)
+            .unwrap();
         assert!(opening.done());
         assert_eq!(opening.progress(), 1.0);
         assert_eq!(opening.shares(), opening.to);
 
         let mut closing = DockSplitAnimation::closing(vec![1.0, 1.0], 1);
         assert!(closing.duration() < opening.duration());
-        closing.started = Instant::now() - DockSplitAnimation::CLOSE_DURATION;
+        closing.started = Instant::now()
+            .checked_sub(DockSplitAnimation::CLOSE_DURATION)
+            .unwrap();
         assert!(closing.done());
         assert_eq!(closing.shares()[1], 0.0);
         let mut previous = 0.0;
@@ -895,7 +899,9 @@ mod tests {
         closing.from_gap_factors = vec![1.0, 0.4, 0.7];
         closing.started = Instant::now() + Duration::from_secs(1);
         assert_eq!(closing.gap_factors(), vec![1.0, 0.4, 0.7]);
-        closing.started = Instant::now() - DockSplitAnimation::CLOSE_DURATION;
+        closing.started = Instant::now()
+            .checked_sub(DockSplitAnimation::CLOSE_DURATION)
+            .unwrap();
         assert_eq!(closing.gap_factors(), vec![1.0, 0.0, 0.0]);
     }
 
@@ -912,7 +918,9 @@ mod tests {
     #[test]
     fn close_bursts_keep_a_bounded_deadline() {
         let mut previous = DockSplitAnimation::closing(vec![1.0, 1.0, 1.0], 2);
-        previous.started = Instant::now() - Duration::from_millis(100);
+        previous.started = Instant::now()
+            .checked_sub(Duration::from_millis(100))
+            .unwrap();
         let mut next = DockSplitAnimation::closing_many(previous.shares(), &[1, 2]);
         next.retarget_close_deadline(&previous);
         assert!(next.duration() <= Duration::from_millis(80));
@@ -1590,7 +1598,7 @@ impl App {
         let root = self
             .state
             .active_tab_data()
-            .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+            .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
             .unwrap_or_else(|| dirs::home_dir().unwrap_or_default());
         let cancel = Arc::new(AtomicBool::new(false));
         self.content_cancel = Some(cancel.clone());
@@ -1742,7 +1750,7 @@ impl App {
             .map(|tab| {
                 tab.selected_entries(&mode)
                     .into_iter()
-                    .map(|entry| entry.path())
+                    .map(atlas_model::file_entry::FileEntry::path)
                     .collect()
             })
             .unwrap_or_default()
@@ -1916,15 +1924,12 @@ impl App {
             return;
         }
         let tile = self.state.focused_tile;
-        let is_grid_or_list = self
-            .tab_data_for(tile)
-            .map(|td| {
-                matches!(
-                    td.view_mode,
-                    atlas_model::settings::ViewMode::Grid | atlas_model::settings::ViewMode::List
-                )
-            })
-            .unwrap_or(false);
+        let is_grid_or_list = self.tab_data_for(tile).is_some_and(|td| {
+            matches!(
+                td.view_mode,
+                atlas_model::settings::ViewMode::Grid | atlas_model::settings::ViewMode::List
+            )
+        });
 
         if let Some(rows) = self.grouped_list_rows(tile) {
             self.nav_by_cells(-(rows as isize), extend, cursor_only);
@@ -1948,15 +1953,12 @@ impl App {
             return;
         }
         let tile = self.state.focused_tile;
-        let is_grid_or_list = self
-            .tab_data_for(tile)
-            .map(|td| {
-                matches!(
-                    td.view_mode,
-                    atlas_model::settings::ViewMode::Grid | atlas_model::settings::ViewMode::List
-                )
-            })
-            .unwrap_or(false);
+        let is_grid_or_list = self.tab_data_for(tile).is_some_and(|td| {
+            matches!(
+                td.view_mode,
+                atlas_model::settings::ViewMode::Grid | atlas_model::settings::ViewMode::List
+            )
+        });
 
         if let Some(rows) = self.grouped_list_rows(tile) {
             self.nav_by_cells(rows as isize, extend, cursor_only);

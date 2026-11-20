@@ -148,22 +148,6 @@ fn technical_entries(listing: &str) -> Vec<TechnicalEntry<'_>> {
     entries
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn technical_listing_preserves_unicode_directories_and_sizes() {
-        let entries = technical_entries("Details: RAR 5\n Name: carpeta vacía\n Type: Directory\n\n Name: niño\\日本語.txt\n Type: File\n Size: 42\n");
-        assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].name, "carpeta vacía");
-        assert!(entries[0].is_dir);
-        assert_eq!(entries[1].name, "niño\\日本語.txt");
-        assert!(!entries[1].is_dir);
-        assert_eq!(entries[1].size, Some(42));
-    }
-}
-
 impl ArchiveProvider for RarProvider {
     fn caps(&self) -> ArchiveCaps {
         ArchiveCaps {
@@ -318,4 +302,20 @@ fn password_required(stderr: &[u8]) -> bool {
 
 fn path_arg(path: &Path) -> String {
     path.to_string_lossy().into_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn technical_listing_preserves_unicode_directories_and_sizes() {
+        let entries = technical_entries("Details: RAR 5\n Name: carpeta vacía\n Type: Directory\n\n Name: niño\\日本語.txt\n Type: File\n Size: 42\n");
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].name, "carpeta vacía");
+        assert!(entries[0].is_dir);
+        assert_eq!(entries[1].name, "niño\\日本語.txt");
+        assert!(!entries[1].is_dir);
+        assert_eq!(entries[1].size, Some(42));
+    }
 }

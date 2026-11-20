@@ -1266,7 +1266,7 @@ impl App {
             viewport_h,
             zoom_scale,
             surface_colors,
-            row_font.clone(),
+            row_font,
             font_size,
         )
         .bands(bands.clone())
@@ -1404,7 +1404,7 @@ impl App {
                     .h(px(content_h))
                     .relative()
                     .child(surface)
-                    .when_some(rename_overlay, |el, overlay| el.child(overlay))
+                    .when_some(rename_overlay, gpui::ParentElement::child)
                     .child(drag_layer)
                     .children(group_overlays),
             )
@@ -1425,7 +1425,7 @@ impl App {
             pane_id,
         )
         .on_prepaint_child({
-            let v = prepaint_view.clone();
+            let v = prepaint_view;
             move |bounds: gpui::Bounds<gpui::Pixels>, _window, cx| {
                 crate::perf::count("prepaint.grid_imm_pane");
                 let new_w = f32::from(bounds.size.width);

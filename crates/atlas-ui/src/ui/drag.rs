@@ -333,8 +333,10 @@ impl<E: gpui::StatefulInteractiveElement> FileDragSource for E {}
 pub(crate) fn dnd_staging_dir() -> PathBuf {
     let base = std::env::var_os("XDG_CACHE_HOME")
         .filter(|v| !v.is_empty())
-        .map(PathBuf::from)
-        .unwrap_or_else(|| dirs::cache_dir().unwrap_or_else(std::env::temp_dir));
+        .map_or_else(
+            || dirs::cache_dir().unwrap_or_else(std::env::temp_dir),
+            PathBuf::from,
+        );
     base.join("atlas").join("dnd_staging")
 }
 
@@ -347,8 +349,7 @@ pub(crate) fn extract_archive_items_to_staging(
 ) -> Vec<(PathBuf, bool)> {
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
+        .map_or(0, |d| d.as_millis());
     let session_dir = dnd_staging_dir().join(format!("drag_{}_{}", std::process::id(), timestamp));
     #[allow(clippy::disallowed_methods)]
     if let Err(e) = std::fs::create_dir_all(&session_dir) {

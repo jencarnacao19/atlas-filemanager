@@ -169,7 +169,7 @@ fn input_element_aligned(
                 .selection_color(selection)
                 .text_size(font_size)
                 .line_height(height)
-                .when(centered, |input| input.text_center()),
+                .when(centered, gpui::Styled::text_center),
         )
         .capture_action(window.listener_for(view, App::rename_next_action))
         .capture_action(window.listener_for(view, App::rename_previous_action))
@@ -203,7 +203,7 @@ fn input_element_aligned(
             "tab" => {
                 let forward = !ev.keystroke.modifiers.shift;
                 commit_view.update(cx, |this, cx| {
-                    this.commit_rename_and_move(forward, window, cx)
+                    this.commit_rename_and_move(forward, window, cx);
                 });
                 cx.stop_propagation();
             }

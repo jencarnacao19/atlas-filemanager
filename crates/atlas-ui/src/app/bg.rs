@@ -66,7 +66,7 @@ impl App {
 
                 // Shrink FS allocations
                 for tab in self.state.tab_states.values_mut() {
-                    tab.entries = tab.entries.clone().into();
+                    tab.entries = tab.entries.clone();
                 }
 
                 tracing::info!("eco_mode: Inactive for 5s. Evicted buffers & ran shrink_to_fit.");
@@ -195,7 +195,7 @@ impl App {
                 if d.busy {
                     Duration::from_millis(100)
                 } else {
-                    Duration::from_secs(300).saturating_sub(d.last_activity.elapsed())
+                    Duration::from_mins(5).saturating_sub(d.last_activity.elapsed())
                 }
             }))
             .min();
@@ -229,7 +229,7 @@ impl App {
         else {
             return false;
         };
-        let visible = (self.batch_blink_origin.elapsed().as_millis() / 530) % 2 == 0;
+        let visible = (self.batch_blink_origin.elapsed().as_millis() / 530).is_multiple_of(2);
         if visible == self.batch_blink_visible {
             return false;
         }
@@ -729,11 +729,11 @@ impl App {
                     entries,
                 } => {
                     let entries = self.private_folder_entries(entries);
-                    if !self
+                    if self
                         .state
                         .tab_states
                         .get(&tab)
-                        .is_some_and(|ts| ts.last_nav_op_id == op_id)
+                        .is_none_or(|ts| ts.last_nav_op_id != op_id)
                     {
                         continue;
                     }
@@ -961,10 +961,10 @@ impl App {
                     for change in &changes {
                         match change {
                             atlas_model::app_state::FsChange::Remove(path) => {
-                                self.thumb_textures.remove(path)
+                                self.thumb_textures.remove(path);
                             }
                             atlas_model::app_state::FsChange::Upsert(entry) => {
-                                self.thumb_textures.remove(&entry.path())
+                                self.thumb_textures.remove(&entry.path());
                             }
                             atlas_model::app_state::FsChange::Rename { from, entry } => {
                                 self.thumb_textures.remove(from);
@@ -1051,7 +1051,9 @@ impl App {
                         .collect();
                     for tile_id in to_refresh {
                         if let Some(Tile::Pane(p)) = self.state.pane_tree.tiles.get(tile_id) {
-                            if let Some(path) = p.location.fs_dir().map(|p| p.to_path_buf()) {
+                            if let Some(path) =
+                                p.location.fs_dir().map(std::path::Path::to_path_buf)
+                            {
                                 let col = p.sort_col.clone();
                                 let dir = p.sort_dir.clone();
                                 self.spawn_list_dir(tile_id, path, col, dir);
@@ -1849,12 +1851,12 @@ mod tests {
         assert!(!toast_alive(&Toast {
             message: String::new(),
             kind: ToastKind::Info,
-            created_at: Instant::now() - Duration::from_secs(5),
+            created_at: Instant::now().checked_sub(Duration::from_secs(5)).unwrap(),
         }));
         assert!(toast_alive(&Toast {
             message: String::new(),
             kind: ToastKind::Error,
-            created_at: Instant::now() - Duration::from_secs(5),
+            created_at: Instant::now().checked_sub(Duration::from_secs(5)).unwrap(),
         }));
     }
 }

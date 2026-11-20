@@ -232,7 +232,7 @@ fn old_enough(filetime: u64) -> bool {
     seconds.checked_sub(11_644_473_600).is_some_and(|time| {
         now()
             .checked_sub(time)
-            .is_some_and(|age| Duration::from_secs(age) >= Duration::from_secs(7 * 24 * 3600))
+            .is_some_and(|age| Duration::from_secs(age) >= Duration::from_hours(168))
     })
 }
 fn delete(candidate: &CleanupCandidate) -> io::Result<u64> {

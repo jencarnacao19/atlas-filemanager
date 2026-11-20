@@ -65,7 +65,7 @@ impl App {
         // ── Tab switcher ───────────────────────────────────────────────────────
         let tab_btn = move |label: &str,
                             tab: ExtManagerTab,
-                            view: gpui::Entity<App>,
+                            view: gpui::Entity<Self>,
                             accent: gpui::Hsla,
                             muted: gpui::Hsla,
                             fg: gpui::Hsla| {
@@ -411,7 +411,7 @@ impl App {
                                 let author = remote.author.clone();
                                 let icon_url = remote.icon_url.clone();
                                 let download_url = remote.download_url.clone();
-                                let sha256 = remote.sha256.clone();
+                                let sha256 = remote.sha256;
                                 let installed_version = installed_versions.get(&id);
                                 let is_installed = installed_version.is_some();
                                 let has_update =
@@ -437,7 +437,7 @@ impl App {
                                     .border_color(border)
                                     .items_center()
                                     // Icon
-                                    .child(if let Some(url) = icon_url.clone() {
+                                    .child(if let Some(url) = icon_url {
                                         extension_icon(std::path::PathBuf::from(url), 36., fg)
                                     } else {
                                         div().size(px(36.)).flex_none().into_any_element()
@@ -678,7 +678,7 @@ impl App {
 
         // ── Full panel (header + tabs + search + content + footer) ─────────────
         let view_inst = view.clone();
-        let view_mkt = view.clone();
+        let view_mkt = view;
 
         let panel = v_flex()
             .id("ext-mgr-panel")

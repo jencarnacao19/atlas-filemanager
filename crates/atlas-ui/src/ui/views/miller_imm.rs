@@ -448,7 +448,7 @@ impl Element for MillerImmElement {
                 // Record column bounds
                 app.miller_column_bounds.insert((pane_id, ci), col_bounds);
 
-                let col_loc = col.location.fs_dir().map(|p| p.to_path_buf());
+                let col_loc = col.location.fs_dir().map(std::path::Path::to_path_buf);
                 let is_col_flashing = col_loc.as_ref().is_some_and(|path| {
                     app.drag_hover.blink_id.as_ref()
                         == Some(&DragHoverId::Folder(pane_id, path.clone()))
@@ -467,7 +467,7 @@ impl Element for MillerImmElement {
                     }
                 }
 
-                let title = display_name(&col.location.display_path()).to_string();
+                let title = display_name(&col.location.display_path()).clone();
                 let status_msg = if visible.is_empty() {
                     match &col.load_state {
                         LoadState::Loading if should_suppress_loading(&col.location) => None,
@@ -532,7 +532,7 @@ impl Element for MillerImmElement {
                 }
                 let max_scroll_y = app.file_scroll_max(content_h, body_h);
                 crate::ui::imm::scroll::apply_deferred(&scroll, true, body_h, max_scroll_y, |row| {
-                    (row < total_rows).then(|| (row as f32 * row_h, row_h))
+                    (row < total_rows).then_some((row as f32 * row_h, row_h))
                 });
                 let mut scroll_y = (-f32::from(base_scroll.offset().y)).max(0.0);
                 if scroll_y > max_scroll_y {
@@ -1370,15 +1370,7 @@ impl Element for MillerImmElement {
                                 .get(&pane_id)
                                 .and_then(|ts| ts.miller.columns.get(ci))
                                 .is_some_and(|col| col.selection.selected.contains(&idx));
-                            if !already_selected {
-                                this.process_actions(vec![Action::MillerSelect {
-                                    tile: pane_id,
-                                    column: ci,
-                                    idx,
-                                    shift: false,
-                                    ctrl: false,
-                                }]);
-                            } else {
+                            if already_selected {
                                 this.activate_tab(pane_id);
                                 if let Some(ts) = this.state.tab_states.get_mut(&pane_id) {
                                     ts.miller.focused = ci;
@@ -1387,6 +1379,14 @@ impl Element for MillerImmElement {
                                         col.selection.keyboard_cursor = Some(idx);
                                     }
                                 }
+                            } else {
+                                this.process_actions(vec![Action::MillerSelect {
+                                    tile: pane_id,
+                                    column: ci,
+                                    idx,
+                                    shift: false,
+                                    ctrl: false,
+                                }]);
                             }
                             let paths = {
                                 let p = this.miller_focused_selection_paths().unwrap_or_default();
@@ -1528,8 +1528,7 @@ impl App {
             .state
             .tab_states
             .get(&pane_id)
-            .map(|ts| ts.miller.columns.len())
-            .unwrap_or(0);
+            .map_or(0, |ts| ts.miller.columns.len());
 
         let col_w = MILLER_COL_W * zoom;
         let header_h = MILLER_HEADER_H * zoom;
@@ -1544,7 +1543,7 @@ impl App {
             row_h,
             zoom,
             colors,
-            font.clone(),
+            font,
             font_size,
             header_font_size,
             windows_theme,
@@ -1733,7 +1732,7 @@ impl App {
                     .relative()
                     .child(miller_el)
                     .child(miller_drag_layer(&view, pane_id, total_w))
-                    .when_some(rename_overlay, |el, overlay| el.child(overlay)),
+                    .when_some(rename_overlay, gpui::ParentElement::child),
             );
 
         let key_view = view.clone();

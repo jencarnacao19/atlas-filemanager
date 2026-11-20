@@ -328,10 +328,7 @@ impl CtxRow {
     fn selectable(&self) -> bool {
         matches!(
             self,
-            CtxRow::Atlas { .. }
-                | CtxRow::Ext { .. }
-                | CtxRow::Native { .. }
-                | CtxRow::DesktopApp { .. }
+            Self::Atlas { .. } | Self::Ext { .. } | Self::Native { .. } | Self::DesktopApp { .. }
         )
     }
 }
@@ -367,8 +364,7 @@ impl App {
         let same_parent = paths
             .first()
             .and_then(|p| p.parent())
-            .map(|p0| paths.iter().all(|p| p.parent() == Some(p0)))
-            .unwrap_or(false);
+            .is_some_and(|p0| paths.iter().all(|p| p.parent() == Some(p0)));
 
         let is_recycle_bin = self
             .state
@@ -739,7 +735,7 @@ impl App {
                                     children: Some(children),
                                 } => push_native_tree(children, 1, &state.expanded, &mut rows),
                                 UiItemKind::Submenu { children: None } => {
-                                    rows.push(CtxRow::Loading)
+                                    rows.push(CtxRow::Loading);
                                 }
                                 _ => push_native_tree(
                                     std::slice::from_ref(native),
@@ -786,7 +782,7 @@ impl App {
             let mut cands: Vec<CtxRow> = Vec::new();
 
             for (cmd, _) in &atlas_items {
-                cand_titles.push(cmd.label().to_string());
+                cand_titles.push(cmd.label().clone());
                 cands.push(CtxRow::Atlas { cmd: *cmd });
             }
             for app in &state.desktop_apps {
@@ -812,7 +808,7 @@ impl App {
             order
                 .into_iter()
                 .map(|i| std::mem::replace(&mut cands[i], CtxRow::Separator))
-                .filter(|r| r.selectable())
+                .filter(CtxRow::selectable)
                 .collect()
         };
         sanitize_separators(rows)
@@ -863,9 +859,7 @@ impl App {
         if reveal_ms < reveal_duration as f32 {
             window.request_animation_frame();
         }
-        let (anchor, selected) = state
-            .map(|s| (s.anchor, s.selected))
-            .unwrap_or((Point::default(), 0));
+        let (anchor, selected) = state.map_or((Point::default(), 0), |s| (s.anchor, s.selected));
 
         // Clamp the panel into the window so it never spills off an edge.
         let win = window.bounds().size;
@@ -917,7 +911,7 @@ impl App {
                     item.label = rust_i18n::t!("palette_searching").to_string().into();
                 }
                 CtxRow::Atlas { cmd } => {
-                    item.label = cmd.label().to_string().into();
+                    item.label = cmd.label().clone().into();
                     item.icon = cmd.icon().map(MenuIcon::Theme);
                     let command_id = cmd.command_id();
                     item.shortcut_editable = crate::input::commands::command_remappable(command_id);
@@ -1126,12 +1120,12 @@ impl App {
                 .inset_0()
                 .size_full()
                 .on_mouse_down(MouseButton::Left, move |_e, _w, cx| {
-                    v.update(cx, |this, cx| this.close_ctx_menu(cx));
+                    v.update(cx, Self::close_ctx_menu);
                 })
                 .on_mouse_down(MouseButton::Right, {
-                    let v = view.clone();
+                    let v = view;
                     move |_e, _w, cx| {
-                        v.update(cx, |this, cx| this.close_ctx_menu(cx));
+                        v.update(cx, Self::close_ctx_menu);
                     }
                 })
                 .child(
@@ -1331,7 +1325,7 @@ impl App {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let selected = self.ctx_menu.as_ref().map(|m| m.selected).unwrap_or(0);
+        let selected = self.ctx_menu.as_ref().map_or(0, |m| m.selected);
         let Some(&row_i) = selectable.get(selected) else {
             return;
         };
@@ -1348,7 +1342,7 @@ impl App {
                 self.run_ctx_ext(&ext_id, &cmd_id, cx);
             }
             CtxRow::Native { id, submenu, .. } => {
-                self.activate_ctx_native(*id, *submenu, window, cx)
+                self.activate_ctx_native(*id, *submenu, window, cx);
             }
             CtxRow::DesktopApp { app, .. } => {
                 let app = app.clone();
@@ -1447,14 +1441,14 @@ impl App {
                 }
             }
             AtlasCmd::Convert => {
-                if !is_archive {
+                if is_archive {
+                    self.toast_error(rust_i18n::t!("convert_local_only").into_owned());
+                } else {
                     self.open_converter_for(menu_paths);
                     // Open at the right-click point, beside the files, not where the menu item was.
                     if let Some(anchor) = menu_anchor {
                         self.anchor_converter(anchor);
                     }
-                } else {
-                    self.toast_error(rust_i18n::t!("convert_local_only").into_owned());
                 }
             }
             AtlasCmd::Open => match menu_paths.as_slice() {
@@ -1496,7 +1490,7 @@ impl App {
                 if let Some(dest) = self
                     .state
                     .active_tab_data()
-                    .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+                    .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
                 {
                     self.process_actions(vec![Action::Paste { dest }]);
                 }
@@ -1553,7 +1547,7 @@ impl App {
                 if let Some(dir) = self
                     .state
                     .active_tab_data()
-                    .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+                    .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
                 {
                     self.process_actions(vec![Action::OpenTerminal { dir }]);
                 }
@@ -1682,8 +1676,7 @@ impl App {
             let expand = self
                 .ctx_menu
                 .as_ref()
-                .map(|m| !m.expanded.contains(&id))
-                .unwrap_or(false);
+                .is_some_and(|m| !m.expanded.contains(&id));
             if let Some(m) = self.ctx_menu.as_mut() {
                 if expand {
                     m.expanded.insert(id);
@@ -1898,7 +1891,7 @@ fn show_properties_multi(paths: &[PathBuf]) {
 /// `App` borrow held by `ctx_menu_rows`.
 fn rank_titles(query: &str, titles: &[String]) -> Vec<usize> {
     let mut scorer = atlas_core::search::fuzzy::FuzzyScorer::new();
-    scorer.rank(query, titles.iter().map(|s| s.as_str()))
+    scorer.rank(query, titles.iter().map(std::string::String::as_str))
 }
 
 /// Append the native tree (depth-aware, expansion-aware) as logical rows.

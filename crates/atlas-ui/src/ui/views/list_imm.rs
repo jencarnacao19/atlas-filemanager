@@ -1143,7 +1143,7 @@ impl App {
             pitch,
             zoom_scale,
             surface_colors,
-            row_font.clone(),
+            row_font,
             font_size,
         )
         .absolute()
@@ -1279,7 +1279,7 @@ impl App {
                     .h_full()
                     .relative()
                     .child(surface)
-                    .when_some(rename_overlay, |el, overlay| el.child(overlay))
+                    .when_some(rename_overlay, gpui::ParentElement::child)
                     .child(drag_layer)
                     .children(group_overlays),
             )

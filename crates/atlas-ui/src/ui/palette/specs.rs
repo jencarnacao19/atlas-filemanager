@@ -1010,12 +1010,11 @@ impl App {
             }
             let direct_path = dirs::home_dir()
                 .and_then(|h| expand_home_query(trimmed, &h))
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(trimmed));
+                .map_or_else(|| PathBuf::from(trimmed), PathBuf::from);
             let direct_exists = direct_path.exists();
             if direct_exists && !entries.iter().any(|e| e.path == direct_path) {
                 let is_dir = direct_path.is_dir();
-                let direct_item = goto_item(direct_path.clone(), focused_tile, pane);
+                let direct_item = goto_item(direct_path, focused_tile, pane);
                 if is_dir {
                     folders.insert(0, direct_item);
                 } else {
@@ -1543,7 +1542,7 @@ impl App {
 
         for (decl, (id, title, icon, defs)) in groups.into_iter().enumerate() {
             let refs: Vec<&CommandDef> = defs.iter().collect();
-            let icon = icon.clone();
+            let icon = icon;
             let title = title.clone();
             let id = id;
             if let Some((best, items)) =
@@ -1555,7 +1554,7 @@ impl App {
                     PaletteSection {
                         id,
                         icon: Some(icon),
-                        title: Some(title.into()),
+                        title: Some(title),
                         collapsible: true,
                         items,
                     },
@@ -2596,7 +2595,7 @@ impl App {
                 rust_i18n::t!("cmd_files_copy_path_title"),
                 rust_i18n::t!("cmd_files_copy_path_desc"),
                 AtlasIcon::Copy,
-                Action::CopyPathsToClipboard(selected_paths.clone()),
+                Action::CopyPathsToClipboard(selected_paths),
             ));
             files.push(CommandDef::new(
                 "files.properties",
@@ -2699,7 +2698,7 @@ impl App {
                 let name = cfg.name.to_string();
                 CommandDef::new(
                     &format!("theme:{name}"),
-                    rust_i18n::t!("cmd_theme_switch_title", name = name.clone()),
+                    rust_i18n::t!("cmd_theme_switch_title", name = name),
                     rust_i18n::t!("cmd_theme_switch_desc"),
                     AtlasIcon::Palette,
                     Action::SetTheme(name),

@@ -1,7 +1,10 @@
 use super::{bubble_map_element::BubbleMapElement, tr, CleanupPanel, Row, Tab};
 use crate::ui::icons::{theme_icon, AtlasIcon};
 use atlas_model::cleanup::ScanStatus;
-use gpui::{prelude::*, *};
+use gpui::{
+    div, prelude::*, px, relative, transparent_black, uniform_list, AnyElement, ColorExt,
+    FontWeight, KeyDownEvent, MouseButton, ScrollStrategy, Window,
+};
 use gpui_component::{
     button::{Button, ButtonVariants},
     checkbox::Checkbox,
@@ -21,7 +24,7 @@ fn button(
         .small()
         .when(
             key == "cleanup_review" || key == "cleanup_review_all",
-            |b| b.primary(),
+            gpui_component::button::ButtonVariants::primary,
         )
         .disabled(disabled)
         .on_click(cx.listener(move |panel, _, window, cx| {
@@ -380,7 +383,7 @@ impl Render for CleanupPanel {
                             "cleanup_reveal",
                             false,
                             cx,
-                            |p, w, cx| p.reveal(w, cx),
+                            Self::reveal,
                         ))
                         .when(self.tab == Tab::Map && !scanning, |row| {
                             row.child(button(
@@ -898,7 +901,7 @@ impl CleanupPanel {
             .cats
             .iter()
             .filter(|c| c.enabled)
-            .map(|c| c.bytes())
+            .map(super::CatState::bytes)
             .sum();
         let mut list = v_flex().w_full().gap_1();
         for (i, cat) in self.cats.iter().enumerate() {
@@ -1083,10 +1086,10 @@ impl CleanupPanel {
                                                 .items_center()
                                                 .justify_center()
                                                 .rounded_md()
-                                                .bg(if !cx.theme().is_dark() {
-                                                    cx.theme().foreground.opacity(0.55)
-                                                } else {
+                                                .bg(if cx.theme().is_dark() {
                                                     transparent_black()
+                                                } else {
+                                                    cx.theme().foreground.opacity(0.55)
                                                 })
                                                 .child(icon.element(28., muted)),
                                         )
@@ -1117,10 +1120,10 @@ impl CleanupPanel {
                                             )
                                             .child(
                                                 div().text_xs().text_color(muted).truncate().child(
-                                                    r.error
-                                                        .as_deref()
-                                                        .map(super::user_error)
-                                                        .unwrap_or_else(|| tr("cleanup_deleted")),
+                                                    r.error.as_deref().map_or_else(
+                                                        || tr("cleanup_deleted"),
+                                                        super::user_error,
+                                                    ),
                                                 ),
                                             ),
                                     )

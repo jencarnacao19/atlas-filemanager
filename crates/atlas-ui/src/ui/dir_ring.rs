@@ -97,23 +97,20 @@ impl DirRing {
         }
         let step = std::f32::consts::TAU / n as f32;
         let ease = 1. - (-7. * dt).exp();
-        match self.pointer {
-            Some(x) => {
-                let t = ((x.abs() - DEAD_ZONE).max(0.) / (1. - DEAD_ZONE)).powf(1.6);
-                let target = x.signum() * t * MAX_SPEED;
-                self.velocity += (target - self.velocity) * ease;
-            }
-            None => {
-                // Spring to the nearest card so one always rests in front.
-                let snap = (self.angle / step).round() * step;
-                let target = ((snap - self.angle) * 7.).clamp(-MAX_SPEED, MAX_SPEED);
-                self.velocity += (target - self.velocity) * ease;
-                if (snap - self.angle).abs() < 0.002 && self.velocity.abs() < 0.02 {
-                    self.angle = snap;
-                    self.velocity = 0.;
-                    self.last_frame = None;
-                    return false;
-                }
+        if let Some(x) = self.pointer {
+            let t = ((x.abs() - DEAD_ZONE).max(0.) / (1. - DEAD_ZONE)).powf(1.6);
+            let target = x.signum() * t * MAX_SPEED;
+            self.velocity += (target - self.velocity) * ease;
+        } else {
+            // Spring to the nearest card so one always rests in front.
+            let snap = (self.angle / step).round() * step;
+            let target = ((snap - self.angle) * 7.).clamp(-MAX_SPEED, MAX_SPEED);
+            self.velocity += (target - self.velocity) * ease;
+            if (snap - self.angle).abs() < 0.002 && self.velocity.abs() < 0.02 {
+                self.angle = snap;
+                self.velocity = 0.;
+                self.last_frame = None;
+                return false;
             }
         }
         self.angle += self.velocity * dt;
@@ -194,12 +191,12 @@ impl Render for DirRing {
             .child(
                 canvas(
                     {
-                        let this = this.clone();
+                        let this = this;
                         move |bounds, _, cx| {
-                            this.update(cx, |ring: &mut DirRing, _| ring.bounds = Some(bounds));
+                            this.update(cx, |ring: &mut Self, _| ring.bounds = Some(bounds));
                         }
                     },
-                    |_, _, _, _| {},
+                    |_, (), _, _| {},
                 )
                 .absolute()
                 .size_full(),

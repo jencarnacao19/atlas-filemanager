@@ -329,7 +329,7 @@ impl App {
                 self.run_vault_job(move || match vault::unlock(&path, &values[0], &active) {
                     Ok(s) => Outcome::Ready(s, None),
                     Err(e) => Outcome::Failed(None, format!("{e:#}")),
-                })
+                });
             }
             Phase::Manage => {
                 let Some(mut s) = d.session.take() else {
@@ -379,7 +379,7 @@ impl App {
         let Some(d) = &mut self.vault else {
             return false;
         };
-        if !d.busy && d.last_activity.elapsed() >= Duration::from_secs(300) {
+        if !d.busy && d.last_activity.elapsed() >= Duration::from_mins(5) {
             self.vault = None;
             self.toast_info(rust_i18n::t!("vault_auto_locked").to_string());
             return true;

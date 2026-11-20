@@ -573,7 +573,7 @@ accepts = { extensions = ["psd"] }
             .commands_for(&[(Some("psd".into()), false)])
             .is_empty());
 
-        let mut disabled = registry.extensions.clone();
+        let mut disabled = registry.extensions;
         disabled[0].enabled = false;
         assert!(collect_tools(&disabled).is_empty());
 

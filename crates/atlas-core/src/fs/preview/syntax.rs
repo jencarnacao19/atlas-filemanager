@@ -23,21 +23,21 @@ impl TokenKind {
     /// Maps our token kind to a canonical theme token name compatible with HighlightTheme.
     pub fn theme_name(&self) -> &'static str {
         match self {
-            TokenKind::Whitespace => "whitespace",
-            TokenKind::Keyword => "keyword",
-            TokenKind::Type => "type",
-            TokenKind::Identifier => "variable",
-            TokenKind::Number => "number",
-            TokenKind::String => "string",
-            TokenKind::Comment => "comment",
-            TokenKind::Preprocessor => "preproc",
-            TokenKind::Symbol => "operator",
-            TokenKind::DiffAdd => "string",     // Green
-            TokenKind::DiffRemove => "preproc", // Red
-            TokenKind::DiffHeader => "keyword", // Cyan/Blue
-            TokenKind::LogError => "preproc",   // Red
-            TokenKind::LogWarn => "number",     // Yellow
-            TokenKind::LogInfo => "comment",    // Dim
+            Self::Whitespace => "whitespace",
+            Self::Keyword => "keyword",
+            Self::Type => "type",
+            Self::Identifier => "variable",
+            Self::Number => "number",
+            Self::String => "string",
+            Self::Comment => "comment",
+            Self::Preprocessor => "preproc",
+            Self::Symbol => "operator",
+            Self::DiffAdd => "string",     // Green
+            Self::DiffRemove => "preproc", // Red
+            Self::DiffHeader => "keyword", // Cyan/Blue
+            Self::LogError => "preproc",   // Red
+            Self::LogWarn => "number",     // Yellow
+            Self::LogInfo => "comment",    // Dim
         }
     }
 }
@@ -1364,7 +1364,7 @@ fn is_pascal_case(s: &str) -> bool {
         return false;
     }
     // Must contain at least one lowercase ASCII character to avoid all-caps constants like MAX_SIZE
-    bytes.iter().skip(1).any(|b| b.is_ascii_lowercase())
+    bytes.iter().skip(1).any(u8::is_ascii_lowercase)
 }
 
 pub fn detect_lang(ext: &str) -> LangKind {

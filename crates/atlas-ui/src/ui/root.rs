@@ -711,7 +711,7 @@ impl Render for App {
             .key_context(key_ctx)
             .track_focus(&self.focus_handle)
             .on_modifiers_changed({
-                let view = view.clone();
+                let view = view;
                 move |_ev, window, cx| {
                     window.refresh();
                     view.update(cx, |_, cx| cx.notify());
@@ -981,7 +981,7 @@ impl Render for App {
                 if this
                     .state
                     .active_tab_data()
-                    .map_or(false, |t| t.location.is_archive())
+                    .is_some_and(|t| t.location.is_archive())
                 {
                     this.toast_error(rust_i18n::t!("root_delete_archive_error").into());
                     cx.notify();
@@ -1000,7 +1000,7 @@ impl Render for App {
                 if this
                     .state
                     .active_tab_data()
-                    .map_or(false, |t| t.location.is_archive())
+                    .is_some_and(|t| t.location.is_archive())
                 {
                     this.toast_error(rust_i18n::t!("root_delete_archive_error").into());
                     cx.notify();
@@ -1094,9 +1094,9 @@ impl Render for App {
                 let view = cx.entity();
                 gpui::canvas(
                     |_, _, _| {},
-                    move |_, _, _, cx| {
+                    move |_, (), _, cx| {
                         if !view.read(cx).view_scroll_pending.is_empty() {
-                            view.update(cx, |this, cx| this.apply_view_scroll(cx));
+                            view.update(cx, Self::apply_view_scroll);
                         }
                     },
                 )

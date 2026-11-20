@@ -332,7 +332,10 @@ impl App {
     }
     pub(crate) fn ensure_drag_selection(&mut self, pane: TabId, entry_idx: usize) {
         if let Some(ts) = self.state.tab_states.get_mut(&pane) {
-            if !ts.selection.selected.contains(&entry_idx) {
+            if ts.selection.selected.contains(&entry_idx) {
+                // Inside a multi-selection: keep it, but focus the clicked item.
+                ts.selection.keyboard_cursor = Some(entry_idx);
+            } else {
                 ts.selection.selected.clear();
                 ts.selection.selected.insert(entry_idx);
                 // The cursor follows: menu "Rename"/F2 and Shift ranges must act
@@ -340,9 +343,6 @@ impl App {
                 ts.selection.keyboard_cursor = Some(entry_idx);
                 ts.selection.selection_anchor = Some(entry_idx);
                 ts.selection.last_clicked_index = Some(entry_idx);
-            } else {
-                // Inside a multi-selection: keep it, but focus the clicked item.
-                ts.selection.keyboard_cursor = Some(entry_idx);
             }
         }
     }
@@ -680,7 +680,7 @@ impl App {
 
         if let Some(path) = self
             .tab_data_for(pane)
-            .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+            .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
         {
             self.open_background_ctx_menu(Some(path), pos, window, cx);
             cx.notify();
@@ -936,8 +936,9 @@ impl App {
         };
         let (scroll_x, scroll_y) = self
             .rubber_scroll_handle(target)
-            .map(|(_, handle)| (-f32::from(handle.offset().x), -f32::from(handle.offset().y)))
-            .unwrap_or((0.0, 0.0));
+            .map_or((0.0, 0.0), |(_, handle)| {
+                (-f32::from(handle.offset().x), -f32::from(handle.offset().y))
+            });
         gpui::point(
             gpui::px(f32::from(pos.x) - f32::from(bounds.left()) + scroll_x),
             gpui::px(f32::from(pos.y) - f32::from(bounds.top()) + scroll_y),
@@ -954,8 +955,9 @@ impl App {
         };
         let (scroll_x, scroll_y) = self
             .rubber_scroll_handle(target)
-            .map(|(_, handle)| (-f32::from(handle.offset().x), -f32::from(handle.offset().y)))
-            .unwrap_or((0.0, 0.0));
+            .map_or((0.0, 0.0), |(_, handle)| {
+                (-f32::from(handle.offset().x), -f32::from(handle.offset().y))
+            });
         gpui::point(
             gpui::px(f32::from(bounds.left()) + f32::from(pos.x) - scroll_x),
             gpui::px(f32::from(bounds.top()) + f32::from(pos.y) - scroll_y),
@@ -1540,7 +1542,7 @@ impl App {
             .filter(|i| ts.selection.selected.contains(i))
             .filter_map(|&i| ts.entries.get(i))
             .filter(|e| e.archive_root().is_none())
-            .map(|e| e.path())
+            .map(atlas_model::file_entry::FileEntry::path)
             .collect();
         if paths.len() < 2 {
             Vec::new()
@@ -2364,51 +2366,12 @@ fn rename_select_chars(name: &str) -> Option<u32> {
     (chars > 0).then_some(chars)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{rename_select_chars, rename_selection_chars};
-
-    #[test]
-    fn rename_selects_full_directory_or_extensionless_name_and_unicode_file_stem() {
-        use atlas_model::file_entry::FileKind;
-        assert_eq!(rename_selection_chars("folder.name", &FileKind::Dir), 11);
-        assert_eq!(rename_selection_chars("README", &FileKind::File), 6);
-        assert_eq!(rename_selection_chars(".gitignore", &FileKind::File), 10);
-        assert_eq!(rename_selection_chars("caf\u{e9}.txt", &FileKind::File), 4);
-        assert_eq!(rename_selection_chars("archive.tar.gz", &FileKind::File), 7);
-    }
-
-    #[test]
-    fn rename_selects_name_before_extension() {
-        assert_eq!(rename_select_chars("photo.png"), Some(5));
-        assert_eq!(rename_select_chars("archive.tar.gz"), Some(7));
-        assert_eq!(rename_select_chars("ARCHIVE.TAR.GZ"), Some(7));
-        assert_eq!(rename_select_chars("types.d.ts"), Some(5));
-        assert_eq!(rename_select_chars("app.min.js"), Some(3));
-        assert_eq!(rename_select_chars("bundle.js.map"), Some(6));
-        assert_eq!(rename_select_chars("README"), None);
-        assert_eq!(rename_select_chars(".gitignore"), None);
-    }
-
-    #[test]
-    fn slider_values_order_details_tree_list_icons() {
-        use crate::app::App;
-        use atlas_model::settings::ViewMode;
-
-        assert_eq!(App::slider_value_for_view(&ViewMode::Details, 64.0), 0.0);
-        assert_eq!(App::slider_value_for_view(&ViewMode::Tree, 64.0), 1.0);
-        assert_eq!(App::slider_value_for_view(&ViewMode::List, 64.0), 2.0);
-        assert_eq!(App::slider_value_for_view(&ViewMode::Grid, 64.0), 3.0);
-        assert_eq!(App::slider_value_for_view(&ViewMode::Grid, 384.0), 23.0);
-    }
-}
-
 /// Global rubber-band motor: a full-size invisible canvas painted last so its
 /// `window.on_mouse_event` listeners fire even when the cursor leaves the pane.
 /// Handles move (threshold → started, apply), up (clear on empty click), and
 /// drives `request_animation_frame` while rubber is active for continuous autoscroll.
 pub(crate) fn rubber_layer(view: Entity<App>) -> impl gpui::IntoElement {
-    let v = view.clone();
+    let v = view;
     canvas(
         |_, _, _| {},
         move |_, (), window, cx| {
@@ -2793,7 +2756,7 @@ pub(crate) fn rubber_layer(view: Entity<App>) -> impl gpui::IntoElement {
                                         {
                                             this.dropzone_selection.select(
                                                 item.path.clone(),
-                                                &[item.path.clone()],
+                                                std::slice::from_ref(&item.path),
                                                 false,
                                                 false,
                                             );
@@ -2872,7 +2835,7 @@ pub(crate) fn ctrl_scroll_layer(view: Entity<App>) -> impl gpui::IntoElement {
     canvas(
         |_, _, _| {},
         move |_, (), window, _cx| {
-            let v = view.clone();
+            let v = view;
             window.on_mouse_event::<ScrollWheelEvent>(move |ev, phase, window, cx| {
                 if phase != DispatchPhase::Capture
                     || !(ev.modifiers.control || ev.modifiers.platform)
@@ -2942,4 +2905,43 @@ pub(crate) fn search_seed_from_key(ev: &gpui::KeyDownEvent) -> Option<String> {
         return None;
     }
     Some(key.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{rename_select_chars, rename_selection_chars};
+
+    #[test]
+    fn rename_selects_full_directory_or_extensionless_name_and_unicode_file_stem() {
+        use atlas_model::file_entry::FileKind;
+        assert_eq!(rename_selection_chars("folder.name", &FileKind::Dir), 11);
+        assert_eq!(rename_selection_chars("README", &FileKind::File), 6);
+        assert_eq!(rename_selection_chars(".gitignore", &FileKind::File), 10);
+        assert_eq!(rename_selection_chars("caf\u{e9}.txt", &FileKind::File), 4);
+        assert_eq!(rename_selection_chars("archive.tar.gz", &FileKind::File), 7);
+    }
+
+    #[test]
+    fn rename_selects_name_before_extension() {
+        assert_eq!(rename_select_chars("photo.png"), Some(5));
+        assert_eq!(rename_select_chars("archive.tar.gz"), Some(7));
+        assert_eq!(rename_select_chars("ARCHIVE.TAR.GZ"), Some(7));
+        assert_eq!(rename_select_chars("types.d.ts"), Some(5));
+        assert_eq!(rename_select_chars("app.min.js"), Some(3));
+        assert_eq!(rename_select_chars("bundle.js.map"), Some(6));
+        assert_eq!(rename_select_chars("README"), None);
+        assert_eq!(rename_select_chars(".gitignore"), None);
+    }
+
+    #[test]
+    fn slider_values_order_details_tree_list_icons() {
+        use crate::app::App;
+        use atlas_model::settings::ViewMode;
+
+        assert_eq!(App::slider_value_for_view(&ViewMode::Details, 64.0), 0.0);
+        assert_eq!(App::slider_value_for_view(&ViewMode::Tree, 64.0), 1.0);
+        assert_eq!(App::slider_value_for_view(&ViewMode::List, 64.0), 2.0);
+        assert_eq!(App::slider_value_for_view(&ViewMode::Grid, 64.0), 3.0);
+        assert_eq!(App::slider_value_for_view(&ViewMode::Grid, 384.0), 23.0);
+    }
 }

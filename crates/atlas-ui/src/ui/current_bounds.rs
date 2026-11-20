@@ -62,7 +62,7 @@ where
         _: Option<&GlobalElementId>,
         _: Option<&InspectorElementId>,
         bounds: Bounds<Pixels>,
-        _: &mut (),
+        (): &mut (),
         window: &mut Window,
         cx: &mut App,
     ) -> AnyElement {
@@ -100,7 +100,7 @@ where
         _: Option<&GlobalElementId>,
         _: Option<&InspectorElementId>,
         bounds: Bounds<Pixels>,
-        _: &mut (),
+        (): &mut (),
         child: &mut AnyElement,
         window: &mut Window,
         cx: &mut App,

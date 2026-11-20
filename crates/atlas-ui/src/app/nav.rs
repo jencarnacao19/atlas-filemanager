@@ -417,7 +417,7 @@ impl App {
             return;
         }
         #[cfg(feature = "provider-host")]
-        if self.open_remote_paths_for(tile, &[path.clone()]) {
+        if self.open_remote_paths_for(tile, std::slice::from_ref(&path)) {
             return;
         }
         if atlas_core::fs::archive::is_archive_path(&path) {
@@ -517,7 +517,7 @@ mod cloud_navigation_tests {
             entry_destination(
                 Some(&Location::Remote {
                     id: "drive-1".into(),
-                    path: "".into()
+                    path: String::new()
                 }),
                 "docs/sub".into()
             ),

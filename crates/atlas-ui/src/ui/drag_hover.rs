@@ -1126,7 +1126,7 @@ pub(crate) fn sidebar_scroll_recorder(
 }
 
 pub(crate) fn drag_hover_layer(view: Entity<App>) -> impl gpui::IntoElement {
-    let v = view.clone();
+    let v = view;
     canvas(
         |_, _, _| {},
         move |_, (), window, cx| {
@@ -1166,7 +1166,7 @@ pub(crate) fn drag_hover_layer(view: Entity<App>) -> impl gpui::IntoElement {
                 let _ = (&vu, cx);
             });
             if active {
-                v.update(cx, |this, cx| this.tick_drag_hover(cx));
+                v.update(cx, super::super::app::App::tick_drag_hover);
                 crate::perf::event(|| "request_animation_frame drag_hover".to_string());
                 window.request_animation_frame();
             }
@@ -1580,7 +1580,7 @@ mod tests {
         let nested = DragHoverDropCommand::TransferTo(source.join("child"));
         assert!(drop_is_structurally_blocked(
             &nested,
-            &[source.clone()],
+            std::slice::from_ref(&source),
             true,
             false
         ));
@@ -1593,7 +1593,7 @@ mod tests {
         let same_parent = DragHoverDropCommand::TransferTo(PathBuf::from("C:/parent"));
         assert!(drop_is_structurally_blocked(
             &same_parent,
-            &[source.clone()],
+            std::slice::from_ref(&source),
             false,
             true
         ));
@@ -1667,7 +1667,7 @@ mod tests {
         let visible_pos = point(px(100.0), px(520.0));
         assert!(matches!(
             drop_command_at(&targets, visible_pos, None, viewport),
-            Some(DragHoverDropCommand::TransferTo(path)) if path == PathBuf::from("bookmark")
+            Some(DragHoverDropCommand::TransferTo(path)) if path == *"bookmark"
         ));
     }
 
@@ -1681,7 +1681,7 @@ mod tests {
         let dropzone = Some(rect(660.0, 76.0));
         assert!(matches!(
             drop_command_at(&targets, pos, dropzone, Some(rect(0.0, 550.0))),
-            Some(DragHoverDropCommand::TransferTo(path)) if path == PathBuf::from("topmost")
+            Some(DragHoverDropCommand::TransferTo(path)) if path == *"topmost"
         ));
     }
 
@@ -1785,7 +1785,7 @@ mod tests {
         ));
         #[cfg(feature = "provider-host")]
         assert!(
-            matches!(location_drop_command(&Location::Remote { id: "drive".into(), path: "folder".into() }), DragHoverDropCommand::TransferTo(path) if path == PathBuf::from("remote:drive/folder"))
+            matches!(location_drop_command(&Location::Remote { id: "drive".into(), path: "folder".into() }), DragHoverDropCommand::TransferTo(path) if path == *"remote:drive/folder")
         );
     }
 
@@ -1826,9 +1826,7 @@ mod tests {
             inner: "parent".into(),
         };
         let folder = folder_location(&archive, std::path::Path::new("parent/child"));
-        assert!(
-            matches!(folder, Location::Archive { inner, .. } if inner == PathBuf::from("parent/child"))
-        );
+        assert!(matches!(folder, Location::Archive { inner, .. } if inner == *"parent/child"));
         assert!(matches!(
             location_drop_command(&archive),
             DragHoverDropCommand::RejectArchive
@@ -1841,7 +1839,7 @@ mod tests {
             };
             let folder = folder_location(&remote, std::path::Path::new(r"parent\child"));
             assert!(
-                matches!(location_drop_command(&folder), DragHoverDropCommand::TransferTo(path) if path == PathBuf::from("remote:drive/parent/child"))
+                matches!(location_drop_command(&folder), DragHoverDropCommand::TransferTo(path) if path == *"remote:drive/parent/child")
             );
         }
     }

@@ -218,7 +218,7 @@ impl App {
                     if is_dir {
                         let hover_path = path.clone();
                         let drop_target = path.clone();
-                        let drop_target_external = path.clone();
+                        let drop_target_external = path;
                         row = row
                             .on_prepaint_child(drag_hover_recorder_with_drop(
                                 DragHoverId::BreadcrumbMenu(pane, hover_path.clone()),
@@ -275,7 +275,7 @@ impl App {
                 .child(div().flex_1().child(crate::ui::text_input::flat(state)))
         });
 
-        let close_view = view.clone();
+        let close_view = view;
         gpui::deferred(
             div()
                 .id("breadcrumb-menu-scrim")
@@ -404,7 +404,7 @@ fn breadcrumb_items(dir: PathBuf) -> Vec<BreadcrumbMenuItem> {
             let extension = path
                 .extension()
                 .and_then(|ext| ext.to_str())
-                .map(|ext| ext.to_ascii_lowercase());
+                .map(str::to_ascii_lowercase);
             Some(BreadcrumbMenuItem {
                 label: name,
                 path: path.clone(),

@@ -129,11 +129,10 @@ fn list_sync(sort_col: &SortColumn, sort_dir: &SortDir) -> Vec<FileEntry> {
                 if let Ok(fs_meta) = std::fs::metadata(&r_path) {
                     meta.original_size = fs_meta.len();
                 }
-                let original_name = meta
-                    .original_path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_else(|| base_name.to_string());
+                let original_name = meta.original_path.file_name().map_or_else(
+                    || base_name.to_string(),
+                    |n| n.to_string_lossy().to_string(),
+                );
                 entries.push(FileEntry::from(atlas_model::file_entry::FileEntryData {
                     name: original_name.into(),
                     path: r_path,
@@ -255,7 +254,7 @@ fn parse_deletion_date(s: &str) -> Option<SystemTime> {
     for m in 0..(month as usize - 1) {
         total_days += days_in_months[m];
     }
-    total_days += (day as i64) - 1;
+    total_days += i64::from(day) - 1;
 
     let total_secs = total_days * 86_400 + (hour as i64) * 3600 + (min as i64) * 60 + (sec as i64);
     if total_secs >= 0 {

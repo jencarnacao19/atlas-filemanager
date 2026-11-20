@@ -1,4 +1,6 @@
 #![windows_subsystem = "windows"]
+// reason: a headless sidecar process with no UI thread; blocking `std::fs` is fine.
+#![allow(clippy::disallowed_methods)]
 
 use anyhow::{Context as _, Result};
 use atlas_core::cloud::control::{OutcomeUnknown, TransferCancelled, TransferControl};

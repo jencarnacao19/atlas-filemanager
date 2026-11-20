@@ -160,7 +160,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("file");
         std::fs::write(&path, b"contents").unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0)).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o0)).unwrap();
         let mut permissions = read_properties(&path).permissions.unwrap();
         permissions.edited_mode = 0o600;
         apply_permissions(&path, &permissions).unwrap();

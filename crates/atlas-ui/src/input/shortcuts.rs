@@ -19,7 +19,7 @@ impl CommandShortcutPrefs {
     fn shortcut_string(&self, command_id: &str) -> Option<String> {
         match self.bindings.get(command_id) {
             Some(Some(keys)) if Keystroke::parse(keys).is_ok() => Some(keys.clone()),
-            Some(Some(_)) | Some(None) => None,
+            Some(Some(_) | None) => None,
             None => default_command_shortcut(command_id).map(str::to_string),
         }
     }
@@ -97,7 +97,7 @@ impl App {
         }
         if let Some(panel) = self.cleanup_panel.clone() {
             if ev.keystroke.key == "escape" {
-                if panel.update(cx, |p, cx| p.escape(cx)) {
+                if panel.update(cx, super::super::ui::cleanup::CleanupPanel::escape) {
                     self.cleanup_panel = None;
                     window.focus(&self.focus_handle, cx);
                 }
@@ -248,7 +248,7 @@ impl App {
                 self.process_actions(vec![Action::NavigateUp(self.state.focused_tile)]);
                 true
             }
-            ("l", false) | ("enter", false) => {
+            ("l" | "enter", false) => {
                 self.process_actions(vec![Action::OpenCursor]);
                 true
             }
@@ -275,7 +275,7 @@ impl App {
                 }]);
                 true
             }
-            ("/", _) | ("slash", _) => {
+            ("/" | "slash", _) => {
                 self.process_actions(vec![Action::OpenSearchInPlace]);
                 if let Some(input) = self.search_inputs.get(&self.state.focused_tile).cloned() {
                     let focus = input.read(cx).focus_handle(cx);

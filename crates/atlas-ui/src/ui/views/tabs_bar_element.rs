@@ -108,14 +108,16 @@ fn tab_hover_targets(
                 .to_bounds(bounds.origin)
                 .intersect(&bounds)
                 .intersect(&mask);
-            (bounds.size.width > px(0.0) && bounds.size.height > px(0.0)).then(|| DragHoverTarget {
-                id: DragHoverId::Tab(tab.pane_id),
-                bounds,
-                kind: DragHoverKind::Nav,
-                command: DragHoverCommand::Process(Action::FocusTab(tab.pane_id)),
-                // The destination is resolved from the live tab at drop time.
-                drop_command: None,
-            })
+            (bounds.size.width > px(0.0) && bounds.size.height > px(0.0)).then_some(
+                DragHoverTarget {
+                    id: DragHoverId::Tab(tab.pane_id),
+                    bounds,
+                    kind: DragHoverKind::Nav,
+                    command: DragHoverCommand::Process(Action::FocusTab(tab.pane_id)),
+                    // The destination is resolved from the live tab at drop time.
+                    drop_command: None,
+                },
+            )
         })
         .collect()
 }
@@ -281,10 +283,10 @@ impl Element for TabsBarElement {
         if min_required > avail && self.tabs.len() > 1 {
             // We need to hide tabs. Always keep the active tab visible.
             for (i, tab) in self.tabs.iter().enumerate() {
-                if !tab.is_active {
-                    visible_tabs[i] = false;
-                } else {
+                if tab.is_active {
                     sum_visible += natural_ws[i];
+                } else {
+                    visible_tabs[i] = false;
                 }
             }
         } else {
@@ -723,7 +725,7 @@ impl Element for TabsBarElement {
                         if let Some(tab) = tabs_hit.get(i) {
                             let tab_origin = origin + point(px(geoms[i].x), px(geoms[i].y));
                             down_press.update(cx, |press, _| {
-                                *press = Some((ev.position, tab.pane_id, tab_origin))
+                                *press = Some((ev.position, tab.pane_id, tab_origin));
                             });
                             tracing::debug!(pane = tab.pane_id.0, "dnd tab press");
                         }
@@ -784,7 +786,7 @@ impl Element for TabsBarElement {
                     }
                     this.state.dragging_pane = Some(pane);
                     this.state.drag_pending = false;
-                    let content = this.get_or_make_file_panel(pane, cx).clone().into();
+                    let content = this.get_or_make_file_panel(pane, cx).into();
                     let container = this.state.find_tabs_container(pane);
                     let size = this
                         .pane_view_bounds
@@ -828,7 +830,7 @@ impl Element for TabsBarElement {
                 window.refresh();
                 cx.stop_propagation();
             });
-            let up_press = press.clone();
+            let up_press = press;
             let up_view = app_entity;
             window.on_mouse_event::<MouseUpEvent>(move |ev, _, _, cx| {
                 if ev.button == MouseButton::Left {

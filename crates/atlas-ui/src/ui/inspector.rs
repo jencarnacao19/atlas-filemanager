@@ -61,12 +61,12 @@ impl InspectorHost {
                 return;
             }
             let next = preview_fingerprint(app.read(cx));
-            if this.fingerprint != next {
+            if this.fingerprint == next {
+                crate::perf::count("inspector.invalidate.skipped");
+            } else {
                 this.fingerprint = next;
                 crate::perf::count("inspector.invalidate.changed");
                 cx.notify();
-            } else {
-                crate::perf::count("inspector.invalidate.skipped");
             }
         })
         .detach();
@@ -349,16 +349,15 @@ fn preview_source_name(path: &Path) -> PathBuf {
 fn preview_language_for_path(path: &Path) -> &'static str {
     let display_path = preview_source_name(path);
     let path = display_path.as_path();
-    let ext = path
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .map(|s| s.to_ascii_lowercase())
-        .unwrap_or_else(|| {
+    let ext = path.extension().and_then(|ext| ext.to_str()).map_or_else(
+        || {
             path.file_name()
                 .and_then(|f| f.to_str())
                 .unwrap_or_default()
                 .to_ascii_lowercase()
-        });
+        },
+        str::to_ascii_lowercase,
+    );
     match ext.as_str() {
         "rs" => "rust",
         "js" | "jsx" | "mjs" | "cjs" => "javascript",
@@ -432,13 +431,15 @@ impl App {
         let ext = display_path
             .extension()
             .and_then(|e| e.to_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| {
-                path.file_name()
-                    .and_then(|f| f.to_str())
-                    .unwrap_or("")
-                    .to_string()
-            });
+            .map_or_else(
+                || {
+                    path.file_name()
+                        .and_then(|f| f.to_str())
+                        .unwrap_or("")
+                        .to_string()
+                },
+                std::string::ToString::to_string,
+            );
         let show_ln = self
             .state
             .profiles
@@ -1369,7 +1370,7 @@ impl App {
                 }),
             );
 
-            let v_zi = view.clone();
+            let v_zi = view;
             bar = bar.child(
                 floating_icon_button(
                     "float-zin",
@@ -1712,7 +1713,7 @@ impl App {
                     .min_h(px(0.))
                     .child(
                         gpui_component::text::TextView::markdown(
-                            gpui::SharedString::from(format!("preview-md-{:?}", tab)),
+                            gpui::SharedString::from(format!("preview-md-{tab:?}")),
                             source.clone(),
                         )
                         .selectable(true)
@@ -2310,7 +2311,7 @@ impl App {
         let hero = if ring_cards.is_empty() {
             None
         } else {
-            let key = container.clone().unwrap_or_default();
+            let key = container.unwrap_or_default();
             let ring = crate::ui::dir_ring::ensure(&mut self.dir_ring, cx);
             ring.update(cx, |ring, _| ring.set_items(&key, ring_cards));
             Some(ring.into_any_element())
@@ -2758,12 +2759,12 @@ impl App {
                             let tab = this.state.focused_tile;
                             let view = this.preview_view.entry(tab).or_default();
                             let Some(start) = view.stack_drag else { return };
-                            if event.pressed_button != Some(MouseButton::Left) {
-                                view.stack_drag = None;
-                                view.stack_dx = 0.;
-                            } else {
+                            if event.pressed_button == Some(MouseButton::Left) {
                                 view.stack_dx =
                                     (f32::from(event.position.x) - start).clamp(-120., 120.);
+                            } else {
+                                view.stack_drag = None;
+                                view.stack_dx = 0.;
                             }
                             cx.notify();
                         });
@@ -3142,10 +3143,10 @@ fn floating_icon_button(
         .rounded(px(6.))
         .text_color(color)
         .cursor_pointer();
-    if !disabled {
-        el.hover(|s| s.opacity(0.75))
-    } else {
+    if disabled {
         el
+    } else {
+        el.hover(|s| s.opacity(0.75))
     }
     .child(
         gpui_component::Icon::new(icon_name)
@@ -3228,7 +3229,7 @@ fn selection_summary(tab_state: &TabState, view_mode: &ViewMode) -> SelectionSum
         s.single = Some(SelectedEntry {
             name: entry.name.to_string(),
             path: entry.path(),
-            kind: entry.kind().clone(),
+            kind: entry.kind(),
             size: entry.size(),
             modified: entry.modified,
             extension: entry.extension().as_ref().map(ToString::to_string),

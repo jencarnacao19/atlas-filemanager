@@ -5,63 +5,6 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn delete_reports_only_successful_paths_and_preserves_cancelled_sources() {
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root =
-            std::env::temp_dir().join(format!("atlas-delete-drop-{}-{stamp}", std::process::id()));
-        std::fs::create_dir(&root).unwrap();
-        struct TempTree(PathBuf);
-        impl Drop for TempTree {
-            fn drop(&mut self) {
-                let _ = std::fs::remove_dir_all(&self.0);
-            }
-        }
-        let _cleanup = TempTree(root.clone());
-        let removed = root.join("removed.txt");
-        let preserved = root.join("preserved.txt");
-        std::fs::write(&removed, b"delete").unwrap();
-        std::fs::write(&preserved, b"cancel").unwrap();
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let (tx, rx) = flume::unbounded();
-        runtime.block_on(delete_files(
-            vec![removed.clone(), root.join("missing.txt")],
-            false,
-            1,
-            tx,
-            Arc::new(AtomicBool::new(false)),
-            vec![],
-        ));
-        let events = rx.try_iter().collect::<Vec<_>>();
-        assert!(events.iter().any(|event| matches!(event, BgResult::PathsDeleted(paths) if paths == &vec![removed.clone()])));
-        assert!(events.iter().any(|event| matches!(event, BgResult::OpComplete { result: Err(errors), .. } if errors.len() == 1)));
-        assert!(!removed.exists());
-        let (tx, rx) = flume::unbounded();
-        runtime.block_on(delete_files(
-            vec![preserved.clone()],
-            false,
-            2,
-            tx,
-            Arc::new(AtomicBool::new(true)),
-            vec![],
-        ));
-        assert!(!rx
-            .try_iter()
-            .any(|event| matches!(event, BgResult::PathsDeleted(_))));
-        assert!(preserved.exists());
-    }
-}
-
 // Copy/move live in the unified transfer engine (`super::transfer`); this
 // module keeps the simpler one-shot operations (delete, rename, create dir).
 
@@ -220,4 +163,61 @@ async fn remove_path(path: &Path) -> anyhow::Result<()> {
         tokio::fs::remove_file(path).await?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn delete_reports_only_successful_paths_and_preserves_cancelled_sources() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root =
+            std::env::temp_dir().join(format!("atlas-delete-drop-{}-{stamp}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        struct TempTree(PathBuf);
+        impl Drop for TempTree {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _cleanup = TempTree(root.clone());
+        let removed = root.join("removed.txt");
+        let preserved = root.join("preserved.txt");
+        std::fs::write(&removed, b"delete").unwrap();
+        std::fs::write(&preserved, b"cancel").unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (tx, rx) = flume::unbounded();
+        runtime.block_on(delete_files(
+            vec![removed.clone(), root.join("missing.txt")],
+            false,
+            1,
+            tx,
+            Arc::new(AtomicBool::new(false)),
+            vec![],
+        ));
+        let events = rx.try_iter().collect::<Vec<_>>();
+        assert!(events.iter().any(|event| matches!(event, BgResult::PathsDeleted(paths) if paths == &vec![removed.clone()])));
+        assert!(events.iter().any(|event| matches!(event, BgResult::OpComplete { result: Err(errors), .. } if errors.len() == 1)));
+        assert!(!removed.exists());
+        let (tx, rx) = flume::unbounded();
+        runtime.block_on(delete_files(
+            vec![preserved.clone()],
+            false,
+            2,
+            tx,
+            Arc::new(AtomicBool::new(true)),
+            vec![],
+        ));
+        assert!(!rx
+            .try_iter()
+            .any(|event| matches!(event, BgResult::PathsDeleted(_))));
+        assert!(preserved.exists());
+    }
 }

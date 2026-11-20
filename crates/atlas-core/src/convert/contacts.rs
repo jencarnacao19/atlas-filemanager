@@ -261,7 +261,7 @@ fn vcard(text: &str) -> Result<Vec<Contact>> {
                             .into_iter()
                             .filter(|s| !s.is_empty())
                             .collect::<Vec<_>>()
-                            .join(" / ")
+                            .join(" / ");
                     }
                     "TITLE" => contact.title = decoded,
                     "URL" => contact.urls.push(decoded),

@@ -189,7 +189,7 @@ impl App {
             );
         }
 
-        let close_view = view.clone();
+        let close_view = view;
 
         // Full-window backdrop (click-to-close).
         div()
@@ -452,7 +452,7 @@ fn rgb8_to_hsla([r, g, b]: [u8; 3]) -> gpui::Hsla {
         f32::from(b) / 255.,
     );
     let (max, min) = (r.max(g).max(b), r.min(g).min(b));
-    let l = (max + min) / 2.;
+    let l = f32::midpoint(max, min);
     let d = max - min;
     if d == 0. {
         return gpui::hsla(0., 0., l, 1.);

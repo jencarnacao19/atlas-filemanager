@@ -266,11 +266,10 @@ impl App {
     }
 
     fn submit_create_tag(&mut self, cx: &mut Context<Self>) {
-        let name = self
-            .create_tag_input
-            .as_ref()
-            .map(|input| input.read(cx).value().trim().to_string())
-            .unwrap_or_else(|| self.state.profile_ui.new_tag_name.trim().to_string());
+        let name = self.create_tag_input.as_ref().map_or_else(
+            || self.state.profile_ui.new_tag_name.trim().to_string(),
+            |input| input.read(cx).value().trim().to_string(),
+        );
         if name.is_empty() {
             return;
         }

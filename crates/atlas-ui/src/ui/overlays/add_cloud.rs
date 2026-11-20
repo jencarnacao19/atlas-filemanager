@@ -308,7 +308,9 @@ impl App {
         };
 
         // ── Access mode toggle (only for non-OAuth) ────────────────────────────
-        let access_toggle: Option<AnyElement> = if !is_oauth {
+        let access_toggle: Option<AnyElement> = if is_oauth {
+            None
+        } else {
             let view_br = view.clone();
             let view_mt = view.clone();
             let browse_sel = access == AccessKind::Access;
@@ -377,8 +379,6 @@ impl App {
                     )
                     .into_any_element(),
             )
-        } else {
-            None
         };
 
         // ── Buttons ────────────────────────────────────────────────────────────
@@ -478,7 +478,7 @@ impl App {
         self.overlay_scrim_custom(
             "scrim-add-cloud",
             view,
-            |this| this.close_add_cloud(),
+            Self::close_add_cloud,
             focus,
             panel.into_any_element(),
             cx,

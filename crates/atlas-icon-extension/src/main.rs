@@ -40,8 +40,7 @@ async fn download_theme(request: &SidecarCommandRequest) -> Result<()> {
     let extension_id = request
         .answers
         .get("theme")
-        .map(String::as_str)
-        .unwrap_or("PKief/material-icon-theme")
+        .map_or("PKief/material-icon-theme", String::as_str)
         .trim();
     download_theme_id(request, extension_id).await
 }
@@ -185,7 +184,7 @@ fn build_mappings(data_dir: &Path, theme_root: &Path) -> Result<()> {
                 normalize_icon_path(&theme_root.join("extension"), theme_dir, icon_path)
             {
                 mappings.insert(
-                    "".to_string(),
+                    String::new(),
                     serde_json::Value::String(path.to_string_lossy().into_owned()),
                 );
             }

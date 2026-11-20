@@ -58,7 +58,7 @@ impl R2Client {
     ) -> Result<()> {
         let body = ByteStream::from_path(local_path)
             .await
-            .with_context(|| format!("Failed to read {:?}", local_path))?;
+            .with_context(|| format!("Failed to read {local_path:?}"))?;
 
         self.client
             .put_object()
@@ -69,7 +69,7 @@ impl R2Client {
             .cache_control(cache_control)
             .send()
             .await
-            .with_context(|| format!("Failed to upload to S3: {}", key))?;
+            .with_context(|| format!("Failed to upload to S3: {key}"))?;
 
         Ok(())
     }
@@ -92,7 +92,7 @@ impl R2Client {
             .cache_control(cache_control)
             .send()
             .await
-            .with_context(|| format!("Failed to upload bytes to S3: {}", key))?;
+            .with_context(|| format!("Failed to upload bytes to S3: {key}"))?;
 
         Ok(())
     }

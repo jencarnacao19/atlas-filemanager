@@ -516,11 +516,7 @@ impl AppState {
         selected.sort_unstable();
         let items = selected
             .into_iter()
-            .filter_map(|i| {
-                ts.entries
-                    .get(i)
-                    .map(|e| (archive.clone(), e.path().clone()))
-            })
+            .filter_map(|i| ts.entries.get(i).map(|e| (archive.clone(), e.path())))
             .collect();
         Some(items)
     }
@@ -680,13 +676,13 @@ fn entry_to_preview_request(
     entry: &crate::file_entry::FileEntry,
 ) -> crate::preview_cache::PreviewRequest {
     use crate::preview_cache::PreviewRequest;
-    if let Some(archive) = entry.archive_root().clone() {
+    if let Some(archive) = entry.archive_root() {
         PreviewRequest::ArchiveSingle {
             archive,
-            inner: entry.path().clone(),
+            inner: entry.path(),
         }
     } else {
-        PreviewRequest::Single(entry.path().clone())
+        PreviewRequest::Single(entry.path())
     }
 }
 

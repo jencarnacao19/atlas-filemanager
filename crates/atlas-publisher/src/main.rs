@@ -1,3 +1,6 @@
+// reason: a command-line tool with no UI thread; blocking `std::fs` is fine.
+#![allow(clippy::disallowed_methods)]
+
 mod packager;
 mod s3_client;
 
@@ -75,7 +78,7 @@ async fn main() -> Result<()> {
             bucket,
             public_url,
         } => {
-            println!("Publishing extension from: {:?}", path);
+            println!("Publishing extension from: {path:?}");
 
             // 1. Parse manifest
             let manifest = packager::parse_manifest(path)?;
@@ -84,7 +87,7 @@ async fn main() -> Result<()> {
             // 2. Zip extension
             let temp_zip_path =
                 std::env::temp_dir().join(format!("{}-{}.zip", manifest.id, manifest.version));
-            println!("Packaging extension to: {:?}", temp_zip_path);
+            println!("Packaging extension to: {temp_zip_path:?}");
             packager::zip_extension(path, &temp_zip_path)?;
             let zip_sha256 = sha256_file(&temp_zip_path)?;
 
@@ -96,7 +99,7 @@ async fn main() -> Result<()> {
                 "extensions/{}/versions/{}.zip",
                 manifest.id, manifest.version
             );
-            println!("Uploading zip to R2: {}", zip_key);
+            println!("Uploading zip to R2: {zip_key}");
             client
                 .upload_file(
                     &temp_zip_path,
@@ -123,7 +126,7 @@ async fn main() -> Result<()> {
                     "extensions/{}/versions/{}/icon.{extension}",
                     manifest.id, manifest.version
                 );
-                println!("Uploading icon to R2: {}", icon_key);
+                println!("Uploading icon to R2: {icon_key}");
                 client
                     .upload_file(
                         &icon_path,

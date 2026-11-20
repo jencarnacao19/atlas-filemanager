@@ -131,7 +131,7 @@ pub(super) fn paint_wheel(
             });
             let _ = (bounds, cx);
         },
-        move |bounds: Bounds<Pixels>, _, window: &mut Window, _cx| {
+        move |bounds: Bounds<Pixels>, (), window: &mut Window, _cx| {
             let center = bounds.center();
             let count = available.len().max(1);
             for ring in &rings {
@@ -209,7 +209,7 @@ pub(super) fn paint_wheel(
                 });
             });
             // Click pins a format; a double click converts straight away.
-            let click_view = view.clone();
+            let click_view = view;
             window.on_mouse_event::<MouseDownEvent>(move |ev, phase, _window, cx| {
                 if phase != DispatchPhase::Bubble
                     || ev.button != MouseButton::Left

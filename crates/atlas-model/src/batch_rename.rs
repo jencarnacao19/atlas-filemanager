@@ -202,10 +202,7 @@ fn common_suffix_len(lines: &[String]) -> usize {
 }
 
 fn char_to_byte_index(s: &str, char_idx: usize) -> usize {
-    s.char_indices()
-        .nth(char_idx)
-        .map(|(i, _)| i)
-        .unwrap_or(s.len())
+    s.char_indices().nth(char_idx).map_or(s.len(), |(i, _)| i)
 }
 
 fn prev_word_boundary(s: &str, char_pos: usize) -> usize {
@@ -595,10 +592,10 @@ impl BatchRenameState {
                 .filter(|t| t.kind == TokenKind::Number)
                 .collect()
         };
-        if !self
+        if self
             .multi_lines
             .first()
-            .is_some_and(|l| !numbers(l).is_empty())
+            .is_none_or(|l| numbers(l).is_empty())
         {
             return false;
         }
@@ -654,10 +651,10 @@ impl BatchRenameState {
 
     pub fn align_cursor_to_stem_end(&mut self) {
         if let Some(first) = self.multi_lines.first() {
-            let stem_len = std::path::Path::new(first)
-                .file_stem()
-                .map(|s| s.to_string_lossy().chars().count())
-                .unwrap_or_else(|| first.chars().count());
+            let stem_len = std::path::Path::new(first).file_stem().map_or_else(
+                || first.chars().count(),
+                |s| s.to_string_lossy().chars().count(),
+            );
             self.set_cursor(stem_len);
         } else {
             self.cursor_pos = 0;

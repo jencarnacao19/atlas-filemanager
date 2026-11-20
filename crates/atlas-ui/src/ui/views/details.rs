@@ -250,7 +250,7 @@ impl App {
 
         let header = details_header(
             &header_layout,
-            filtered_visible.clone(),
+            filtered_visible,
             &view,
             pane_id,
             &sort_col,
@@ -385,13 +385,13 @@ impl App {
                 crate::ui::views::details_element::DetailsBodyElement::new(
                     pane_id,
                     view.downgrade(),
-                    fv.clone(),
+                    fv,
                     row_h,
                     base_scroll.clone(),
                     (*layout).clone(),
                     content_lod,
                     colors,
-                    row_font.clone(),
+                    row_font,
                     font_size,
                     dragging,
                     row_motion,
@@ -691,7 +691,7 @@ fn details_header(
         view.downgrade(),
         layout.clone(),
         visible,
-        colors.clone(),
+        *colors,
         font,
         font_size,
         sort_col.clone(),
@@ -806,10 +806,9 @@ impl DetailsContentLod {
 fn details_lod_enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| {
-        std::env::var("ATLAS_DETAILS_LOD")
-            .ok()
-            .map(|value| !matches!(value.as_str(), "" | "0" | "false" | "FALSE" | "off" | "OFF"))
-            .unwrap_or(true)
+        std::env::var("ATLAS_DETAILS_LOD").ok().is_none_or(|value| {
+            !matches!(value.as_str(), "" | "0" | "false" | "FALSE" | "off" | "OFF")
+        })
     })
 }
 
@@ -862,7 +861,7 @@ pub(crate) fn prime_details_file_icons_range(
                 let entry = ts.entries.get(*visible.get(i)?)?;
                 Some(crate::ui::file_icons::FileIconRef {
                     path: entry.path(),
-                    kind: entry.kind().clone(),
+                    kind: entry.kind(),
                     extension: entry
                         .extension()
                         .as_ref()
@@ -1022,13 +1021,15 @@ fn blend_layouts(
                 positions
                     .iter()
                     .find(|(col, _)| *col == c.column)
-                    .map(|(_, x)| *x)
-                    .unwrap_or_else(|| {
-                        from.columns
-                            .iter()
-                            .find(|f| f.column == c.column)
-                            .map_or(c.x, |f| f.x)
-                    })
+                    .map_or_else(
+                        || {
+                            from.columns
+                                .iter()
+                                .find(|f| f.column == c.column)
+                                .map_or(c.x, |f| f.x)
+                        },
+                        |(_, x)| *x,
+                    )
             } else {
                 from.columns
                     .iter()
@@ -1083,7 +1084,7 @@ fn render_rename_row(
 
     let name = entry.name.to_string();
     let fallback_icon = FileIcon::Builtin {
-        kind: entry.kind().clone(),
+        kind: entry.kind(),
         extension: entry
             .extension()
             .as_ref()
@@ -1091,11 +1092,9 @@ fn render_rename_row(
     };
     let meta_cells = layout.columns.iter().map(|col| {
         let text = match col.column {
-            DetailsColumn::Size => crate::ui::views::details::entry_display_size(&entry).clone(),
-            DetailsColumn::Modified => {
-                crate::ui::views::details::entry_display_date(&entry).clone()
-            }
-            DetailsColumn::Type => crate::ui::views::details::entry_type_label(&entry).clone(),
+            DetailsColumn::Size => crate::ui::views::details::entry_display_size(entry),
+            DetailsColumn::Modified => crate::ui::views::details::entry_display_date(entry),
+            DetailsColumn::Type => crate::ui::views::details::entry_type_label(entry),
         };
         div()
             .absolute()

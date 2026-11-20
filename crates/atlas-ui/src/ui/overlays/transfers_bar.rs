@@ -78,7 +78,7 @@ impl App {
         );
         #[cfg(feature = "provider-host")]
         let header = header.child({
-            let close_view = view.clone();
+            let close_view = view;
             div()
                 .id("cloud-transfers-close")
                 .size(px(20.))
@@ -147,11 +147,10 @@ fn local_transfer_row(
     } else {
         None
     };
-    let file = op
-        .current_file
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_else(|| op.label.clone());
+    let file = op.current_file.file_name().map_or_else(
+        || op.label.clone(),
+        |name| name.to_string_lossy().into_owned(),
+    );
     let detail = if op.bytes_total > 0 {
         format!(
             "{} / {}",

@@ -24,29 +24,6 @@ pub(super) async fn has_excluded_directory_items(
     }
 }
 
-#[cfg(test)]
-mod exclusion_tests {
-    use super::*;
-    #[tokio::test]
-    async fn empty_listing_distinguishes_a_truly_empty_directory_from_excluded_items() {
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root =
-            std::env::temp_dir().join(format!("atlas-empty-view-{}-{stamp}", std::process::id()));
-        std::fs::create_dir(&root).unwrap();
-        assert!(!has_excluded_directory_items(&root, false, true).await);
-        let hidden = root.join(".hidden.txt");
-        std::fs::write(&hidden, []).unwrap();
-        assert!(has_excluded_directory_items(&root, false, true).await);
-        assert!(!has_excluded_directory_items(&root, true, true).await);
-        assert!(!has_excluded_directory_items(&root, false, false).await);
-        std::fs::remove_file(hidden).unwrap();
-        std::fs::remove_dir(root).unwrap();
-    }
-}
-
 impl App {
     /// Read created/accessed stamps for a pane grouped by those dates. The
     /// compact entry only keeps its modification time, and a stat per file must
@@ -284,14 +261,14 @@ impl App {
     pub(crate) fn spawn_miller_list(&mut self, tile: TileId, location: Location) {
         let op_id = self.state.next_op_id();
         let show_hidden = self.state.settings.show_hidden;
-        let (col, dir, folder_order) = self
-            .tab_data_for(tile)
-            .map(|td| (td.sort_col.clone(), td.sort_dir.clone(), td.folder_order))
-            .unwrap_or((
+        let (col, dir, folder_order) = self.tab_data_for(tile).map_or(
+            (
                 Default::default(),
                 Default::default(),
                 FolderOrder::default(),
-            ));
+            ),
+            |td| (td.sort_col.clone(), td.sort_dir.clone(), td.folder_order),
+        );
         if let Some(ts) = self.state.tab_states.get_mut(&tile) {
             if let Some(c) = ts
                 .miller
@@ -340,16 +317,16 @@ impl App {
             return;
         }
         let show_hidden = self.state.settings.show_hidden;
-        let (col, dir, folder_order) = self
-            .tab_data_for(tab_id)
-            .map(|td| (td.sort_col.clone(), td.sort_dir.clone(), td.folder_order))
-            .unwrap_or((
+        let (col, dir, folder_order) = self.tab_data_for(tab_id).map_or(
+            (
                 atlas_model::file_entry::SortColumn::Name,
                 atlas_model::file_entry::SortDir::Asc,
                 FolderOrder::default(),
-            ));
+            ),
+            |td| (td.sort_col.clone(), td.sort_dir.clone(), td.folder_order),
+        );
         let tx = self.tx.clone();
-        let p = path.clone();
+        let p = path;
         let archive = self
             .tab_data_for(tab_id)
             .and_then(|tab| match &tab.location {
@@ -397,7 +374,7 @@ impl App {
             .get(&tile)
             .and_then(|ts| ts.miller.columns.get(column))
             .and_then(|c| c.entries.get(idx))
-            .map(|e| (e.path(), e.kind().clone(), e.archive_root().clone()));
+            .map(|e| (e.path(), e.kind(), e.archive_root()));
         let Some((path, kind, archive_root)) = entry else {
             return;
         };
@@ -427,10 +404,10 @@ impl App {
                     // Dir inside an archive — navigate as virtual path.
                     Location::Archive {
                         archive,
-                        inner: path.clone(),
+                        inner: path,
                     }
                 } else {
-                    Location::Directory(path.clone())
+                    Location::Directory(path)
                 };
                 ts.miller
                     .columns
@@ -438,7 +415,7 @@ impl App {
                 Some(child_loc)
             } else if atlas_core::fs::archive::is_archive_path(&path) {
                 let child_loc = Location::Archive {
-                    archive: path.clone(),
+                    archive: path,
                     inner: std::path::PathBuf::new(),
                 };
                 ts.miller
@@ -468,7 +445,7 @@ impl App {
         Some(
             ts.selected_entries(&atlas_model::settings::ViewMode::Miller)
                 .into_iter()
-                .map(|entry| entry.path())
+                .map(atlas_model::file_entry::FileEntry::path)
                 .collect(),
         )
     }
@@ -714,7 +691,7 @@ impl App {
             };
             let cur = ts.selection.keyboard_cursor.unwrap_or(0);
             let rows = ts.visible_tree_rows();
-            if let Some((entry, depth, is_expanded, _)) = rows.get(cur).cloned() {
+            if let Some((entry, depth, is_expanded, _)) = rows.get(cur).copied() {
                 if entry.kind() == atlas_model::file_entry::FileKind::Dir && is_expanded {
                     (Some(entry.path()), None)
                 } else if depth > 0 {
@@ -771,7 +748,7 @@ impl App {
             };
             let cur = ts.selection.keyboard_cursor.unwrap_or(0);
             let rows = ts.visible_tree_rows();
-            if let Some((entry, depth, is_expanded, has_children)) = rows.get(cur).cloned() {
+            if let Some((entry, depth, is_expanded, has_children)) = rows.get(cur).copied() {
                 if entry.kind() == atlas_model::file_entry::FileKind::Dir {
                     if !is_expanded {
                         NavRight::Expand(entry.path())
@@ -1052,10 +1029,10 @@ impl App {
                             );
                             break 'outer;
                         }
-                        let name = inner
-                            .file_name()
-                            .map(|n| n.to_string_lossy().into_owned())
-                            .unwrap_or_else(|| "extracted".to_string());
+                        let name = inner.file_name().map_or_else(
+                            || "extracted".to_string(),
+                            |n| n.to_string_lossy().into_owned(),
+                        );
                         let _ = tx.send(BgResult::OpProgress {
                             id: op_id,
                             done,
@@ -1131,17 +1108,17 @@ pub(crate) fn extract_entry_recursive(
                 if cancel.load(std::sync::atomic::Ordering::Relaxed) {
                     break;
                 }
-                let child_name = match sanitize_inner_path(std::path::Path::new(&child.name))
-                    .and_then(|p| p.file_name().map(|n| n.to_os_string()))
+                let child_name = if let Some(name) =
+                    sanitize_inner_path(std::path::Path::new(&child.name))
+                        .and_then(|p| p.file_name().map(std::ffi::OsStr::to_os_string))
                 {
-                    Some(name) => name,
-                    None => {
-                        errors.push(format!(
-                            "Ruta de archivo no segura descartada en extracción: '{}'",
-                            child.name
-                        ));
-                        continue;
-                    }
+                    name
+                } else {
+                    errors.push(format!(
+                        "Ruta de archivo no segura descartada en extracción: '{}'",
+                        child.name
+                    ));
+                    continue;
                 };
                 let child_dest = dest_path.join(&child_name);
                 total +=
@@ -1151,14 +1128,13 @@ pub(crate) fn extract_entry_recursive(
         }
         _ => {
             // Treat as a file (or empty dir — attempt extract, create dir if that fails).
-            let mut reader = match provider.read_bytes(inner) {
-                Ok(r) => r,
-                Err(_) => {
-                    // Likely an empty directory entry — create it and move on.
-                    #[allow(clippy::disallowed_methods)]
-                    let _ = std::fs::create_dir_all(dest_path);
-                    return 0;
-                }
+            let mut reader = if let Ok(r) = provider.read_bytes(inner) {
+                r
+            } else {
+                // Likely an empty directory entry — create it and move on.
+                #[allow(clippy::disallowed_methods)]
+                let _ = std::fs::create_dir_all(dest_path);
+                return 0;
             };
             if let Some(parent) = dest_path.parent() {
                 #[allow(clippy::disallowed_methods)]
@@ -1235,5 +1211,28 @@ pub(crate) fn extract_entry_recursive(
             }
             total
         }
+    }
+}
+
+#[cfg(test)]
+mod exclusion_tests {
+    use super::*;
+    #[tokio::test]
+    async fn empty_listing_distinguishes_a_truly_empty_directory_from_excluded_items() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root =
+            std::env::temp_dir().join(format!("atlas-empty-view-{}-{stamp}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        assert!(!has_excluded_directory_items(&root, false, true).await);
+        let hidden = root.join(".hidden.txt");
+        std::fs::write(&hidden, []).unwrap();
+        assert!(has_excluded_directory_items(&root, false, true).await);
+        assert!(!has_excluded_directory_items(&root, true, true).await);
+        assert!(!has_excluded_directory_items(&root, false, false).await);
+        std::fs::remove_file(hidden).unwrap();
+        std::fs::remove_dir(root).unwrap();
     }
 }

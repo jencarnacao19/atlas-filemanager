@@ -24,15 +24,13 @@ pub fn resolve_extension_dir(id: &str) -> anyhow::Result<PathBuf> {
     // Lexical containment checks
     if !dest.starts_with(&base) || dest == base {
         anyhow::bail!(
-            "Extension path {:?} does not reside inside extensions directory {:?}",
-            dest,
-            base
+            "Extension path {dest:?} does not reside inside extensions directory {base:?}"
         );
     }
     let rel = dest.strip_prefix(&base)?;
     let comps: Vec<_> = rel.components().collect();
     if comps.len() != 1 || !matches!(comps[0], std::path::Component::Normal(_)) {
-        anyhow::bail!("Extension ID {:?} produces invalid path components", id);
+        anyhow::bail!("Extension ID {id:?} produces invalid path components");
     }
 
     // Canonical check if base directory already exists
@@ -41,9 +39,7 @@ pub fn resolve_extension_dir(id: &str) -> anyhow::Result<PathBuf> {
             if let Ok(canon_dest) = dest.canonicalize() {
                 if !canon_dest.starts_with(&canon_base) || canon_dest == canon_base {
                     anyhow::bail!(
-                        "Canonical extension path {:?} escapes extensions directory {:?}",
-                        canon_dest,
-                        canon_base
+                        "Canonical extension path {canon_dest:?} escapes extensions directory {canon_base:?}"
                     );
                 }
             }

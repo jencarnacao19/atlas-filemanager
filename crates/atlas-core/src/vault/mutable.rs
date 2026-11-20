@@ -1,5 +1,9 @@
 //! Mutable, authenticated copy-on-write blocks. Manifest replacement is the commit.
-use super::*;
+use super::{
+    ensure, fs, open, plain_metadata, same_name, seal, valid_id, validate_manifest, validate_name,
+    Aead, Component, Context, Entry, File, HashSet, KeyInit, Manifest, OpenOptions, Path, Payload,
+    Read, Result, Session, Write, XChaCha20Poly1305, XNonce, Zeroizing, CHUNK, MAGIC,
+};
 use std::io::{Seek, SeekFrom};
 
 const MAX_BLOCKS: u64 = 1_048_576; // 1 TiB/file; bounds authenticated manifest allocation.
@@ -220,7 +224,7 @@ impl Session {
             }
             blocks.resize(count, None);
             // Truncate the last block so growing again cannot reveal retired bytes.
-            if size < entry.size && size % CHUNK as u64 != 0 {
+            if size < entry.size && !size.is_multiple_of(CHUNK as u64) {
                 let i = count - 1;
                 let mut bytes = self.read_block(&entry, i as u64)?;
                 bytes.truncate((size % CHUNK as u64) as usize);

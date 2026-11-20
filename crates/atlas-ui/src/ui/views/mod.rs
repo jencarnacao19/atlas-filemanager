@@ -78,7 +78,7 @@ pub(super) fn pane_background_interactions(
             menu_view.update(cx, |this, cx| {
                 if let Some(path) = this
                     .tab_data_for(pane_id)
-                    .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+                    .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
                 {
                     this.open_background_ctx_menu(Some(path), pos, window, cx);
                     cx.notify();
@@ -277,7 +277,7 @@ impl App {
         match load_state {
             // Still loading or not yet started — suppress for local dirs (avoids
             // a flash of "Empty folder" before the async listing arrives).
-            Some(LoadState::Loading) | Some(LoadState::NotLoaded) => {
+            Some(LoadState::Loading | LoadState::NotLoaded) => {
                 (!is_local_dir).then(|| rust_i18n::t!("miller_loading").into_owned())
             }
             Some(LoadState::Error(error)) => Some(if error.is_empty() {

@@ -17,7 +17,7 @@ const MAX_FILES: usize = 256;
 const MAX_CANDIDATES: usize = 20_000;
 const MAX_DEPTH: usize = 128;
 const MAX_PATH_BYTES: usize = 16 * 1024 * 1024;
-const MIN_AGE: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+const MIN_AGE: Duration = Duration::from_hours(168);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ScanMode {
@@ -51,7 +51,7 @@ impl ScanJob {
             paused: job.paused.clone(),
             snapshot: DiskSnapshot {
                 generation,
-                root: root.clone(),
+                root,
                 ..Default::default()
             },
             rows: BinaryHeap::new(),
@@ -263,15 +263,12 @@ impl Worker {
     }
     fn store_tree(&mut self, tree: super::tree::SpaceTree, root: &Path) {
         let tree = Arc::new(tree);
-        match tree.snapshot(root, self.snapshot.generation) {
-            Some(snapshot) => {
-                super::tree::store(tree);
-                self.send_final(snapshot);
-            }
-            None => {
-                self.snapshot.status = ScanStatus::Failed;
-                self.finish();
-            }
+        if let Some(snapshot) = tree.snapshot(root, self.snapshot.generation) {
+            super::tree::store(tree);
+            self.send_final(snapshot);
+        } else {
+            self.snapshot.status = ScanStatus::Failed;
+            self.finish();
         }
     }
     fn send_final(&mut self, snapshot: DiskSnapshot) {
@@ -353,13 +350,12 @@ impl Worker {
             self.snapshot.message = Some("cleanup_unavailable".into());
             return;
         }
-        let entries = match fs::read_dir(root) {
-            Ok(entries) => entries,
-            Err(_) => {
-                self.snapshot.status = ScanStatus::Failed;
-                self.snapshot.errors += 1;
-                return;
-            }
+        let entries = if let Ok(entries) = fs::read_dir(root) {
+            entries
+        } else {
+            self.snapshot.status = ScanStatus::Failed;
+            self.snapshot.errors += 1;
+            return;
         };
         self.publish(None);
         for entry in entries {
@@ -433,12 +429,11 @@ impl Worker {
                 return 0;
             }
         };
-        let entries = match fs::read_dir(path) {
-            Ok(entries) => entries,
-            Err(_) => {
-                self.snapshot.errors += 1;
-                return 0;
-            }
+        let entries = if let Ok(entries) = fs::read_dir(path) {
+            entries
+        } else {
+            self.snapshot.errors += 1;
+            return 0;
         };
         let mut bytes = 0u64;
         for entry in entries {

@@ -92,7 +92,7 @@ impl RcClient {
             .context("Drive access token is unavailable")?;
         let mut url = reqwest::Url::parse(&self.drive_api)?;
         url.path_segments_mut()
-            .map_err(|_| anyhow::anyhow!("invalid Drive API base URL"))?
+            .map_err(|()| anyhow::anyhow!("invalid Drive API base URL"))?
             .pop_if_empty()
             .push(object_id);
         let client = reqwest::Client::new();
@@ -179,7 +179,7 @@ pub(crate) fn rooted(fs: &str, path: &str) -> String {
     if path.is_empty() {
         fs.to_string()
     } else {
-        format!("{}{path}", fs)
+        format!("{fs}{path}")
     }
 }
 

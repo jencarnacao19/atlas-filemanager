@@ -374,7 +374,7 @@ mod tests {
             .unwrap();
         writer
             .write_all(
-                br#"<document><p><r><t>Hello </t></r><r><t>world &#233;</t></r></p></document>"#,
+                br"<document><p><r><t>Hello </t></r><r><t>world &#233;</t></r></p></document>",
             )
             .unwrap();
         writer.finish().unwrap();

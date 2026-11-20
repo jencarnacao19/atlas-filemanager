@@ -310,7 +310,8 @@ impl Element for MenuPanel {
                         colors.foreground,
                     );
                 }
-                if !self.recording && (self.input.blink_epoch.elapsed().as_millis() / 530) % 2 == 0
+                if !self.recording
+                    && (self.input.blink_epoch.elapsed().as_millis() / 530).is_multiple_of(2)
                 {
                     paint_fill(
                         window,

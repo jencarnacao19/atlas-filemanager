@@ -493,12 +493,7 @@ impl CleanupPanel {
         }
         self.rows = Arc::new(rows);
         self.cursor = self.cursor.min(self.rows.len().saturating_sub(1));
-        if !self.snapshot.status.terminal() {
-            if !self.map_nodes.is_empty() {
-                self.map_nodes = Arc::default();
-                self.revision += 1;
-            }
-        } else {
+        if self.snapshot.status.terminal() {
             let shown = self
                 .snapshot
                 .entries
@@ -539,6 +534,9 @@ impl CleanupPanel {
                 self.map_nodes = Arc::new(nodes);
                 self.revision += 1;
             }
+        } else if !self.map_nodes.is_empty() {
+            self.map_nodes = Arc::default();
+            self.revision += 1;
         }
     }
     fn switch(&mut self, tab: Tab, cx: &mut Context<Self>) {
@@ -715,7 +713,7 @@ impl CleanupPanel {
                 match outcome {
                     Ok(plan) => panel.review = Some(plan),
                     Err(e) => panel.error = Some(e.to_string()),
-                };
+                }
                 cx.notify();
             });
         })
@@ -802,7 +800,7 @@ impl CleanupPanel {
                 match result {
                     Ok(report) => panel.report = Some(report),
                     Err(e) => panel.error = Some(e.to_string()),
-                };
+                }
                 cx.notify();
             });
         })

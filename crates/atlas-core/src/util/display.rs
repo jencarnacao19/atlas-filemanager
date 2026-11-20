@@ -5,7 +5,7 @@ pub fn format_exact_bytes(bytes: u128, separator: char) -> String {
     let digits = bytes.to_string();
     let mut result = String::with_capacity(digits.len() + digits.len() / 3 + 6);
     for (i, ch) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i) % 3 == 0 {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
             result.push(separator);
         }
         result.push(ch);

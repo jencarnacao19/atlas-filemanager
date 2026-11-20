@@ -263,11 +263,11 @@ pub fn same_volume(a: &Path, b: &Path) -> bool {
     let da = s_a
         .get(..2)
         .filter(|s| s.as_bytes()[0].is_ascii_alphabetic() && s.as_bytes()[1] == b':')
-        .map(|s| s.to_ascii_uppercase());
+        .map(str::to_ascii_uppercase);
     let db = s_b
         .get(..2)
         .filter(|s| s.as_bytes()[0].is_ascii_alphabetic() && s.as_bytes()[1] == b':')
-        .map(|s| s.to_ascii_uppercase());
+        .map(str::to_ascii_uppercase);
     if let (Some(da), Some(db)) = (da, db) {
         if da != db {
             return false;

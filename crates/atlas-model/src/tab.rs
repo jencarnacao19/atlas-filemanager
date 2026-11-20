@@ -48,13 +48,17 @@ impl MillerColumn {
             .selection
             .selected
             .iter()
-            .filter_map(|&idx| self.entries.get(idx).map(|entry| entry.path().clone()))
+            .filter_map(|&idx| {
+                self.entries
+                    .get(idx)
+                    .map(super::file_entry::FileEntry::path)
+            })
             .collect();
         let cursor = self
             .selection
             .keyboard_cursor
             .and_then(|idx| self.entries.get(idx))
-            .map(|entry| entry.path().clone());
+            .map(super::file_entry::FileEntry::path);
         self.entries = entries;
         self.visibility = None;
         self.selection.selected = self
@@ -550,7 +554,10 @@ impl TabState {
                 .map(|row| row.0.path())
                 .collect()
         } else {
-            self.entries.iter().map(|entry| entry.path()).collect()
+            self.entries
+                .iter()
+                .map(super::file_entry::FileEntry::path)
+                .collect()
         }
     }
 
@@ -561,7 +568,9 @@ impl TabState {
                 .get(idx)
                 .map(|row| row.0.path())
         } else {
-            self.entries.get(idx).map(|entry| entry.path())
+            self.entries
+                .get(idx)
+                .map(super::file_entry::FileEntry::path)
         }
     }
 
@@ -1160,6 +1169,44 @@ pub fn filter_visible_entries(
     (visible, counts)
 }
 
+fn fuzzy_score(query: &str, candidate: &str) -> Option<i64> {
+    if query.is_empty() {
+        return Some(0);
+    }
+
+    let mut score = 0_i64;
+    let mut last_match: Option<usize> = None;
+    let mut search_from = 0;
+
+    for q in query.chars().filter(|c| !c.is_whitespace()) {
+        let hay = &candidate[search_from..];
+        let offset = hay.find(q)?;
+        let pos = search_from + offset;
+        if pos == 0 {
+            score += 24;
+        }
+        if candidate[..pos].ends_with(['-', '_', '.', ' ', '/', '\\']) {
+            score += 12;
+        }
+        if let Some(prev) = last_match {
+            let gap = pos.saturating_sub(prev + 1);
+            score += 20_i64.saturating_sub(i64::try_from(gap).unwrap_or(20));
+        }
+        score += 4;
+        last_match = Some(pos);
+        search_from = pos + q.len_utf8();
+    }
+
+    if candidate.starts_with(query) {
+        score += 60;
+    } else if candidate.contains(query) {
+        score += 30;
+    }
+
+    score -= i64::try_from(candidate.len()).unwrap_or(i64::MAX / 2) / 8;
+    Some(score)
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -1708,7 +1755,7 @@ mod tests {
         let mut ts = TabState::default();
         let docs = entry("docs", FileKind::Dir);
         let file1 = entry("file1.txt", FileKind::File);
-        let docs_path = docs.path().clone();
+        let docs_path = docs.path();
 
         let child1 = FileEntry::from(crate::file_entry::FileEntryData {
             name: "subfolder".into(),
@@ -1733,23 +1780,22 @@ mod tests {
             recycle_info: None,
         });
 
-        ts.set_entries(vec![docs.clone(), file1.clone()].into());
-        ts.tree.children.insert(
-            docs_path.clone(),
-            vec![child1.clone(), child2.clone()].into(),
-        );
+        ts.set_entries(vec![docs, file1].into());
+        ts.tree
+            .children
+            .insert(docs_path.clone(), vec![child1, child2].into());
 
         // Collapsed docs folder:
         let rows = ts.visible_tree_rows();
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].0.name, "docs");
         assert_eq!(rows[0].1, 0); // depth
-        assert_eq!(rows[0].2, false); // is_expanded
-        assert_eq!(rows[0].3, true); // has_children
+        assert!(!rows[0].2); // is_expanded
+        assert!(rows[0].3); // has_children
         assert_eq!(rows[1].0.name, "file1.txt");
         assert_eq!(rows[1].1, 0);
-        assert_eq!(rows[1].2, false);
-        assert_eq!(rows[1].3, false);
+        assert!(!rows[1].2);
+        assert!(!rows[1].3);
 
         // Expand docs folder:
         ts.tree.toggle_expand(&docs_path);
@@ -1757,51 +1803,13 @@ mod tests {
         assert_eq!(rows.len(), 4);
         assert_eq!(rows[0].0.name, "docs");
         assert_eq!(rows[0].1, 0);
-        assert_eq!(rows[0].2, true);
+        assert!(rows[0].2);
         assert_eq!(rows[1].0.name, "subfolder");
         assert_eq!(rows[1].1, 1); // depth 1
-        assert_eq!(rows[1].2, false);
+        assert!(!rows[1].2);
         assert_eq!(rows[2].0.name, "inner.md");
         assert_eq!(rows[2].1, 1);
         assert_eq!(rows[3].0.name, "file1.txt");
         assert_eq!(rows[3].1, 0);
     }
-}
-
-fn fuzzy_score(query: &str, candidate: &str) -> Option<i64> {
-    if query.is_empty() {
-        return Some(0);
-    }
-
-    let mut score = 0_i64;
-    let mut last_match: Option<usize> = None;
-    let mut search_from = 0;
-
-    for q in query.chars().filter(|c| !c.is_whitespace()) {
-        let hay = &candidate[search_from..];
-        let offset = hay.find(q)?;
-        let pos = search_from + offset;
-        if pos == 0 {
-            score += 24;
-        }
-        if candidate[..pos].ends_with(['-', '_', '.', ' ', '/', '\\']) {
-            score += 12;
-        }
-        if let Some(prev) = last_match {
-            let gap = pos.saturating_sub(prev + 1);
-            score += 20_i64.saturating_sub(i64::try_from(gap).unwrap_or(20));
-        }
-        score += 4;
-        last_match = Some(pos);
-        search_from = pos + q.len_utf8();
-    }
-
-    if candidate.starts_with(query) {
-        score += 60;
-    } else if candidate.contains(query) {
-        score += 30;
-    }
-
-    score -= i64::try_from(candidate.len()).unwrap_or(i64::MAX / 2) / 8;
-    Some(score)
 }

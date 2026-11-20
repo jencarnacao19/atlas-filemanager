@@ -101,7 +101,7 @@ impl App {
         let extension = path
             .extension()
             .and_then(|ext| ext.to_str())
-            .map(|ext| ext.to_ascii_lowercase());
+            .map(str::to_ascii_lowercase);
         FileIconRef {
             path,
             kind,

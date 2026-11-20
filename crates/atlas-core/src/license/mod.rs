@@ -95,7 +95,7 @@ async fn polar_entitled() -> bool {
                 validated_at: now(),
                 ..saved
             })
-            .await
+            .await;
         }
         Check::Invalid => clear().await,
         Check::Unreachable => {}

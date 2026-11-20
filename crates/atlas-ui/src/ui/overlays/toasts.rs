@@ -206,13 +206,13 @@ impl App {
             stack = stack.child(
                 gpui::canvas(
                     |_, _, _| {},
-                    |_, _, window, _| window.request_animation_frame(),
+                    |_, (), window, _| window.request_animation_frame(),
                 )
                 .size(px(0.0)),
             );
         }
 
-        let dismiss_all_view = view.clone();
+        let dismiss_all_view = view;
         let has_many = errors.len() > 1;
 
         deferred(

@@ -106,17 +106,6 @@ pub(crate) fn paint_thumbnail_state(
     );
 }
 
-#[cfg(test)]
-mod geometry_tests {
-    use super::thumbnail_size;
-    #[test]
-    fn landscape_portrait_and_small_previews_keep_their_proportions() {
-        assert_eq!(thumbnail_size(400.0, 200.0, 100.0, 100.0), (100.0, 50.0));
-        assert_eq!(thumbnail_size(200.0, 400.0, 100.0, 100.0), (45.0, 90.0));
-        assert_eq!(thumbnail_size(20.0, 10.0, 100.0, 100.0), (20.0, 10.0));
-    }
-}
-
 impl App {
     pub(crate) fn request_recycle_bin_status(&mut self, refresh: bool) {
         if !refresh && self.recycle_bin_status_checked {
@@ -367,7 +356,7 @@ impl App {
             if let Ok(bg) = tokio::task::spawn_blocking(move || {
                 if !wanted
                     .lock()
-                    .unwrap_or_else(|p| p.into_inner())
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .contains(&path)
                 {
                     return BgResult::GridThumbnailSkipped { path };
@@ -418,7 +407,7 @@ impl App {
             let report = path.clone();
             if !wanted
                 .lock()
-                .unwrap_or_else(|p| p.into_inner())
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .contains(&path)
             {
                 let _ = tx.send(BgResult::GridThumbnailSkipped { path: report });
@@ -431,7 +420,7 @@ impl App {
                 }
                 if !wanted_check
                     .lock()
-                    .unwrap_or_else(|p| p.into_inner())
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .contains(&path)
                 {
                     return Err(());
@@ -565,7 +554,7 @@ impl App {
     /// Look up an already-decoded thumbnail texture for `path`, if ready.
     pub(crate) fn grid_thumbnail(&self, path: &std::path::Path) -> Option<Arc<RenderImage>> {
         match self.thumb_textures.get(path) {
-            Some(ThumbState::Ready(tex)) => Some(tex.clone()),
+            Some(ThumbState::Ready(tex)) => Some(tex),
             _ => None,
         }
     }
@@ -654,5 +643,16 @@ fn decode_thumbnail(path: &std::path::Path, max_edge: u32) -> BgResult {
             width: 0,
             height: 0,
         },
+    }
+}
+
+#[cfg(test)]
+mod geometry_tests {
+    use super::thumbnail_size;
+    #[test]
+    fn landscape_portrait_and_small_previews_keep_their_proportions() {
+        assert_eq!(thumbnail_size(400.0, 200.0, 100.0, 100.0), (100.0, 50.0));
+        assert_eq!(thumbnail_size(200.0, 400.0, 100.0, 100.0), (45.0, 90.0));
+        assert_eq!(thumbnail_size(20.0, 10.0, 100.0, 100.0), (20.0, 10.0));
     }
 }

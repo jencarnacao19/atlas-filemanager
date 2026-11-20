@@ -44,7 +44,9 @@ fn spawn_server(proto: &str, port: u16, user: &str, pass: &str) -> (ServerGuard,
         .arg("--pass")
         .arg(pass);
 
-    let child = cmd.spawn().expect(&format!("spawn rclone serve {proto}"));
+    let child = cmd
+        .spawn()
+        .unwrap_or_else(|_| panic!("spawn rclone serve {proto}"));
 
     // Give server a moment to start
     std::thread::sleep(Duration::from_millis(500));
