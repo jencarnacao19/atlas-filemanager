@@ -1,7 +1,7 @@
 //! Arithmetic popover chrome, IMM text input and scrollbar. Rows are one IMM leaf.
 use crate::app::App as AtlasApp;
-use crate::ui::imm::{menu::MenuCanvas, ImmTextInputState};
 use crate::ui::icons::AtlasIcon;
+use crate::ui::imm::{menu::MenuCanvas, ImmTextInputState};
 use crate::ui::surface::{paint_fill, paint_rounded, paint_theme_icon, shape_text, Slot};
 use gpui::{
     point, px, size, AnyElement, App, AvailableSpace, Bounds, BoxShadow, ColorExt, ContentMask,

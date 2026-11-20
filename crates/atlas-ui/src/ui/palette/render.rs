@@ -408,8 +408,7 @@ impl App {
             state.scroll_to_selected = true;
             // A fresh open or a new query always starts from the top; the shared
             // handle would otherwise keep the previous palette's offset.
-            self.palette_scroll
-                .set_offset(gpui::point(px(0.), px(0.)));
+            self.palette_scroll.set_offset(gpui::point(px(0.), px(0.)));
         }
         let colors = {
             let t = cx.theme();
@@ -607,14 +606,17 @@ impl App {
             .overflow_y_scroll()
             .track_scroll(&self.palette_scroll);
         let scroller = if empty {
-            scroller.p_1().pr(crate::ui::rem_px(SCROLLBAR_GUTTER)).child(
-                div()
-                    .px_3()
-                    .py_4()
-                    .text_sm()
-                    .text_color(muted)
-                    .child(spec.empty_text),
-            )
+            scroller
+                .p_1()
+                .pr(crate::ui::rem_px(SCROLLBAR_GUTTER))
+                .child(
+                    div()
+                        .px_3()
+                        .py_4()
+                        .text_sm()
+                        .text_color(muted)
+                        .child(spec.empty_text),
+                )
         } else {
             match PALETTE_LIST_RENDERER {
                 PaletteListRenderer::Legacy => scroller
@@ -630,16 +632,16 @@ impl App {
                             element,
                         })
                         .collect();
-                    scroller
-                        .pr(crate::ui::rem_px(SCROLLBAR_GUTTER))
-                        .child(super::PaletteListElement::new(
+                    scroller.pr(crate::ui::rem_px(SCROLLBAR_GUTTER)).child(
+                        super::PaletteListElement::new(
                             SharedString::from(format!("{}-imm-list", spec.id)),
                             self.palette_scroll.clone(),
                             list_rows,
                             PANEL_LIST_PADDING * 0.5 * zoom,
                             PANEL_ITEM_HEIGHT * zoom,
                             f32::from(window.bounds().size.height) * PANEL_MAX_VIEWPORT_RATIO,
-                        ))
+                        ),
+                    )
                 }
             }
         };

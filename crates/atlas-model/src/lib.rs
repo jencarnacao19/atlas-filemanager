@@ -7,13 +7,11 @@
 pub mod app_state;
 pub mod batch_rename;
 pub mod cleanup;
-pub mod edition;
 #[cfg(feature = "provider-host")]
 pub mod cloud_model;
 #[cfg(feature = "provider-host")]
-pub mod remote_path;
-#[cfg(feature = "provider-host")]
 pub mod cloud_state;
+pub mod edition;
 pub mod ext_model;
 pub mod ext_state;
 pub mod file_entry;
@@ -26,6 +24,8 @@ pub mod pane;
 pub mod preview_cache;
 pub mod profiles;
 pub mod provider_protocol;
+#[cfg(feature = "provider-host")]
+pub mod remote_path;
 pub mod settings;
 pub mod tab;
 pub mod tag_cache;

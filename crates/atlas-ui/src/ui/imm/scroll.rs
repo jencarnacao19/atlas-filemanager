@@ -102,7 +102,14 @@ pub(crate) fn apply_deferred(
     };
     let offset = base.offset();
     let current = -f32::from(if vertical { offset.y } else { offset.x });
-    let target = axis_target(start, len, viewport, current.max(0.0), max, deferred.strategy);
+    let target = axis_target(
+        start,
+        len,
+        viewport,
+        current.max(0.0),
+        max,
+        deferred.strategy,
+    );
     if (target - current).abs() < 0.5 {
         return false;
     }
@@ -159,11 +166,29 @@ mod tests {
 
     #[test]
     fn axis_target_matches_scroll_strategies() {
-        assert_eq!(axis_target(500.0, 20.0, 300.0, 0.0, 1000.0, ScrollStrategy::Top), 500.0);
-        assert_eq!(axis_target(500.0, 20.0, 300.0, 0.0, 1000.0, ScrollStrategy::Center), 360.0);
-        assert_eq!(axis_target(500.0, 20.0, 300.0, 0.0, 1000.0, ScrollStrategy::Bottom), 220.0);
-        assert_eq!(axis_target(500.0, 20.0, 300.0, 0.0, 1000.0, ScrollStrategy::Nearest), 220.0);
-        assert_eq!(axis_target(50.0, 20.0, 300.0, 100.0, 1000.0, ScrollStrategy::Nearest), 50.0);
-        assert_eq!(axis_target(150.0, 20.0, 300.0, 100.0, 1000.0, ScrollStrategy::Nearest), 100.0);
+        assert_eq!(
+            axis_target(500.0, 20.0, 300.0, 0.0, 1000.0, ScrollStrategy::Top),
+            500.0
+        );
+        assert_eq!(
+            axis_target(500.0, 20.0, 300.0, 0.0, 1000.0, ScrollStrategy::Center),
+            360.0
+        );
+        assert_eq!(
+            axis_target(500.0, 20.0, 300.0, 0.0, 1000.0, ScrollStrategy::Bottom),
+            220.0
+        );
+        assert_eq!(
+            axis_target(500.0, 20.0, 300.0, 0.0, 1000.0, ScrollStrategy::Nearest),
+            220.0
+        );
+        assert_eq!(
+            axis_target(50.0, 20.0, 300.0, 100.0, 1000.0, ScrollStrategy::Nearest),
+            50.0
+        );
+        assert_eq!(
+            axis_target(150.0, 20.0, 300.0, 100.0, 1000.0, ScrollStrategy::Nearest),
+            100.0
+        );
     }
 }

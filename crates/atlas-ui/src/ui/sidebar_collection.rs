@@ -3,8 +3,8 @@
 use crate::{
     app::App,
     ui::{
-        imm::motion::{PresenceMotion, RowMotion},
         icons::{theme_icon, AtlasIcon},
+        imm::motion::{PresenceMotion, RowMotion},
     },
 };
 use gpui::{

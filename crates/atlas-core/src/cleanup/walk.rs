@@ -69,7 +69,13 @@ fn read_dir(path: &Path, mut emit: impl FnMut(&str, bool, u32, u64)) -> std::io:
     Ok(())
 }
 
-fn visit<'s>(shared: &'s Shared<'s>, scope: &rayon::Scope<'s>, path: PathBuf, id: u32, depth: usize) {
+fn visit<'s>(
+    shared: &'s Shared<'s>,
+    scope: &rayon::Scope<'s>,
+    path: PathBuf,
+    id: u32,
+    depth: usize,
+) {
     if !shared.proceed() {
         return;
     }
@@ -117,7 +123,9 @@ fn visit<'s>(shared: &'s Shared<'s>, scope: &rayon::Scope<'s>, path: PathBuf, id
         for (name, size) in &kept {
             builder.add_file(id, name, *size);
         }
-        dirs.iter().map(|(name, _)| builder.add_dir(id, name)).collect()
+        dirs.iter()
+            .map(|(name, _)| builder.add_dir(id, name))
+            .collect()
     };
     for ((_, child), cid) in dirs.into_iter().zip(children) {
         scope.spawn(move |s| visit(shared, s, child, cid, depth + 1));

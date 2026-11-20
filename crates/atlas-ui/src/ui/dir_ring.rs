@@ -9,8 +9,8 @@
 
 use gpui::prelude::*;
 use gpui::{
-    canvas, div, img, px, Bounds, Context, CursorStyle, Entity, MouseMoveEvent, ObjectFit,
-    Pixels, RenderImage, Window,
+    canvas, div, img, px, Bounds, Context, CursorStyle, Entity, MouseMoveEvent, ObjectFit, Pixels,
+    RenderImage, Window,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -133,7 +133,11 @@ impl Render for DirRing {
         }
         let this = cx.entity();
         let n = self.items.len();
-        let step = if n == 0 { 0. } else { std::f32::consts::TAU / n as f32 };
+        let step = if n == 0 {
+            0.
+        } else {
+            std::f32::consts::TAU / n as f32
+        };
 
         // (depth, card) — painted back to front. Bare pictures: each keeps its own
         // aspect ratio inside the box, with no frame or tile behind it.
@@ -170,7 +174,11 @@ impl Render for DirRing {
                     .overflow_hidden()
                     .shadow_md()
                     .opacity((0.3 + 0.7 * near * near) * edge_fade)
-                    .child(img(texture.clone()).size_full().object_fit(ObjectFit::Contain));
+                    .child(
+                        img(texture.clone())
+                            .size_full()
+                            .object_fit(ObjectFit::Contain),
+                    );
                 Some((depth, card))
             })
             .collect();
@@ -183,17 +191,19 @@ impl Render for DirRing {
             .w(crate::ui::rem_px(WIDTH))
             .h(crate::ui::rem_px(HEIGHT))
             .cursor(CursorStyle::PointingHand)
-            .child(canvas(
-                {
-                    let this = this.clone();
-                    move |bounds, _, cx| {
-                        this.update(cx, |ring: &mut DirRing, _| ring.bounds = Some(bounds));
-                    }
-                },
-                |_, _, _, _| {},
+            .child(
+                canvas(
+                    {
+                        let this = this.clone();
+                        move |bounds, _, cx| {
+                            this.update(cx, |ring: &mut DirRing, _| ring.bounds = Some(bounds));
+                        }
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full(),
             )
-            .absolute()
-            .size_full())
             .children(cards.into_iter().map(|(_, card)| card))
             .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
                 this.on_move(event, cx);
@@ -209,5 +219,6 @@ impl Render for DirRing {
 
 /// Convenience for the inspector: build the entity once, keep it afterwards.
 pub(crate) fn ensure(slot: &mut Option<Entity<DirRing>>, cx: &mut gpui::App) -> Entity<DirRing> {
-    slot.get_or_insert_with(|| cx.new(|_| DirRing::new())).clone()
+    slot.get_or_insert_with(|| cx.new(|_| DirRing::new()))
+        .clone()
 }

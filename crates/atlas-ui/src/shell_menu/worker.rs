@@ -184,18 +184,16 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
 unsafe fn drain_requests(hwnd: HWND) {
     loop {
         let req = WORKER.with(|w| {
-            w.borrow()
-                .as_ref()
-                .and_then(|ws| {
-                    ws.requests.lock().ok().and_then(|mut q| {
-                        // Real requests jump ahead of background prewarming.
-                        let pos = q
-                            .iter()
-                            .position(|r| !matches!(r, ShellMenuRequest::Prewarm { .. }))
-                            .unwrap_or(0);
-                        q.remove(pos)
-                    })
+            w.borrow().as_ref().and_then(|ws| {
+                ws.requests.lock().ok().and_then(|mut q| {
+                    // Real requests jump ahead of background prewarming.
+                    let pos = q
+                        .iter()
+                        .position(|r| !matches!(r, ShellMenuRequest::Prewarm { .. }))
+                        .unwrap_or(0);
+                    q.remove(pos)
                 })
+            })
         });
         let Some(req) = req else { break };
         process(hwnd, req);

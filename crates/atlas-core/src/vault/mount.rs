@@ -190,7 +190,9 @@ pub async fn install_driver() -> Result<()> {
     command.creation_flags(0x0800_0000);
     let status = command.status().await?;
     if matches!(status.code(), Some(1641 | 3010)) {
-        anyhow::bail!("WinFsp was installed. Restart Windows, then open Atlas and unlock this folder again.");
+        anyhow::bail!(
+            "WinFsp was installed. Restart Windows, then open Atlas and unlock this folder again."
+        );
     }
     if status.code() == Some(1602) {
         anyhow::bail!("WinFsp installation was cancelled. Your encrypted folder is unchanged; you can retry later.");

@@ -62,8 +62,14 @@ fn native_exception_produces_a_minidump_in_isolated_app_data() {
     assert!(stack.starts_with("0x"));
     assert!(stack.contains("module=0x"));
     if cfg!(debug_assertions) {
-        assert!(stack.contains("crash_child"), "local PDB must resolve the faulting test: {stack}");
-        assert!(stack.contains("crash_dump.rs:"), "source filename and line must be resolved: {stack}");
+        assert!(
+            stack.contains("crash_child"),
+            "local PDB must resolve the faulting test: {stack}"
+        );
+        assert!(
+            stack.contains("crash_dump.rs:"),
+            "source filename and line must be resolved: {stack}"
+        );
     }
     assert_eq!(files.len(), 2);
     for file in files {

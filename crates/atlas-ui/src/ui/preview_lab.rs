@@ -40,7 +40,10 @@ pub(crate) fn prepare(initial_paths: Vec<PathBuf>) -> Vec<PathBuf> {
     // The format matrix is prepared externally with real Office/PSD/RAR files.
     // In particular, do not replace its ZIP with the generic preview fixture.
     if std::env::var_os("ATLAS_PREVIEW_COMPAT_LAB").is_some() {
-        assert!(fixtures.join("document.docx").is_file(), "Run prepare-preview-compat.py first");
+        assert!(
+            fixtures.join("document.docx").is_file(),
+            "Run prepare-preview-compat.py first"
+        );
         return vec![fixtures];
     }
     std::fs::create_dir_all(fixtures.join("Sprites")).unwrap();
@@ -65,15 +68,20 @@ pub(crate) fn prepare(initial_paths: Vec<PathBuf>) -> Vec<PathBuf> {
     std::fs::write(fixtures.join("cube.obj"), CUBE_OBJ).unwrap();
     std::fs::write(fixtures.join("sample.rs"), SAMPLE_RS).unwrap();
     if std::env::var_os("ATLAS_SETTINGS_SCROLL_LAB").is_some() {
-        let source = (0..300).map(|i| format!("// Preview scroll regression, line {i}\n")).collect::<String>();
+        let source = (0..300)
+            .map(|i| format!("// Preview scroll regression, line {i}\n"))
+            .collect::<String>();
         std::fs::write(fixtures.join("sample.rs"), source).unwrap();
     }
-    std::fs::write(fixtures.join("bundle.zip"), stored_zip(&[
-        ("docs/readme.txt", b"Read me".as_slice()),
-        ("docs/notes.md", b"# Notes".as_slice()),
-        ("data.csv", b"a,b\n1,2\n".as_slice()),
-        ("logo.svg", b"<svg/>".as_slice()),
-    ]))
+    std::fs::write(
+        fixtures.join("bundle.zip"),
+        stored_zip(&[
+            ("docs/readme.txt", b"Read me".as_slice()),
+            ("docs/notes.md", b"# Notes".as_slice()),
+            ("data.csv", b"a,b\n1,2\n".as_slice()),
+            ("logo.svg", b"<svg/>".as_slice()),
+        ]),
+    )
     .unwrap();
     vec![fixtures]
 }
@@ -100,7 +108,11 @@ fn stored_zip(files: &[(&str, &[u8])]) -> Vec<u8> {
         for &byte in data {
             crc ^= u32::from(byte);
             for _ in 0..8 {
-                crc = if crc & 1 == 1 { (crc >> 1) ^ 0xEDB8_8320 } else { crc >> 1 };
+                crc = if crc & 1 == 1 {
+                    (crc >> 1) ^ 0xEDB8_8320
+                } else {
+                    crc >> 1
+                };
             }
         }
         !crc
@@ -148,9 +160,12 @@ fn stored_zip(files: &[(&str, &[u8])]) -> Vec<u8> {
 fn select_named(view: &Entity<App>, name: &str, cx: &mut gpui::App) -> bool {
     view.update(cx, |app, cx| {
         let tab = app.state.focused_tile;
-        let Some(index) = app.state.tab_states.get(&tab).and_then(|state| {
-            state.entries.iter().position(|entry| entry.name == name)
-        }) else {
+        let Some(index) = app
+            .state
+            .tab_states
+            .get(&tab)
+            .and_then(|state| state.entries.iter().position(|entry| entry.name == name))
+        else {
             return false;
         };
         let state = app.state.tab_states.get_mut(&tab).unwrap();
@@ -702,7 +717,10 @@ impl Lab {
                 self.capture("file-search-empty", window)?;
                 key("escape", window, cx)?;
                 ensure!(
-                    view.read(cx).goto_input.as_ref().is_some_and(|input| input.read(cx).value().is_empty()),
+                    view.read(cx)
+                        .goto_input
+                        .as_ref()
+                        .is_some_and(|input| input.read(cx).value().is_empty()),
                     "First Escape did not clear the scoped query"
                 );
                 key("escape", window, cx)?;
@@ -746,15 +764,22 @@ impl Lab {
                     .results
                     .get(&view.read(cx).state.focused_tile)
                 {
-                    Some(PreviewResult::Table { headers, rows, .. }) => Some((headers.len(), rows.len())),
-                    Some(PreviewResult::Error(error)) => anyhow::bail!("CSV preview failed: {error}"),
+                    Some(PreviewResult::Table { headers, rows, .. }) => {
+                        Some((headers.len(), rows.len()))
+                    }
+                    Some(PreviewResult::Error(error)) => {
+                        anyhow::bail!("CSV preview failed: {error}")
+                    }
                     _ => None,
                 };
                 let Some((columns, rows)) = table else {
                     ensure!(self.ticks < 250, "CSV preview did not produce a table");
                     return Ok(false);
                 };
-                ensure!(columns == 5 && rows == 4, "CSV table shape is {rows}x{columns}");
+                ensure!(
+                    columns == 5 && rows == 4,
+                    "CSV table shape is {rows}x{columns}"
+                );
                 self.capture("preview-csv", window)?;
                 self.checked("CSV renders as a 4x5 table");
                 view.update(cx, |app, cx| {
@@ -777,7 +802,10 @@ impl Lab {
                     let start = current_view(view, cx).stack_index;
                     click_control("preview-stack-next", window, cx)?;
                     let clicked = current_view(view, cx).stack_index;
-                    ensure!(clicked != start, "Clicking the next card did not advance the stack");
+                    ensure!(
+                        clicked != start,
+                        "Clicking the next card did not advance the stack"
+                    );
                     let stack = control_bounds("preview-stack", window)?;
                     let from = stack.center();
                     let to = point(from.x - px(90.), from.y);
@@ -800,7 +828,9 @@ impl Lab {
                         swiped.stack_index != clicked && swiped.stack_drag.is_none(),
                         "Swipe did not advance the stack or release its drag"
                     );
-                    self.checked("Stack advances by clicking a peeking card and by swiping the photo");
+                    self.checked(
+                        "Stack advances by clicking a peeking card and by swiping the photo",
+                    );
                     self.stack_tested = true;
                     self.ticks = 0;
                     return Ok(false);
@@ -862,11 +892,18 @@ impl Lab {
                 if self.ticks < 20 {
                     return Ok(false);
                 }
-                ensure!(select_named(view, "cube.obj", cx), "cube.obj fixture missing");
+                ensure!(
+                    select_named(view, "cube.obj", cx),
+                    "cube.obj fixture missing"
+                );
             }
             22 => {
                 let ready = matches!(
-                    view.read(cx).state.preview.results.get(&view.read(cx).state.focused_tile),
+                    view.read(cx)
+                        .state
+                        .preview
+                        .results
+                        .get(&view.read(cx).state.focused_tile),
                     Some(PreviewResult::Image { .. })
                 );
                 if !ready {
@@ -875,12 +912,23 @@ impl Lab {
                 }
                 self.capture("preview-model", window)?;
                 self.checked("OBJ model renders through the software rasterizer");
-                ensure!(select_named(view, "bundle.zip", cx), "bundle.zip fixture missing");
+                ensure!(
+                    select_named(view, "bundle.zip", cx),
+                    "bundle.zip fixture missing"
+                );
             }
             23 => {
-                let count = match view.read(cx).state.preview.results.get(&view.read(cx).state.focused_tile) {
+                let count = match view
+                    .read(cx)
+                    .state
+                    .preview
+                    .results
+                    .get(&view.read(cx).state.focused_tile)
+                {
                     Some(PreviewResult::Dir { total_count, .. }) => Some(*total_count),
-                    Some(PreviewResult::Error(error)) => anyhow::bail!("Archive preview failed: {error}"),
+                    Some(PreviewResult::Error(error)) => {
+                        anyhow::bail!("Archive preview failed: {error}")
+                    }
                     _ => None,
                 };
                 let Some(count) = count else {
@@ -904,12 +952,19 @@ impl Lab {
                 let folder = {
                     let app = view.read(cx);
                     let tab = app.state.focused_tile;
-                    let fixtures = app.tab_data_for(tab).and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()));
-                    matches!(app.state.preview.results.get(&tab), Some(PreviewResult::Dir { .. }))
-                        && app.state.preview.paths.get(&tab) == fixtures.as_ref()
+                    let fixtures = app
+                        .tab_data_for(tab)
+                        .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()));
+                    matches!(
+                        app.state.preview.results.get(&tab),
+                        Some(PreviewResult::Dir { .. })
+                    ) && app.state.preview.paths.get(&tab) == fixtures.as_ref()
                 };
                 if !folder {
-                    ensure!(self.ticks < 250, "No-selection state did not preview the folder");
+                    ensure!(
+                        self.ticks < 250,
+                        "No-selection state did not preview the folder"
+                    );
                     return Ok(false);
                 }
                 self.capture("preview-folder", window)?;
@@ -929,11 +984,16 @@ impl Lab {
                 if self.ticks == 12 {
                     view.update(cx, |app, cx| {
                         let tab = app.state.focused_tile;
-                        let Some((index, path)) = app.state.tab_states.get(&tab).and_then(|state| {
-                            state.entries.iter().enumerate()
-                                .find(|(_, entry)| entry.name == "sample.rs")
-                                .map(|(index, entry)| (index, entry.path()))
-                        }) else {
+                        let Some((index, path)) =
+                            app.state.tab_states.get(&tab).and_then(|state| {
+                                state
+                                    .entries
+                                    .iter()
+                                    .enumerate()
+                                    .find(|(_, entry)| entry.name == "sample.rs")
+                                    .map(|(index, entry)| (index, entry.path()))
+                            })
+                        else {
                             return;
                         };
                         let state = app.state.tab_states.get_mut(&tab).unwrap();
@@ -948,7 +1008,10 @@ impl Lab {
                 }
                 let ready = {
                     let app = view.read(cx);
-                    matches!(app.state.preview.results.get(&app.state.focused_tile), Some(PreviewResult::Text { .. }))
+                    matches!(
+                        app.state.preview.results.get(&app.state.focused_tile),
+                        Some(PreviewResult::Text { .. })
+                    )
                 };
                 if !ready || self.ticks < 60 {
                     ensure!(self.ticks < 250, "Code preview did not load");
@@ -959,11 +1022,16 @@ impl Lab {
                 let kept = view.update(cx, |app, _| {
                     let tab = app.state.focused_tile;
                     let path = app.state.tab_states.get(&tab).and_then(|state| {
-                        state.entries.iter().find(|e| e.name == "layout-notes.md").map(|e| e.path())
+                        state
+                            .entries
+                            .iter()
+                            .find(|e| e.name == "layout-notes.md")
+                            .map(|e| e.path())
                     });
                     let Some(path) = path else { return false };
                     app.load_preview_gpui(tab, path);
-                    app.state.preview.results.contains_key(&tab) && app.preview_is_stale_for_lab(tab)
+                    app.state.preview.results.contains_key(&tab)
+                        && app.preview_is_stale_for_lab(tab)
                 });
                 ensure!(kept, "Switching files dropped the previous preview (flash)");
                 self.checked("Switching files keeps the previous preview until the next one lands");

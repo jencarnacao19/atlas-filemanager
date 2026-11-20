@@ -503,11 +503,7 @@ mod tests {
     #[test]
     fn parse_uri_list_with_raw_existing_paths() {
         // /tmp or /etc always exist on Linux
-        let existing = if cfg!(windows) {
-            "C:\\Windows"
-        } else {
-            "/tmp"
-        };
+        let existing = if cfg!(windows) { "C:\\Windows" } else { "/tmp" };
         let (paths, is_cut) = parse_uri_list_with_cut(existing);
         assert!(!is_cut);
         assert_eq!(paths, vec![PathBuf::from(existing)]);

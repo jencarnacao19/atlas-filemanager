@@ -167,8 +167,10 @@ impl App {
             return true;
         }
 
-        if self.state.settings.character_key_action != atlas_model::settings::CharacterKeyAction::TriggerHotkey
-            && crate::ui::interactions::search_seed_from_key(ev).is_some() {
+        if self.state.settings.character_key_action
+            != atlas_model::settings::CharacterKeyAction::TriggerHotkey
+            && crate::ui::interactions::search_seed_from_key(ev).is_some()
+        {
             return false;
         }
 
@@ -320,11 +322,15 @@ impl App {
             return;
         }
 
-        let Ok(proposed) = Keystroke::parse(&keystroke) else { return; };
+        let Ok(proposed) = Keystroke::parse(&keystroke) else {
+            return;
+        };
         let proposed = KeybindingKeystroke::from_keystroke(proposed);
         for other in COMMANDS.iter().filter(|command| command.remappable) {
             if other.id != command_id
-                && self.command_shortcut_keystroke(other.id).is_some_and(|keys| keys.should_match(&proposed))
+                && self
+                    .command_shortcut_keystroke(other.id)
+                    .is_some_and(|keys| keys.should_match(&proposed))
             {
                 self.command_shortcut_conflict = Some(other.id.to_string());
                 return;
@@ -619,7 +625,11 @@ impl App {
                 (!paths.is_empty()).then_some(Action::CopyPathsToClipboard(paths))
             }
             #[cfg(windows)]
-            "files.paste-shortcut" if active_location.is_some_and(|location| location.fs_dir().is_some()) => Some(Action::PasteShortcutFocused),
+            "files.paste-shortcut"
+                if active_location.is_some_and(|location| location.fs_dir().is_some()) =>
+            {
+                Some(Action::PasteShortcutFocused)
+            }
             "files.properties" if !archive_focused => Some(Action::OpenPropertiesFocused),
             "files.trash" if !archive_focused => {
                 let paths = self.selected_paths();

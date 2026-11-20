@@ -109,14 +109,53 @@ impl App {
         let zoom_row = show_all || setting_matches(&query_lower, &["zoom", "scale", "escala"]);
         let eco_row = show_all || setting_matches(&query_lower, &["eco", "ram", "memory"]);
         let goto_index_row = show_all
-            || setting_matches(&query_lower, &["index", "indexar", "goto", "wsl", "drives", "discos", "search", "buscar"]);
+            || setting_matches(
+                &query_lower,
+                &[
+                    "index", "indexar", "goto", "wsl", "drives", "discos", "search", "buscar",
+                ],
+            );
         let hidden_row =
             show_all || setting_matches(&query_lower, &["show", "hidden", "ocultos", "files"]);
         let vim_row =
             show_all || setting_matches(&query_lower, &["vim", "hjkl", "navigation", "keys"]);
-        let character_row = show_all || setting_matches(&query_lower, &["character", "typing", "filter", "sticky", "teclear", "filtro", "persistente"]);
-        let folder_click_row = show_all || setting_matches(&query_lower, &["single", "click", "clic", "folders", "carpetas", "navigation"]);
-        let overscroll_row = show_all || setting_matches(&query_lower, &["overscroll", "beyond", "scroll", "desplazamiento", "margen", "último"]);
+        let character_row = show_all
+            || setting_matches(
+                &query_lower,
+                &[
+                    "character",
+                    "typing",
+                    "filter",
+                    "sticky",
+                    "teclear",
+                    "filtro",
+                    "persistente",
+                ],
+            );
+        let folder_click_row = show_all
+            || setting_matches(
+                &query_lower,
+                &[
+                    "single",
+                    "click",
+                    "clic",
+                    "folders",
+                    "carpetas",
+                    "navigation",
+                ],
+            );
+        let overscroll_row = show_all
+            || setting_matches(
+                &query_lower,
+                &[
+                    "overscroll",
+                    "beyond",
+                    "scroll",
+                    "desplazamiento",
+                    "margen",
+                    "último",
+                ],
+            );
         let sidebar_row =
             show_all || setting_matches(&query_lower, &["show", "sidebar", "barra", "lateral"]);
         let inspector_row =
@@ -218,7 +257,8 @@ impl App {
                 || character_row
                 || folder_click_row
                 || overscroll_row
-                || (cfg!(windows) && setting_matches(&query_lower, &["win+e", "explorer", "explorador"]))
+                || (cfg!(windows)
+                    && setting_matches(&query_lower, &["win+e", "explorer", "explorador"]))
                 || sidebar_row
                 || inspector_row
                 || animations_row
@@ -227,11 +267,16 @@ impl App {
                 || smooth_row
                 || setting_matches(&query_lower, &["behavior"])
         };
-        let theme_editor_row = show_all || setting_matches(&query_lower, &["theme", "tema", "color", "fork", "duplicate", "duplicar"]);
+        let theme_editor_row = show_all
+            || setting_matches(
+                &query_lower,
+                &["theme", "tema", "color", "fork", "duplicate", "duplicar"],
+            );
         let show_theme = if show_all {
             active_section == 2
         } else {
-            theme_editor_row || titlebar_row
+            theme_editor_row
+                || titlebar_row
                 || glass_opacity_row
                 || setting_matches(&query_lower, &["appearance", "theme", "tema", "aspecto"])
         };
@@ -727,50 +772,125 @@ impl App {
             })
             .when(show_behavior, |panel| {
                 panel
-                    .when(cfg!(windows) && (show_all || setting_matches(&query_lower, &["win+e", "explorer", "explorador"])), |panel| {
-                        #[cfg(windows)]
-                        { panel.child(toggle(&rust_i18n::t!("settings_win_e"), self.win_e_enabled, "win-e-integration",
+                    .when(
+                        cfg!(windows)
+                            && (show_all
+                                || setting_matches(
+                                    &query_lower,
+                                    &["win+e", "explorer", "explorador"],
+                                )),
+                        |panel| {
+                            #[cfg(windows)]
+                            {
+                                panel.child(toggle(
+                                    &rust_i18n::t!("settings_win_e"),
+                                    self.win_e_enabled,
+                                    "win-e-integration",
+                                    |app| match atlas_win_space::integration::set_win_e_enabled(
+                                        !app.win_e_enabled,
+                                    ) {
+                                        Ok(()) => app.win_e_enabled = !app.win_e_enabled,
+                                        Err(error) => app.toast_error(
+                                            rust_i18n::t!(
+                                                "settings_win_e_error",
+                                                error = error.to_string()
+                                            )
+                                            .into_owned(),
+                                        ),
+                                    },
+                                    view.clone(),
+                                ))
+                            }
+                            #[cfg(not(windows))]
+                            {
+                                panel
+                            }
+                        },
+                    )
+                    .when(folder_click_row, |panel| {
+                        panel.child(toggle(
+                            &rust_i18n::t!("settings_single_click_folders"),
+                            s.single_click_folders_only,
+                            "single-click-folders",
                             |app| {
-                                match atlas_win_space::integration::set_win_e_enabled(!app.win_e_enabled) {
-                                    Ok(()) => app.win_e_enabled = !app.win_e_enabled,
-                                    Err(error) => app.toast_error(rust_i18n::t!("settings_win_e_error", error = error.to_string()).into_owned()),
-                                }
-                            }, view.clone())) }
-                        #[cfg(not(windows))]
-                        { panel }
+                                app.state.settings.single_click_folders_only =
+                                    !app.state.settings.single_click_folders_only;
+                                app.pending_folder_click = None;
+                                atlas_core::util::config::save_settings(&app.state.settings);
+                            },
+                            view.clone(),
+                        ))
                     })
-                    .when(folder_click_row, |panel| panel.child(toggle(
-                        &rust_i18n::t!("settings_single_click_folders"), s.single_click_folders_only, "single-click-folders",
-                        |app| { app.state.settings.single_click_folders_only = !app.state.settings.single_click_folders_only;
-                            app.pending_folder_click = None;
-                            atlas_core::util::config::save_settings(&app.state.settings); }, view.clone())))
                     .when(character_row, |panel| {
                         use atlas_model::settings::CharacterKeyAction;
                         let label = match s.character_key_action {
-                            CharacterKeyAction::TypeInFilter => rust_i18n::t!("settings_type_filter"),
-                            CharacterKeyAction::SelectTypedItem => rust_i18n::t!("settings_type_select"),
-                            CharacterKeyAction::TriggerHotkey => rust_i18n::t!("settings_type_hotkey"),
+                            CharacterKeyAction::TypeInFilter => {
+                                rust_i18n::t!("settings_type_filter")
+                            }
+                            CharacterKeyAction::SelectTypedItem => {
+                                rust_i18n::t!("settings_type_select")
+                            }
+                            CharacterKeyAction::TriggerHotkey => {
+                                rust_i18n::t!("settings_type_hotkey")
+                            }
                         };
                         let choice_view = view.clone();
-                        panel.child(h_flex().w_full().justify_between().items_center().py_1()
-                            .child(rust_i18n::t!("settings_character_keys").to_string())
-                            .child(div().id("character-key-action").px_2().py_1().rounded_md()
-                                .border_1().border_color(border).cursor_pointer().child(label.to_string())
-                                .on_mouse_down(MouseButton::Left, move |_, _, cx| {
-                                    choice_view.update(cx, |app, cx| {
-                                        app.state.settings.character_key_action = match app.state.settings.character_key_action {
-                                            CharacterKeyAction::TypeInFilter => CharacterKeyAction::SelectTypedItem,
-                                            CharacterKeyAction::SelectTypedItem => CharacterKeyAction::TriggerHotkey,
-                                            CharacterKeyAction::TriggerHotkey => CharacterKeyAction::TypeInFilter,
-                                        };
-                                        app.typed_selection = None;
-                                        atlas_core::util::config::save_settings(&app.state.settings);
-                                        cx.notify();
-                                    });
-                                })))
-                            .child(toggle(&rust_i18n::t!("settings_filter_sticky"), s.filter_sticky, "filter-sticky",
-                                |app| { app.state.settings.filter_sticky = !app.state.settings.filter_sticky;
-                                    atlas_core::util::config::save_settings(&app.state.settings); }, view.clone()))
+                        panel
+                            .child(
+                                h_flex()
+                                    .w_full()
+                                    .justify_between()
+                                    .items_center()
+                                    .py_1()
+                                    .child(rust_i18n::t!("settings_character_keys").to_string())
+                                    .child(
+                                        div()
+                                            .id("character-key-action")
+                                            .px_2()
+                                            .py_1()
+                                            .rounded_md()
+                                            .border_1()
+                                            .border_color(border)
+                                            .cursor_pointer()
+                                            .child(label.to_string())
+                                            .on_mouse_down(MouseButton::Left, move |_, _, cx| {
+                                                choice_view.update(cx, |app, cx| {
+                                                    app.state.settings.character_key_action =
+                                                        match app
+                                                            .state
+                                                            .settings
+                                                            .character_key_action
+                                                        {
+                                                            CharacterKeyAction::TypeInFilter => {
+                                                                CharacterKeyAction::SelectTypedItem
+                                                            }
+                                                            CharacterKeyAction::SelectTypedItem => {
+                                                                CharacterKeyAction::TriggerHotkey
+                                                            }
+                                                            CharacterKeyAction::TriggerHotkey => {
+                                                                CharacterKeyAction::TypeInFilter
+                                                            }
+                                                        };
+                                                    app.typed_selection = None;
+                                                    atlas_core::util::config::save_settings(
+                                                        &app.state.settings,
+                                                    );
+                                                    cx.notify();
+                                                });
+                                            }),
+                                    ),
+                            )
+                            .child(toggle(
+                                &rust_i18n::t!("settings_filter_sticky"),
+                                s.filter_sticky,
+                                "filter-sticky",
+                                |app| {
+                                    app.state.settings.filter_sticky =
+                                        !app.state.settings.filter_sticky;
+                                    atlas_core::util::config::save_settings(&app.state.settings);
+                                },
+                                view.clone(),
+                            ))
                     })
                     .when(eco_row, |panel| {
                         panel.child(toggle(
@@ -876,24 +996,46 @@ impl App {
                     .when(overscroll_row, |panel| {
                         let step = |id: &'static str, glyph: AtlasIcon, delta: f32| {
                             let view = view.clone();
-                            div().id(id).px_2().py_1().rounded_md().cursor_pointer().bg(surface)
+                            div()
+                                .id(id)
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .cursor_pointer()
+                                .bg(surface)
                                 .child(icon(glyph, 14.0, fg))
                                 .on_mouse_down(MouseButton::Left, move |_, _, cx| {
                                     cx.stop_propagation();
                                     view.update(cx, |app, cx| {
-                                        app.state.settings.scroll_overscroll = (app.state.settings.scroll_overscroll_fraction() + delta).clamp(0.0, 0.9);
-                                        atlas_core::util::config::save_settings(&app.state.settings);
+                                        app.state.settings.scroll_overscroll =
+                                            (app.state.settings.scroll_overscroll_fraction()
+                                                + delta)
+                                                .clamp(0.0, 0.9);
+                                        atlas_core::util::config::save_settings(
+                                            &app.state.settings,
+                                        );
                                         app.notify_all_panes(cx);
                                         cx.notify();
                                     });
                                 })
                         };
-                        panel.child(h_flex().items_center().justify_between()
-                            .child(rust_i18n::t!("settings_scroll_beyond_last").to_string())
-                            .child(h_flex().items_center().gap_1()
-                                .child(step("overscroll-less", AtlasIcon::Minus, -0.1))
-                                .child(div().text_sm().child(format!("{:.0}%", s.scroll_overscroll_fraction() * 100.0)))
-                                .child(step("overscroll-more", AtlasIcon::Plus, 0.1))))
+                        panel.child(
+                            h_flex()
+                                .items_center()
+                                .justify_between()
+                                .child(rust_i18n::t!("settings_scroll_beyond_last").to_string())
+                                .child(
+                                    h_flex()
+                                        .items_center()
+                                        .gap_1()
+                                        .child(step("overscroll-less", AtlasIcon::Minus, -0.1))
+                                        .child(div().text_sm().child(format!(
+                                            "{:.0}%",
+                                            s.scroll_overscroll_fraction() * 100.0
+                                        )))
+                                        .child(step("overscroll-more", AtlasIcon::Plus, 0.1)),
+                                ),
+                        )
                     })
                     .when(smooth_row, |panel| {
                         panel.child(
@@ -966,14 +1108,17 @@ impl App {
             })
             .when(show_theme, |panel| {
                 panel
-                    .when(theme_editor_row, |panel| panel.child(self.render_theme_editor(cx)))
+                    .when(theme_editor_row, |panel| {
+                        panel.child(self.render_theme_editor(cx))
+                    })
                     .when(titlebar_row, |panel| {
                         panel.child(toggle(
                             &rust_i18n::t!("settings_show_titlebar"),
                             s.show_titlebar,
                             "set-show-titlebar",
                             |app| {
-                                app.state.settings.show_titlebar = !app.state.settings.show_titlebar;
+                                app.state.settings.show_titlebar =
+                                    !app.state.settings.show_titlebar;
                                 atlas_core::util::config::save_settings(&app.state.settings);
                             },
                             view.clone(),
@@ -993,10 +1138,10 @@ impl App {
                                         .gap(px(2.))
                                         .child(rust_i18n::t!("settings_glass_opacity").to_string())
                                         .child(
-                                            div()
-                                                .text_xs()
-                                                .text_color(muted)
-                                                .child(rust_i18n::t!("settings_glass_opacity_desc").to_string()),
+                                            div().text_xs().text_color(muted).child(
+                                                rust_i18n::t!("settings_glass_opacity_desc")
+                                                    .to_string(),
+                                            ),
                                         ),
                                 )
                                 .child(
@@ -1329,7 +1474,12 @@ impl App {
                                     "WinFsp - Windows File System Proxy".to_owned(),
                                     "https://github.com/winfsp/winfsp",
                                 ))
-                                .child(div().text_xs().text_color(muted).child("Copyright (C) Bill Zissimopoulos"))
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(muted)
+                                        .child("Copyright (C) Bill Zissimopoulos"),
+                                )
                                 .child(
                                     h_flex()
                                         .gap_2()

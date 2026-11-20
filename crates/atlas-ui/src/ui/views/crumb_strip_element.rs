@@ -306,10 +306,8 @@ impl Element for CrumbStripElement {
             }
             if !targets.is_empty() {
                 app.update(_cx, |this, _| {
-                    {
-                        for target in targets {
-                            this.register_drag_hover_target(target);
-                        }
+                    for target in targets {
+                        this.register_drag_hover_target(target);
                     }
                 });
             }

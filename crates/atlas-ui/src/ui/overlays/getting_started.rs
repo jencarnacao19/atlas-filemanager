@@ -598,7 +598,11 @@ impl App {
         setup_page(
             "getting_started_theme_title",
             "getting_started_theme_desc",
-            v_flex().gap_4().child(theme_list).child(icons).into_any_element(),
+            v_flex()
+                .gap_4()
+                .child(theme_list)
+                .child(icons)
+                .into_any_element(),
             muted,
         )
     }

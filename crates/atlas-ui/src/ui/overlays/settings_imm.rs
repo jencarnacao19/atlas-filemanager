@@ -6,8 +6,8 @@
 
 use crate::app::App as AtlasApp;
 use crate::input::action::Action;
-use crate::ui::imm::cut::RectCut;
 use crate::ui::icons::AtlasIcon;
+use crate::ui::imm::cut::RectCut;
 use crate::ui::surface::{
     chrome_ui_font, line_width, paint_fill, paint_rounded, paint_theme_icon, shape_text,
     shape_text_truncated, Slot,
@@ -358,12 +358,7 @@ impl SettingsImmLayout {
         let header_slot = root_cut.cut_top(50.0 * zoom);
 
         // Header slicing
-        let mut h_cut = RectCut::new(
-            header_slot.x,
-            header_slot.y,
-            header_slot.w,
-            header_slot.h,
-        );
+        let mut h_cut = RectCut::new(header_slot.x, header_slot.y, header_slot.w, header_slot.h);
         h_cut.pad(16.0 * zoom, 8.0 * zoom);
         let title_slot = h_cut.cut_left(110.0 * zoom);
         let close_slot = h_cut.cut_right(30.0 * zoom);
@@ -400,7 +395,11 @@ impl SettingsImmLayout {
 
         // 1. General Tab Rows
         if show_all && active_tab == SettingsTab::General
-            || (!show_all && match_query(&query_lower, &["thumbnail", "cache", "memory", "miniaturas"]))
+            || (!show_all
+                && match_query(
+                    &query_lower,
+                    &["thumbnail", "cache", "memory", "miniaturas"],
+                ))
         {
             let budget = app_settings.thumbnail_cache_mb.clamp(32, 1024);
             row_defs.push((
@@ -416,7 +415,8 @@ impl SettingsImmLayout {
         }
 
         if show_all && active_tab == SettingsTab::General
-            || (!show_all && match_query(&query_lower, &["language", "idioma", "english", "spanish"]))
+            || (!show_all
+                && match_query(&query_lower, &["language", "idioma", "english", "spanish"]))
         {
             let lang_idx = match app_settings.language.as_deref() {
                 Some("en") => 1,
@@ -505,7 +505,11 @@ impl SettingsImmLayout {
 
         // 2. Appearance Tab Rows
         if show_all && active_tab == SettingsTab::Appearance
-            || (!show_all && match_query(&query_lower, &["theme", "appearance", "dark", "light", "color"]))
+            || (!show_all
+                && match_query(
+                    &query_lower,
+                    &["theme", "appearance", "dark", "light", "color"],
+                ))
         {
             let themes = [
                 "Atlas Graphite Glass",
@@ -517,7 +521,13 @@ impl SettingsImmLayout {
             let options = themes
                 .iter()
                 .enumerate()
-                .map(|(idx, name)| (*name, active_theme_name == *name, SettingsHit::ThemeSelect(idx)))
+                .map(|(idx, name)| {
+                    (
+                        *name,
+                        active_theme_name == *name,
+                        SettingsHit::ThemeSelect(idx),
+                    )
+                })
                 .collect();
             row_defs.push((
                 "Theme Preset",
@@ -544,7 +554,8 @@ impl SettingsImmLayout {
         }
 
         if show_all && active_tab == SettingsTab::Appearance
-            || (!show_all && match_query(&query_lower, &["glass", "opacity", "blur", "transparency"]))
+            || (!show_all
+                && match_query(&query_lower, &["glass", "opacity", "blur", "transparency"]))
         {
             let glass_pct = (app_settings.glass_opacity * 100.0).round();
             let progress = ((app_settings.glass_opacity - 0.20) / 0.80).clamp(0.0, 1.0);
@@ -671,15 +682,39 @@ impl SettingsImmLayout {
 
         // 4. Layout Tab Rows
         if show_all && active_tab == SettingsTab::Layout
-            || (!show_all && match_query(&query_lower, &["view", "details", "grid", "list", "miller", "tree"]))
+            || (!show_all
+                && match_query(
+                    &query_lower,
+                    &["view", "details", "grid", "list", "miller", "tree"],
+                ))
         {
             let cur = &app_settings.view_mode;
             let options = vec![
-                ("Details", *cur == ViewMode::Details, SettingsHit::ViewModeSelect(0)),
-                ("Grid", *cur == ViewMode::Grid, SettingsHit::ViewModeSelect(1)),
-                ("List", *cur == ViewMode::List, SettingsHit::ViewModeSelect(2)),
-                ("Miller", *cur == ViewMode::Miller, SettingsHit::ViewModeSelect(3)),
-                ("Tree", *cur == ViewMode::Tree, SettingsHit::ViewModeSelect(4)),
+                (
+                    "Details",
+                    *cur == ViewMode::Details,
+                    SettingsHit::ViewModeSelect(0),
+                ),
+                (
+                    "Grid",
+                    *cur == ViewMode::Grid,
+                    SettingsHit::ViewModeSelect(1),
+                ),
+                (
+                    "List",
+                    *cur == ViewMode::List,
+                    SettingsHit::ViewModeSelect(2),
+                ),
+                (
+                    "Miller",
+                    *cur == ViewMode::Miller,
+                    SettingsHit::ViewModeSelect(3),
+                ),
+                (
+                    "Tree",
+                    *cur == ViewMode::Tree,
+                    SettingsHit::ViewModeSelect(4),
+                ),
             ];
             row_defs.push((
                 "Default View Mode",
@@ -721,12 +756,21 @@ impl SettingsImmLayout {
         }
 
         if show_all && active_tab == SettingsTab::Layout
-            || (!show_all && match_query(&query_lower, &["placement", "inspector", "global", "tab"]))
+            || (!show_all
+                && match_query(&query_lower, &["placement", "inspector", "global", "tab"]))
         {
             let is_global = app_settings.inspector_placement == InspectorPlacement::Global;
             let options = vec![
-                ("Global", is_global, SettingsHit::InspectorPlacementSelect(0)),
-                ("Active Tab", !is_global, SettingsHit::InspectorPlacementSelect(1)),
+                (
+                    "Global",
+                    is_global,
+                    SettingsHit::InspectorPlacementSelect(0),
+                ),
+                (
+                    "Active Tab",
+                    !is_global,
+                    SettingsHit::InspectorPlacementSelect(1),
+                ),
             ];
             row_defs.push((
                 "Inspector Placement",
@@ -758,10 +802,19 @@ impl SettingsImmLayout {
 
         // 5. Extensions & Keybindings Rows
         if show_all && active_tab == SettingsTab::Extensions
-            || (!show_all && match_query(&query_lower, &["key", "shortcut", "binding", "hotkey", "vim"]))
+            || (!show_all
+                && match_query(
+                    &query_lower,
+                    &["key", "shortcut", "binding", "hotkey", "vim"],
+                ))
         {
             for kb in KEYBINDINGS {
-                if show_all || match_query(&query_lower, &[kb.action, kb.keys, kb.category, kb.description]) {
+                if show_all
+                    || match_query(
+                        &query_lower,
+                        &[kb.action, kb.keys, kb.category, kb.description],
+                    )
+                {
                     row_defs.push((
                         kb.action,
                         kb.description,
@@ -779,11 +832,29 @@ impl SettingsImmLayout {
 
         // 6. About Tab Rows
         if show_all && active_tab == SettingsTab::About
-            || (!show_all && match_query(&query_lower, &["about", "version", "community", "support", "discord", "web", "license", "privacy", "icons8"]))
+            || (!show_all
+                && match_query(
+                    &query_lower,
+                    &[
+                        "about",
+                        "version",
+                        "community",
+                        "support",
+                        "discord",
+                        "web",
+                        "license",
+                        "privacy",
+                        "icons8",
+                    ],
+                ))
         {
             row_defs.push((
                 "Atlas Version",
-                concat!("Atlas v", env!("CARGO_PKG_VERSION"), " — High-performance immediate file manager"),
+                concat!(
+                    "Atlas v",
+                    env!("CARGO_PKG_VERSION"),
+                    " — High-performance immediate file manager"
+                ),
                 "Immediate-mode 60 FPS architecture built on Rust and GPUI.",
                 SettingControlKind::AboutAction {
                     label: "Release Notes",
@@ -792,14 +863,50 @@ impl SettingsImmLayout {
                 52.0 * zoom,
             ));
             for (title, description, label, url) in [
-                ("Third-party licenses", "Read bundled copyright notices and license texts offline", "Open notices", crate::ui::overlays::legal::NOTICES_URL),
-                ("Source code", "Corresponding source and build instructions for this release", "Download source", atlas_core::update::SOURCE_URL),
-                ("Privacy policy", "Local files, optional cloud and website data", "Read policy", "https://atlasnative.com/privacy-policy"),
-                ("Terms of service", "Purchase terms and software license information", "Read terms", "https://atlasnative.com/terms-of-service"),
-                ("Icons by Icons8", "Liquid Glass file and folder artwork", "Visit Icons8", "https://icons8.com"),
-                ("WinFsp - Windows File System Proxy", "Copyright (C) Bill Zissimopoulos", "WinFsp source", "https://github.com/winfsp/winfsp"),
+                (
+                    "Third-party licenses",
+                    "Read bundled copyright notices and license texts offline",
+                    "Open notices",
+                    crate::ui::overlays::legal::NOTICES_URL,
+                ),
+                (
+                    "Source code",
+                    "Corresponding source and build instructions for this release",
+                    "Download source",
+                    atlas_core::update::SOURCE_URL,
+                ),
+                (
+                    "Privacy policy",
+                    "Local files, optional cloud and website data",
+                    "Read policy",
+                    "https://atlasnative.com/privacy-policy",
+                ),
+                (
+                    "Terms of service",
+                    "Purchase terms and software license information",
+                    "Read terms",
+                    "https://atlasnative.com/terms-of-service",
+                ),
+                (
+                    "Icons by Icons8",
+                    "Liquid Glass file and folder artwork",
+                    "Visit Icons8",
+                    "https://icons8.com",
+                ),
+                (
+                    "WinFsp - Windows File System Proxy",
+                    "Copyright (C) Bill Zissimopoulos",
+                    "WinFsp source",
+                    "https://github.com/winfsp/winfsp",
+                ),
             ] {
-                row_defs.push((title, description, description, SettingControlKind::AboutAction { label, url }, 52.0 * zoom));
+                row_defs.push((
+                    title,
+                    description,
+                    description,
+                    SettingControlKind::AboutAction { label, url },
+                    52.0 * zoom,
+                ));
             }
             row_defs.push((
                 "Community Discord",
@@ -1110,7 +1217,8 @@ impl Element for SettingsImmElement {
                                     hovered_hit = Some(*inc_hit);
                                 } else {
                                     let bar_x = row.control_slot.x + btn_w + 4.0 * zoom;
-                                    let bar_w = (row.control_slot.w - (btn_w + 4.0 * zoom) * 2.0).max(1.0);
+                                    let bar_w =
+                                        (row.control_slot.w - (btn_w + 4.0 * zoom) * 2.0).max(1.0);
                                     let frac = ((local_x - bar_x) / bar_w).clamp(0.0, 1.0);
                                     hovered_hit = Some(bar_hit(frac));
                                 }
@@ -1184,19 +1292,35 @@ impl Element for SettingsImmElement {
         paint_fill(
             window,
             Bounds {
-                origin: point(header_bounds.origin.x, header_bounds.bottom() - px(1.0 * zoom)),
+                origin: point(
+                    header_bounds.origin.x,
+                    header_bounds.bottom() - px(1.0 * zoom),
+                ),
                 size: size(header_bounds.size.width, px(1.0 * zoom)),
             },
             colors.border,
         );
 
         // Header Title
-        let title_line = shape_text("Settings", &font, px(17.0 * zoom), colors.foreground, window);
+        let title_line = shape_text(
+            "Settings",
+            &font,
+            px(17.0 * zoom),
+            colors.foreground,
+            window,
+        );
         let title_pt = point(
             bounds.origin.x + px(layout.title_slot.x),
             bounds.origin.y + px(layout.title_slot.y + (layout.title_slot.h - 18.0 * zoom) * 0.5),
         );
-        let _ = title_line.paint(title_pt, px(layout.title_slot.h), TextAlign::Left, None, window, cx);
+        let _ = title_line.paint(
+            title_pt,
+            px(layout.title_slot.h),
+            TextAlign::Left,
+            None,
+            window,
+            cx,
+        );
 
         // Header Close Button (X)
         let is_close_hovered = prepaint.hovered_hit == Some(SettingsHit::CloseButton);
@@ -1212,18 +1336,34 @@ impl Element for SettingsImmElement {
             AtlasIcon::X,
             false,
             15.0 * zoom,
-            if is_close_hovered { colors.foreground } else { colors.muted },
+            if is_close_hovered {
+                colors.foreground
+            } else {
+                colors.muted
+            },
         );
 
         // Search Input Slot
         let search_bounds = layout.search_slot.to_bounds(bounds.origin);
         paint_rounded(window, search_bounds, 6.0 * zoom, colors.card_bg);
-        window.paint_quad(gpui::outline(search_bounds, colors.border.opacity(0.6), Default::default()).corner_radii(px(6.0 * zoom)));
+        window.paint_quad(
+            gpui::outline(
+                search_bounds,
+                colors.border.opacity(0.6),
+                Default::default(),
+            )
+            .corner_radii(px(6.0 * zoom)),
+        );
         paint_theme_icon(
             window,
             cx,
             bounds.origin,
-            Slot::new(layout.search_slot.x + 8.0 * zoom, layout.search_slot.y + 7.0 * zoom, 14.0 * zoom, 14.0 * zoom),
+            Slot::new(
+                layout.search_slot.x + 8.0 * zoom,
+                layout.search_slot.y + 7.0 * zoom,
+                14.0 * zoom,
+                14.0 * zoom,
+            ),
             AtlasIcon::Search,
             false,
             13.0 * zoom,
@@ -1234,12 +1374,25 @@ impl Element for SettingsImmElement {
         if let Some(input) = self.search_input.as_mut() {
             input.paint(window, cx);
         } else if self.search_query.is_empty() {
-            let placeholder = shape_text("Search settings and shortcuts…", &font, px(12.5 * zoom), colors.muted, window);
+            let placeholder = shape_text(
+                "Search settings and shortcuts…",
+                &font,
+                px(12.5 * zoom),
+                colors.muted,
+                window,
+            );
             let p_pt = point(
                 search_bounds.origin.x + px(28.0 * zoom),
                 search_bounds.origin.y + px((layout.search_slot.h - 14.0 * zoom) * 0.5),
             );
-            let _ = placeholder.paint(p_pt, search_bounds.size.height, TextAlign::Left, None, window, cx);
+            let _ = placeholder.paint(
+                p_pt,
+                search_bounds.size.height,
+                TextAlign::Left,
+                None,
+                window,
+                cx,
+            );
         }
 
         // 4. Sidebar Tabs & Divider
@@ -1254,23 +1407,59 @@ impl Element for SettingsImmElement {
             if is_active {
                 paint_rounded(window, tab_bounds, 6.0 * zoom, colors.accent.opacity(0.18));
                 // Active indicator pill on the left
-                let ind_slot = Slot::new(slot.x + 2.0 * zoom, slot.y + 6.0 * zoom, 3.0 * zoom, slot.h - 12.0 * zoom);
-                paint_rounded(window, ind_slot.to_bounds(bounds.origin), 1.5 * zoom, colors.accent);
+                let ind_slot = Slot::new(
+                    slot.x + 2.0 * zoom,
+                    slot.y + 6.0 * zoom,
+                    3.0 * zoom,
+                    slot.h - 12.0 * zoom,
+                );
+                paint_rounded(
+                    window,
+                    ind_slot.to_bounds(bounds.origin),
+                    1.5 * zoom,
+                    colors.accent,
+                );
             } else if is_hovered {
                 paint_rounded(window, tab_bounds, 6.0 * zoom, colors.surface_hover);
             }
 
             // Tab Icon
-            let icon_slot = Slot::new(slot.x + 10.0 * zoom, slot.y + 9.0 * zoom, 16.0 * zoom, 16.0 * zoom);
-            let icon_color = if is_active { colors.accent } else if is_hovered { colors.foreground } else { colors.muted };
-            paint_theme_icon(window, cx, bounds.origin, icon_slot, tab.icon(), false, 15.0 * zoom, icon_color);
+            let icon_slot = Slot::new(
+                slot.x + 10.0 * zoom,
+                slot.y + 9.0 * zoom,
+                16.0 * zoom,
+                16.0 * zoom,
+            );
+            let icon_color = if is_active {
+                colors.accent
+            } else if is_hovered {
+                colors.foreground
+            } else {
+                colors.muted
+            };
+            paint_theme_icon(
+                window,
+                cx,
+                bounds.origin,
+                icon_slot,
+                tab.icon(),
+                false,
+                15.0 * zoom,
+                icon_color,
+            );
 
             // Tab Label
             let label_line = shape_text(
                 tab.label(),
                 &font,
                 px(13.0 * zoom),
-                if is_active { colors.foreground } else if is_hovered { colors.foreground } else { colors.muted },
+                if is_active {
+                    colors.foreground
+                } else if is_hovered {
+                    colors.foreground
+                } else {
+                    colors.muted
+                },
                 window,
             );
             let label_pt = point(
@@ -1282,201 +1471,382 @@ impl Element for SettingsImmElement {
 
         // 5. Scrollable Content Body
         let content_bounds = layout.content_viewport.to_bounds(bounds.origin);
-        window.with_content_mask(Some(gpui::ContentMask { bounds: content_bounds, fade_out: Default::default() }), |window| {
-            for (idx, row) in layout.rows.iter().enumerate() {
-                let card_b = row.card_slot.to_bounds(bounds.origin);
-                let is_card_hovered = prepaint.hovered_row_idx == Some(idx);
+        window.with_content_mask(
+            Some(gpui::ContentMask {
+                bounds: content_bounds,
+                fade_out: Default::default(),
+            }),
+            |window| {
+                for (idx, row) in layout.rows.iter().enumerate() {
+                    let card_b = row.card_slot.to_bounds(bounds.origin);
+                    let is_card_hovered = prepaint.hovered_row_idx == Some(idx);
 
-                // Card background & outline
-                paint_rounded(window, card_b, 8.0 * zoom, if is_card_hovered { colors.surface_hover } else { colors.card_bg });
-                window.paint_quad(
-                    gpui::outline(
+                    // Card background & outline
+                    paint_rounded(
+                        window,
                         card_b,
-                        if is_card_hovered { colors.accent.opacity(0.4) } else { colors.border.opacity(0.35) },
-                        Default::default(),
-                    )
-                    .corner_radii(px(8.0 * zoom)),
-                );
-
-                // Title & Description
-                let title_line = shape_text(row.title, &font, px(13.0 * zoom), colors.foreground, window);
-                let title_pt = point(bounds.origin.x + px(row.info_slot.x), bounds.origin.y + px(row.info_slot.y));
-                let _ = title_line.paint(title_pt, px(18.0 * zoom), TextAlign::Left, None, window, cx);
-
-                let desc_line = shape_text_truncated(
-                    row.description,
-                    &font,
-                    px(11.0 * zoom),
-                    colors.muted,
-                    row.info_slot.w,
-                    window,
-                );
-                let desc_pt = point(bounds.origin.x + px(row.info_slot.x), bounds.origin.y + px(row.info_slot.y + 18.0 * zoom));
-                let _ = desc_line.paint(desc_pt, px(16.0 * zoom), TextAlign::Left, None, window, cx);
-
-                // Control Slot Painting
-                match &row.control_kind {
-                    SettingControlKind::Toggle { value, hit } => {
-                        let is_toggle_hovered = prepaint.hovered_hit == Some(*hit);
-                        let sw_w = 38.0 * zoom;
-                        let sw_h = 22.0 * zoom;
-                        let sw_slot = Slot::new(
-                            row.control_slot.x + row.control_slot.w - sw_w,
-                            row.control_slot.y + (row.control_slot.h - sw_h) * 0.5,
-                            sw_w,
-                            sw_h,
-                        );
-                        let sw_bounds = sw_slot.to_bounds(bounds.origin);
-
-                        // Track
-                        let track_color = if *value { colors.switch_on } else { colors.switch_off };
-                        paint_rounded(window, sw_bounds, sw_h * 0.5, track_color);
-                        if is_toggle_hovered {
-                            window.paint_quad(gpui::outline(sw_bounds, colors.foreground.opacity(0.5), Default::default()).corner_radii(px(sw_h * 0.5)));
-                        }
-
-                        // Knob
-                        let knob_sz = sw_h - 4.0 * zoom;
-                        let knob_x = if *value {
-                            sw_bounds.right() - px(knob_sz + 2.0 * zoom)
+                        8.0 * zoom,
+                        if is_card_hovered {
+                            colors.surface_hover
                         } else {
-                            sw_bounds.left() + px(2.0 * zoom)
-                        };
-                        let knob_bounds = Bounds {
-                            origin: point(knob_x, sw_bounds.top() + px(2.0 * zoom)),
-                            size: size(px(knob_sz), px(knob_sz)),
-                        };
-                        paint_rounded(window, knob_bounds, knob_sz * 0.5, colors.accent_fg);
-                    }
-                    SettingControlKind::Segmented { options } => {
-                        let ctrl_b = row.control_slot.to_bounds(bounds.origin);
-                        paint_rounded(window, ctrl_b, 6.0 * zoom, colors.background.opacity(0.5));
-                        window.paint_quad(gpui::outline(ctrl_b, colors.border, Default::default()).corner_radii(px(6.0 * zoom)));
+                            colors.card_bg
+                        },
+                    );
+                    window.paint_quad(
+                        gpui::outline(
+                            card_b,
+                            if is_card_hovered {
+                                colors.accent.opacity(0.4)
+                            } else {
+                                colors.border.opacity(0.35)
+                            },
+                            Default::default(),
+                        )
+                        .corner_radii(px(8.0 * zoom)),
+                    );
 
-                        let seg_w = row.control_slot.w / options.len() as f32;
-                        for (opt_idx, (label, selected, hit)) in options.iter().enumerate() {
-                            let seg_slot = Slot::new(
-                                row.control_slot.x + opt_idx as f32 * seg_w,
-                                row.control_slot.y,
-                                seg_w,
-                                row.control_slot.h,
+                    // Title & Description
+                    let title_line =
+                        shape_text(row.title, &font, px(13.0 * zoom), colors.foreground, window);
+                    let title_pt = point(
+                        bounds.origin.x + px(row.info_slot.x),
+                        bounds.origin.y + px(row.info_slot.y),
+                    );
+                    let _ = title_line.paint(
+                        title_pt,
+                        px(18.0 * zoom),
+                        TextAlign::Left,
+                        None,
+                        window,
+                        cx,
+                    );
+
+                    let desc_line = shape_text_truncated(
+                        row.description,
+                        &font,
+                        px(11.0 * zoom),
+                        colors.muted,
+                        row.info_slot.w,
+                        window,
+                    );
+                    let desc_pt = point(
+                        bounds.origin.x + px(row.info_slot.x),
+                        bounds.origin.y + px(row.info_slot.y + 18.0 * zoom),
+                    );
+                    let _ = desc_line.paint(
+                        desc_pt,
+                        px(16.0 * zoom),
+                        TextAlign::Left,
+                        None,
+                        window,
+                        cx,
+                    );
+
+                    // Control Slot Painting
+                    match &row.control_kind {
+                        SettingControlKind::Toggle { value, hit } => {
+                            let is_toggle_hovered = prepaint.hovered_hit == Some(*hit);
+                            let sw_w = 38.0 * zoom;
+                            let sw_h = 22.0 * zoom;
+                            let sw_slot = Slot::new(
+                                row.control_slot.x + row.control_slot.w - sw_w,
+                                row.control_slot.y + (row.control_slot.h - sw_h) * 0.5,
+                                sw_w,
+                                sw_h,
                             );
-                            let seg_b = seg_slot.to_bounds(bounds.origin);
-                            let is_opt_hovered = prepaint.hovered_hit == Some(*hit);
+                            let sw_bounds = sw_slot.to_bounds(bounds.origin);
 
-                            if *selected {
-                                paint_rounded(window, seg_b, 5.0 * zoom, colors.accent);
-                            } else if is_opt_hovered {
-                                paint_rounded(window, seg_b, 5.0 * zoom, colors.surface_hover);
+                            // Track
+                            let track_color = if *value {
+                                colors.switch_on
+                            } else {
+                                colors.switch_off
+                            };
+                            paint_rounded(window, sw_bounds, sw_h * 0.5, track_color);
+                            if is_toggle_hovered {
+                                window.paint_quad(
+                                    gpui::outline(
+                                        sw_bounds,
+                                        colors.foreground.opacity(0.5),
+                                        Default::default(),
+                                    )
+                                    .corner_radii(px(sw_h * 0.5)),
+                                );
                             }
 
-                            let opt_line = shape_text(
+                            // Knob
+                            let knob_sz = sw_h - 4.0 * zoom;
+                            let knob_x = if *value {
+                                sw_bounds.right() - px(knob_sz + 2.0 * zoom)
+                            } else {
+                                sw_bounds.left() + px(2.0 * zoom)
+                            };
+                            let knob_bounds = Bounds {
+                                origin: point(knob_x, sw_bounds.top() + px(2.0 * zoom)),
+                                size: size(px(knob_sz), px(knob_sz)),
+                            };
+                            paint_rounded(window, knob_bounds, knob_sz * 0.5, colors.accent_fg);
+                        }
+                        SettingControlKind::Segmented { options } => {
+                            let ctrl_b = row.control_slot.to_bounds(bounds.origin);
+                            paint_rounded(
+                                window,
+                                ctrl_b,
+                                6.0 * zoom,
+                                colors.background.opacity(0.5),
+                            );
+                            window.paint_quad(
+                                gpui::outline(ctrl_b, colors.border, Default::default())
+                                    .corner_radii(px(6.0 * zoom)),
+                            );
+
+                            let seg_w = row.control_slot.w / options.len() as f32;
+                            for (opt_idx, (label, selected, hit)) in options.iter().enumerate() {
+                                let seg_slot = Slot::new(
+                                    row.control_slot.x + opt_idx as f32 * seg_w,
+                                    row.control_slot.y,
+                                    seg_w,
+                                    row.control_slot.h,
+                                );
+                                let seg_b = seg_slot.to_bounds(bounds.origin);
+                                let is_opt_hovered = prepaint.hovered_hit == Some(*hit);
+
+                                if *selected {
+                                    paint_rounded(window, seg_b, 5.0 * zoom, colors.accent);
+                                } else if is_opt_hovered {
+                                    paint_rounded(window, seg_b, 5.0 * zoom, colors.surface_hover);
+                                }
+
+                                let opt_line = shape_text(
+                                    *label,
+                                    &font,
+                                    px(11.5 * zoom),
+                                    if *selected {
+                                        colors.accent_fg
+                                    } else {
+                                        colors.foreground
+                                    },
+                                    window,
+                                );
+                                let w = line_width(&opt_line);
+                                let opt_pt = point(
+                                    seg_b.origin.x + px((seg_slot.w - w) * 0.5),
+                                    seg_b.origin.y + px((seg_slot.h - 14.0 * zoom) * 0.5),
+                                );
+                                let _ = opt_line.paint(
+                                    opt_pt,
+                                    seg_b.size.height,
+                                    TextAlign::Left,
+                                    None,
+                                    window,
+                                    cx,
+                                );
+                            }
+                        }
+                        SettingControlKind::Slider {
+                            display_val,
+                            progress,
+                            dec_hit,
+                            inc_hit,
+                            ..
+                        } => {
+                            let btn_w = 26.0 * zoom;
+                            let dec_slot = Slot::new(
+                                row.control_slot.x,
+                                row.control_slot.y,
+                                btn_w,
+                                row.control_slot.h,
+                            );
+                            let inc_slot = Slot::new(
+                                row.control_slot.x + row.control_slot.w - btn_w,
+                                row.control_slot.y,
+                                btn_w,
+                                row.control_slot.h,
+                            );
+                            let dec_b = dec_slot.to_bounds(bounds.origin);
+                            let inc_b = inc_slot.to_bounds(bounds.origin);
+
+                            // Buttons - and +
+                            paint_rounded(
+                                window,
+                                dec_b,
+                                5.0 * zoom,
+                                if prepaint.hovered_hit == Some(*dec_hit) {
+                                    colors.surface_hover
+                                } else {
+                                    colors.background.opacity(0.4)
+                                },
+                            );
+                            window.paint_quad(
+                                gpui::outline(dec_b, colors.border, Default::default())
+                                    .corner_radii(px(5.0 * zoom)),
+                            );
+                            let minus_line =
+                                shape_text("−", &font, px(13.0 * zoom), colors.foreground, window);
+                            let _ = minus_line.paint(
+                                point(
+                                    dec_b.origin.x + px(8.0 * zoom),
+                                    dec_b.origin.y + px(4.0 * zoom),
+                                ),
+                                dec_b.size.height,
+                                TextAlign::Left,
+                                None,
+                                window,
+                                cx,
+                            );
+
+                            paint_rounded(
+                                window,
+                                inc_b,
+                                5.0 * zoom,
+                                if prepaint.hovered_hit == Some(*inc_hit) {
+                                    colors.surface_hover
+                                } else {
+                                    colors.background.opacity(0.4)
+                                },
+                            );
+                            window.paint_quad(
+                                gpui::outline(inc_b, colors.border, Default::default())
+                                    .corner_radii(px(5.0 * zoom)),
+                            );
+                            let plus_line =
+                                shape_text("+", &font, px(13.0 * zoom), colors.foreground, window);
+                            let _ = plus_line.paint(
+                                point(
+                                    inc_b.origin.x + px(8.0 * zoom),
+                                    inc_b.origin.y + px(4.0 * zoom),
+                                ),
+                                inc_b.size.height,
+                                TextAlign::Left,
+                                None,
+                                window,
+                                cx,
+                            );
+
+                            // Center Progress Bar & Badge
+                            let bar_slot = Slot::new(
+                                row.control_slot.x + btn_w + 6.0 * zoom,
+                                row.control_slot.y + (row.control_slot.h - 6.0 * zoom) * 0.5,
+                                (row.control_slot.w - (btn_w + 6.0 * zoom) * 2.0).max(1.0),
+                                6.0 * zoom,
+                            );
+                            let bar_b = bar_slot.to_bounds(bounds.origin);
+                            paint_rounded(window, bar_b, 3.0 * zoom, colors.border.opacity(0.5));
+                            let fill_w = bar_b.size.width * *progress;
+                            paint_rounded(
+                                window,
+                                Bounds {
+                                    origin: bar_b.origin,
+                                    size: size(fill_w, bar_b.size.height),
+                                },
+                                3.0 * zoom,
+                                colors.accent,
+                            );
+
+                            // Value badge text
+                            let val_line = shape_text(
+                                display_val,
+                                &font,
+                                px(11.0 * zoom),
+                                colors.foreground,
+                                window,
+                            );
+                            let w = line_width(&val_line);
+                            let val_pt = point(
+                                bar_b.origin.x + px((bar_slot.w - w) * 0.5),
+                                bounds.origin.y + px(row.control_slot.y - 10.0 * zoom),
+                            );
+                            let _ = val_line.paint(
+                                val_pt,
+                                px(12.0 * zoom),
+                                TextAlign::Left,
+                                None,
+                                window,
+                                cx,
+                            );
+                        }
+                        SettingControlKind::KeybindingRow { keys, .. } => {
+                            let badge_w = 90.0 * zoom;
+                            let badge_h = 24.0 * zoom;
+                            let badge_slot = Slot::new(
+                                row.control_slot.x + row.control_slot.w - badge_w,
+                                row.control_slot.y + (row.control_slot.h - badge_h) * 0.5,
+                                badge_w,
+                                badge_h,
+                            );
+                            let badge_b = badge_slot.to_bounds(bounds.origin);
+                            paint_rounded(window, badge_b, 5.0 * zoom, colors.accent.opacity(0.14));
+                            window.paint_quad(
+                                gpui::outline(
+                                    badge_b,
+                                    colors.accent.opacity(0.4),
+                                    Default::default(),
+                                )
+                                .corner_radii(px(5.0 * zoom)),
+                            );
+                            let key_line =
+                                shape_text(*keys, &font, px(11.0 * zoom), colors.accent, window);
+                            let kw = line_width(&key_line);
+                            let key_pt = point(
+                                badge_b.origin.x + px((badge_slot.w - kw) * 0.5),
+                                badge_b.origin.y + px((badge_slot.h - 13.0 * zoom) * 0.5),
+                            );
+                            let _ = key_line.paint(
+                                key_pt,
+                                badge_b.size.height,
+                                TextAlign::Left,
+                                None,
+                                window,
+                                cx,
+                            );
+                        }
+                        SettingControlKind::AboutAction { label, url } => {
+                            let btn_b = row.control_slot.to_bounds(bounds.origin);
+                            let is_btn_hovered =
+                                prepaint.hovered_hit == Some(SettingsHit::AboutUrl(*url));
+                            paint_rounded(
+                                window,
+                                btn_b,
+                                6.0 * zoom,
+                                if is_btn_hovered {
+                                    colors.accent
+                                } else {
+                                    colors.surface_hover
+                                },
+                            );
+                            window.paint_quad(
+                                gpui::outline(btn_b, colors.border, Default::default())
+                                    .corner_radii(px(6.0 * zoom)),
+                            );
+                            let act_line = shape_text(
                                 *label,
                                 &font,
                                 px(11.5 * zoom),
-                                if *selected { colors.accent_fg } else { colors.foreground },
+                                if is_btn_hovered {
+                                    colors.accent_fg
+                                } else {
+                                    colors.foreground
+                                },
                                 window,
                             );
-                            let w = line_width(&opt_line);
-                            let opt_pt = point(
-                                seg_b.origin.x + px((seg_slot.w - w) * 0.5),
-                                seg_b.origin.y + px((seg_slot.h - 14.0 * zoom) * 0.5),
+                            let w = line_width(&act_line);
+                            let act_pt = point(
+                                btn_b.origin.x + px((row.control_slot.w - w) * 0.5),
+                                btn_b.origin.y + px((row.control_slot.h - 14.0 * zoom) * 0.5),
                             );
-                            let _ = opt_line.paint(opt_pt, seg_b.size.height, TextAlign::Left, None, window, cx);
+                            let _ = act_line.paint(
+                                act_pt,
+                                btn_b.size.height,
+                                TextAlign::Left,
+                                None,
+                                window,
+                                cx,
+                            );
                         }
                     }
-                    SettingControlKind::Slider {
-                        display_val,
-                        progress,
-                        dec_hit,
-                        inc_hit,
-                        ..
-                    } => {
-                        let btn_w = 26.0 * zoom;
-                        let dec_slot = Slot::new(row.control_slot.x, row.control_slot.y, btn_w, row.control_slot.h);
-                        let inc_slot = Slot::new(row.control_slot.x + row.control_slot.w - btn_w, row.control_slot.y, btn_w, row.control_slot.h);
-                        let dec_b = dec_slot.to_bounds(bounds.origin);
-                        let inc_b = inc_slot.to_bounds(bounds.origin);
-
-                        // Buttons - and +
-                        paint_rounded(window, dec_b, 5.0 * zoom, if prepaint.hovered_hit == Some(*dec_hit) { colors.surface_hover } else { colors.background.opacity(0.4) });
-                        window.paint_quad(gpui::outline(dec_b, colors.border, Default::default()).corner_radii(px(5.0 * zoom)));
-                        let minus_line = shape_text("−", &font, px(13.0 * zoom), colors.foreground, window);
-                        let _ = minus_line.paint(point(dec_b.origin.x + px(8.0 * zoom), dec_b.origin.y + px(4.0 * zoom)), dec_b.size.height, TextAlign::Left, None, window, cx);
-
-                        paint_rounded(window, inc_b, 5.0 * zoom, if prepaint.hovered_hit == Some(*inc_hit) { colors.surface_hover } else { colors.background.opacity(0.4) });
-                        window.paint_quad(gpui::outline(inc_b, colors.border, Default::default()).corner_radii(px(5.0 * zoom)));
-                        let plus_line = shape_text("+", &font, px(13.0 * zoom), colors.foreground, window);
-                        let _ = plus_line.paint(point(inc_b.origin.x + px(8.0 * zoom), inc_b.origin.y + px(4.0 * zoom)), inc_b.size.height, TextAlign::Left, None, window, cx);
-
-                        // Center Progress Bar & Badge
-                        let bar_slot = Slot::new(
-                            row.control_slot.x + btn_w + 6.0 * zoom,
-                            row.control_slot.y + (row.control_slot.h - 6.0 * zoom) * 0.5,
-                            (row.control_slot.w - (btn_w + 6.0 * zoom) * 2.0).max(1.0),
-                            6.0 * zoom,
-                        );
-                        let bar_b = bar_slot.to_bounds(bounds.origin);
-                        paint_rounded(window, bar_b, 3.0 * zoom, colors.border.opacity(0.5));
-                        let fill_w = bar_b.size.width * *progress;
-                        paint_rounded(
-                            window,
-                            Bounds { origin: bar_b.origin, size: size(fill_w, bar_b.size.height) },
-                            3.0 * zoom,
-                            colors.accent,
-                        );
-
-                        // Value badge text
-                        let val_line = shape_text(display_val, &font, px(11.0 * zoom), colors.foreground, window);
-                        let w = line_width(&val_line);
-                        let val_pt = point(
-                            bar_b.origin.x + px((bar_slot.w - w) * 0.5),
-                            bounds.origin.y + px(row.control_slot.y - 10.0 * zoom),
-                        );
-                        let _ = val_line.paint(val_pt, px(12.0 * zoom), TextAlign::Left, None, window, cx);
-                    }
-                    SettingControlKind::KeybindingRow { keys, .. } => {
-                        let badge_w = 90.0 * zoom;
-                        let badge_h = 24.0 * zoom;
-                        let badge_slot = Slot::new(
-                            row.control_slot.x + row.control_slot.w - badge_w,
-                            row.control_slot.y + (row.control_slot.h - badge_h) * 0.5,
-                            badge_w,
-                            badge_h,
-                        );
-                        let badge_b = badge_slot.to_bounds(bounds.origin);
-                        paint_rounded(window, badge_b, 5.0 * zoom, colors.accent.opacity(0.14));
-                        window.paint_quad(gpui::outline(badge_b, colors.accent.opacity(0.4), Default::default()).corner_radii(px(5.0 * zoom)));
-                        let key_line = shape_text(*keys, &font, px(11.0 * zoom), colors.accent, window);
-                        let kw = line_width(&key_line);
-                        let key_pt = point(
-                            badge_b.origin.x + px((badge_slot.w - kw) * 0.5),
-                            badge_b.origin.y + px((badge_slot.h - 13.0 * zoom) * 0.5),
-                        );
-                        let _ = key_line.paint(key_pt, badge_b.size.height, TextAlign::Left, None, window, cx);
-                    }
-                    SettingControlKind::AboutAction { label, url } => {
-                        let btn_b = row.control_slot.to_bounds(bounds.origin);
-                        let is_btn_hovered = prepaint.hovered_hit == Some(SettingsHit::AboutUrl(*url));
-                        paint_rounded(window, btn_b, 6.0 * zoom, if is_btn_hovered { colors.accent } else { colors.surface_hover });
-                        window.paint_quad(gpui::outline(btn_b, colors.border, Default::default()).corner_radii(px(6.0 * zoom)));
-                        let act_line = shape_text(
-                            *label,
-                            &font,
-                            px(11.5 * zoom),
-                            if is_btn_hovered { colors.accent_fg } else { colors.foreground },
-                            window,
-                        );
-                        let w = line_width(&act_line);
-                        let act_pt = point(
-                            btn_b.origin.x + px((row.control_slot.w - w) * 0.5),
-                            btn_b.origin.y + px((row.control_slot.h - 14.0 * zoom) * 0.5),
-                        );
-                        let _ = act_line.paint(act_pt, btn_b.size.height, TextAlign::Left, None, window, cx);
-                    }
                 }
-            }
-        });
+            },
+        );
 
         // 6. Interactive Tooltip Hint Bar
         if let Some(row_idx) = prepaint.hovered_row_idx {
@@ -1490,11 +1860,25 @@ impl Element for SettingsImmElement {
                 );
                 let tip_b = tip_slot.to_bounds(bounds.origin);
                 paint_rounded(window, tip_b, 6.0 * zoom, colors.surface);
-                window.paint_quad(gpui::outline(tip_b, colors.accent.opacity(0.35), Default::default()).corner_radii(px(6.0 * zoom)));
+                window.paint_quad(
+                    gpui::outline(tip_b, colors.accent.opacity(0.35), Default::default())
+                        .corner_radii(px(6.0 * zoom)),
+                );
                 let tip_str = format!("💡 {}", row.tooltip);
-                let tip_line = shape_text_truncated(&tip_str, &font, px(11.0 * zoom), colors.muted, tip_slot.w - 16.0 * zoom, window);
-                let tip_pt = point(tip_b.origin.x + px(8.0 * zoom), tip_b.origin.y + px(4.0 * zoom));
-                let _ = tip_line.paint(tip_pt, tip_b.size.height, TextAlign::Left, None, window, cx);
+                let tip_line = shape_text_truncated(
+                    &tip_str,
+                    &font,
+                    px(11.0 * zoom),
+                    colors.muted,
+                    tip_slot.w - 16.0 * zoom,
+                    window,
+                );
+                let tip_pt = point(
+                    tip_b.origin.x + px(8.0 * zoom),
+                    tip_b.origin.y + px(4.0 * zoom),
+                );
+                let _ =
+                    tip_line.paint(tip_pt, tip_b.size.height, TextAlign::Left, None, window, cx);
             }
         }
 
@@ -1517,7 +1901,11 @@ impl Element for SettingsImmElement {
         let app_scroll = app_entity.clone();
         let hitbox = prepaint.hitbox.clone();
         let content_vp = layout.content_viewport;
-        let total_content_h = layout.rows.last().map(|r| r.card_slot.y + r.card_slot.h).unwrap_or(0.0)
+        let total_content_h = layout
+            .rows
+            .last()
+            .map(|r| r.card_slot.y + r.card_slot.h)
+            .unwrap_or(0.0)
             - content_vp.y
             + 24.0 * zoom;
         let max_scroll = (total_content_h - content_vp.h).max(0.0);
@@ -1575,14 +1963,19 @@ impl Element for SettingsImmElement {
                                 input.update(cx, |state, cx| state.set_value("", window, cx));
                             }
                         }
-                        SettingsHit::ThumbnailBudgetDec | SettingsHit::ThumbnailBudgetInc | SettingsHit::ThumbnailBudgetBar(_) => {
+                        SettingsHit::ThumbnailBudgetDec
+                        | SettingsHit::ThumbnailBudgetInc
+                        | SettingsHit::ThumbnailBudgetBar(_) => {
                             let current = app.state.settings.thumbnail_cache_mb;
                             let next = match hit {
                                 SettingsHit::ThumbnailBudgetDec => current.saturating_sub(32),
                                 SettingsHit::ThumbnailBudgetInc => current.saturating_add(32),
-                                SettingsHit::ThumbnailBudgetBar(fraction) => (32.0 + fraction.clamp(0.0, 1.0) * 992.0).round() as usize,
+                                SettingsHit::ThumbnailBudgetBar(fraction) => {
+                                    (32.0 + fraction.clamp(0.0, 1.0) * 992.0).round() as usize
+                                }
                                 _ => current,
-                            }.clamp(32, 1024);
+                            }
+                            .clamp(32, 1024);
                             app.state.settings.thumbnail_cache_mb = next;
                             app.thumb_textures.set_budget_mb(next);
                             atlas_core::util::config::save_settings(&app.state.settings);
@@ -1605,15 +1998,18 @@ impl Element for SettingsImmElement {
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::ToggleAnimations => {
-                            app.state.settings.disable_animations = !app.state.settings.disable_animations;
+                            app.state.settings.disable_animations =
+                                !app.state.settings.disable_animations;
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::ToggleAutosave => {
-                            app.state.settings.autosave_session = !app.state.settings.autosave_session;
+                            app.state.settings.autosave_session =
+                                !app.state.settings.autosave_session;
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::ToggleDimPanes => {
-                            app.state.settings.dim_inactive_panes = !app.state.settings.dim_inactive_panes;
+                            app.state.settings.dim_inactive_panes =
+                                !app.state.settings.dim_inactive_panes;
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::ToggleTitlebar => {
@@ -1657,7 +2053,8 @@ impl Element for SettingsImmElement {
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::GlassOpacityBar(frac) => {
-                            app.state.settings.glass_opacity = (0.20 + frac * 0.80).clamp(0.20, 1.0);
+                            app.state.settings.glass_opacity =
+                                (0.20 + frac * 0.80).clamp(0.20, 1.0);
                             app.theme_dirty = true;
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
@@ -1676,60 +2073,86 @@ impl Element for SettingsImmElement {
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::SidebarWidthDec => {
-                            app.state.settings.sidebar_width = (app.state.settings.sidebar_width - 20.0).clamp(160.0, 420.0);
+                            app.state.settings.sidebar_width =
+                                (app.state.settings.sidebar_width - 20.0).clamp(160.0, 420.0);
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::SidebarWidthInc => {
-                            app.state.settings.sidebar_width = (app.state.settings.sidebar_width + 20.0).clamp(160.0, 420.0);
+                            app.state.settings.sidebar_width =
+                                (app.state.settings.sidebar_width + 20.0).clamp(160.0, 420.0);
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::InspectorWidthDec => {
-                            app.state.settings.inspector_width = (app.state.settings.inspector_width - 20.0).clamp(180.0, 2000.0);
+                            app.state.settings.inspector_width =
+                                (app.state.settings.inspector_width - 20.0).clamp(180.0, 2000.0);
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::InspectorWidthInc => {
-                            app.state.settings.inspector_width = (app.state.settings.inspector_width + 20.0).clamp(180.0, 2000.0);
+                            app.state.settings.inspector_width =
+                                (app.state.settings.inspector_width + 20.0).clamp(180.0, 2000.0);
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::FontSizeDec => {
-                            app.state.settings.font_size = (app.state.settings.font_size - 1.0).clamp(10.0, 24.0);
+                            app.state.settings.font_size =
+                                (app.state.settings.font_size - 1.0).clamp(10.0, 24.0);
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::FontSizeInc => {
-                            app.state.settings.font_size = (app.state.settings.font_size + 1.0).clamp(10.0, 24.0);
+                            app.state.settings.font_size =
+                                (app.state.settings.font_size + 1.0).clamp(10.0, 24.0);
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::ThumbnailSizeDec => {
-                            app.state.settings.thumbnail_size = (app.state.settings.thumbnail_size - 16.0).clamp(64.0, 256.0);
+                            app.state.settings.thumbnail_size =
+                                (app.state.settings.thumbnail_size - 16.0).clamp(64.0, 256.0);
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::ThumbnailSizeInc => {
-                            app.state.settings.thumbnail_size = (app.state.settings.thumbnail_size + 16.0).clamp(64.0, 256.0);
+                            app.state.settings.thumbnail_size =
+                                (app.state.settings.thumbnail_size + 16.0).clamp(64.0, 256.0);
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::GridSpacingDec => {
-                            app.state.settings.grid_spacing = (app.state.settings.grid_spacing - 2.0).clamp(4.0, 48.0);
+                            app.state.settings.grid_spacing =
+                                (app.state.settings.grid_spacing - 2.0).clamp(4.0, 48.0);
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::GridSpacingInc => {
-                            app.state.settings.grid_spacing = (app.state.settings.grid_spacing + 2.0).clamp(4.0, 48.0);
+                            app.state.settings.grid_spacing =
+                                (app.state.settings.grid_spacing + 2.0).clamp(4.0, 48.0);
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::ThemeSelect(idx) => {
-                            let themes = ["Atlas Graphite Glass", "Atlas Midnight", "One Dark", "Dracula", "Nord"];
+                            let themes = [
+                                "Atlas Graphite Glass",
+                                "Atlas Midnight",
+                                "One Dark",
+                                "Dracula",
+                                "Nord",
+                            ];
                             if let Some(t) = themes.get(idx) {
                                 app.set_theme(t.to_string());
                             }
                         }
                         SettingsHit::ViewModeSelect(idx) => {
-                            let modes = [ViewMode::Details, ViewMode::Grid, ViewMode::List, ViewMode::Miller, ViewMode::Tree];
+                            let modes = [
+                                ViewMode::Details,
+                                ViewMode::Grid,
+                                ViewMode::List,
+                                ViewMode::Miller,
+                                ViewMode::Tree,
+                            ];
                             if let Some(m) = modes.get(idx) {
                                 app.state.settings.view_mode = m.clone();
                                 atlas_core::util::config::save_settings(&app.state.settings);
                             }
                         }
                         SettingsHit::InspectorPlacementSelect(idx) => {
-                            app.state.settings.inspector_placement = if idx == 0 { InspectorPlacement::Global } else { InspectorPlacement::ActiveTab };
+                            app.state.settings.inspector_placement = if idx == 0 {
+                                InspectorPlacement::Global
+                            } else {
+                                InspectorPlacement::ActiveTab
+                            };
                             atlas_core::util::config::save_settings(&app.state.settings);
                         }
                         SettingsHit::FontFamilySelect(idx) => {
@@ -1815,7 +2238,10 @@ mod tests {
         assert_eq!(layout.header_slot.w, layout.modal_slot.w);
 
         // Close button sits on the right
-        assert!(layout.close_slot.x + layout.close_slot.w <= layout.header_slot.x + layout.header_slot.w);
+        assert!(
+            layout.close_slot.x + layout.close_slot.w
+                <= layout.header_slot.x + layout.header_slot.w
+        );
 
         // Sidebar width should be ~180px
         assert_eq!(layout.sidebar_slot.w, 180.0);
@@ -1927,13 +2353,16 @@ mod tests {
         let frac_one = 1.0_f32;
         let frac_mid = 0.5_f32;
 
-        let val_zero = (min_opacity + frac_zero * (max_opacity - min_opacity)).clamp(min_opacity, max_opacity);
+        let val_zero =
+            (min_opacity + frac_zero * (max_opacity - min_opacity)).clamp(min_opacity, max_opacity);
         assert!((val_zero - 0.20).abs() < 1e-4);
 
-        let val_one = (min_opacity + frac_one * (max_opacity - min_opacity)).clamp(min_opacity, max_opacity);
+        let val_one =
+            (min_opacity + frac_one * (max_opacity - min_opacity)).clamp(min_opacity, max_opacity);
         assert!((val_one - 1.00).abs() < 1e-4);
 
-        let val_mid = (min_opacity + frac_mid * (max_opacity - min_opacity)).clamp(min_opacity, max_opacity);
+        let val_mid =
+            (min_opacity + frac_mid * (max_opacity - min_opacity)).clamp(min_opacity, max_opacity);
         assert!((val_mid - 0.60).abs() < 1e-4);
     }
 }

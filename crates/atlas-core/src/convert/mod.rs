@@ -195,7 +195,11 @@ pub fn execute(
     let edition = edition::current();
     let free = edition == edition::Edition::Free;
     let planned = plan.commands.len();
-    let used_today = if free { crate::usage::conversions_today() } else { 0 };
+    let used_today = if free {
+        crate::usage::conversions_today()
+    } else {
+        0
+    };
     let allowed = edition
         .check(Feature::BatchConversion, planned)
         .and_then(|()| edition.check(Feature::ConversionsPerDay, used_today + planned));

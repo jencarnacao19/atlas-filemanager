@@ -31,7 +31,12 @@ fn migrated_theme_name(name: &str) -> &str {
     }
 }
 
-fn persisted_theme_name<'a>(stored: &str, wanted: &'a str, resolved: &'a str, custom_themes_loaded: bool) -> Option<&'a str> {
+fn persisted_theme_name<'a>(
+    stored: &str,
+    wanted: &'a str,
+    resolved: &'a str,
+    custom_themes_loaded: bool,
+) -> Option<&'a str> {
     // Migrations are authoritative immediately. Unknown custom themes are only
     // normalized after the asynchronous user-theme directory has been loaded.
     let permanent = custom_themes_loaded || wanted == resolved || wanted != stored;
@@ -160,7 +165,12 @@ impl App {
         });
 
         // Persist the normalized name so the migration is one-time and sticky.
-        if let Some(name) = persisted_theme_name(&self.state.profiles.active().theme, &wanted, &resolved_name, custom_themes_loaded) {
+        if let Some(name) = persisted_theme_name(
+            &self.state.profiles.active().theme,
+            &wanted,
+            &resolved_name,
+            custom_themes_loaded,
+        ) {
             self.state.profiles.active_mut().theme = name.to_string();
             self.save();
         }
@@ -216,8 +226,19 @@ mod gpui_ce_tests {
         let fallback = atlas_model::profiles::DEFAULT_THEME;
         assert_eq!(persisted_theme_name(custom, custom, fallback, false), None);
         assert_eq!(persisted_theme_name(custom, custom, custom, true), None);
-        assert_eq!(persisted_theme_name(custom, custom, fallback, true), Some(fallback));
-        assert_eq!(persisted_theme_name("Default Dark", "Atlas Graphite Glass", "Atlas Graphite Glass", false), Some("Atlas Graphite Glass"));
+        assert_eq!(
+            persisted_theme_name(custom, custom, fallback, true),
+            Some(fallback)
+        );
+        assert_eq!(
+            persisted_theme_name(
+                "Default Dark",
+                "Atlas Graphite Glass",
+                "Atlas Graphite Glass",
+                false
+            ),
+            Some("Atlas Graphite Glass")
+        );
     }
 
     #[test]

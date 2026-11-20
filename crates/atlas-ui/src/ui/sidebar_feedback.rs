@@ -2,8 +2,8 @@
 use crate::{
     app::App,
     ui::{
-        imm::motion::ActionPulse,
         icons::AtlasIcon,
+        imm::motion::ActionPulse,
         surface::{paint_theme_icon, Slot},
     },
 };

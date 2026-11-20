@@ -13,7 +13,8 @@ use atlas_model::overlay::GuideCoach;
 use gpui::prelude::*;
 use gpui::ColorExt as _;
 use gpui::{
-    deferred, div, hsla, linear_color_stop, linear_gradient, point, px, AnyElement, BoxShadow, Context, MouseButton, SharedString,
+    deferred, div, hsla, linear_color_stop, linear_gradient, point, px, AnyElement, BoxShadow,
+    Context, MouseButton, SharedString,
 };
 use gpui_component::kbd::Kbd;
 use gpui_component::{h_flex, v_flex, ActiveTheme};
@@ -41,11 +42,23 @@ struct Topic {
 }
 
 const fn step(command: Option<&'static str>, hit: fn(&Action) -> bool) -> Step {
-    Step { command, hit: Some(hit), probe: None, palette: None, icons: false }
+    Step {
+        command,
+        hit: Some(hit),
+        probe: None,
+        palette: None,
+        icons: false,
+    }
 }
 
 const fn read(command: Option<&'static str>) -> Step {
-    Step { command, hit: None, probe: None, palette: None, icons: false }
+    Step {
+        command,
+        hit: None,
+        probe: None,
+        palette: None,
+        icons: false,
+    }
 }
 
 impl Step {
@@ -77,10 +90,16 @@ fn fp<T: std::hash::Hash>(v: &T) -> u64 {
 }
 
 fn watch_view(app: &App) -> u64 {
-    fp(&format!("{:?}", app.state.active_tab_data().map(|t| t.view_mode.clone())))
+    fp(&format!(
+        "{:?}",
+        app.state.active_tab_data().map(|t| t.view_mode.clone())
+    ))
 }
 fn watch_group(app: &App) -> u64 {
-    fp(&format!("{:?}", app.state.active_tab_data().map(|t| t.group_by)))
+    fp(&format!(
+        "{:?}",
+        app.state.active_tab_data().map(|t| t.group_by)
+    ))
 }
 fn watch_inspector(app: &App) -> u64 {
     fp(&app.state.settings.show_inspector)
@@ -149,9 +168,11 @@ static TOPICS: [Topic; 11] = [
                 .watch(watch_view)
                 .via("cmd_view_grid_title"),
             step(None, |a| matches!(a, Action::SetGroupBy(_))).watch(watch_group),
-            step(Some("view.inspector"), |a| matches!(a, Action::ToggleInspector))
-                .watch(watch_inspector)
-                .via("cmd_view_inspector_title"),
+            step(Some("view.inspector"), |a| {
+                matches!(a, Action::ToggleInspector)
+            })
+            .watch(watch_inspector)
+            .via("cmd_view_inspector_title"),
         ],
     },
     Topic {
@@ -159,16 +180,23 @@ static TOPICS: [Topic; 11] = [
         icon: AtlasIcon::SplitVertical,
         steps: &[
             step(Some("pane.split-h"), |a| {
-                matches!(a, Action::SplitHorizontalFocused | Action::SplitVerticalFocused)
+                matches!(
+                    a,
+                    Action::SplitHorizontalFocused | Action::SplitVerticalFocused
+                )
             })
             .watch(watch_panes)
             .via("cmd_pane_split_h_title"),
-            step(Some("tab.new"), |a| matches!(a, Action::NewTabFocused | Action::NewTab(_)))
-                .watch(watch_panes)
-                .via("cmd_tab_new_title"),
-            step(Some("pane.close"), |a| matches!(a, Action::CloseFocusedPane))
-                .watch(watch_panes)
-                .via("cmd_pane_close_title"),
+            step(Some("tab.new"), |a| {
+                matches!(a, Action::NewTabFocused | Action::NewTab(_))
+            })
+            .watch(watch_panes)
+            .via("cmd_tab_new_title"),
+            step(Some("pane.close"), |a| {
+                matches!(a, Action::CloseFocusedPane)
+            })
+            .watch(watch_panes)
+            .via("cmd_pane_close_title"),
         ],
     },
     Topic {
@@ -176,8 +204,10 @@ static TOPICS: [Topic; 11] = [
         icon: AtlasIcon::ArrowsLeftRight,
         steps: &[
             read(None),
-            step(Some("files.convert"), |a| matches!(a, Action::OpenConverter))
-                .watch(watch_converter),
+            step(Some("files.convert"), |a| {
+                matches!(a, Action::OpenConverter)
+            })
+            .watch(watch_converter),
         ],
     },
     Topic {
@@ -198,7 +228,10 @@ static TOPICS: [Topic; 11] = [
         icon: AtlasIcon::Tag,
         steps: &[
             step(None, |a| {
-                matches!(a, Action::OpenCreateTagOverlay { .. } | Action::CreateTag { .. })
+                matches!(
+                    a,
+                    Action::OpenCreateTagOverlay { .. } | Action::CreateTag { .. }
+                )
             }),
             step(None, |a| matches!(a, Action::AssignTagToFiles { .. })),
             step(None, |a| matches!(a, Action::OpenTagResults { .. })),
@@ -236,17 +269,29 @@ fn tr(id: &str, part: &str) -> String {
     rust_i18n::t!(key.as_str()).to_string()
 }
 
-fn extension_manager_button(view: &gpui::Entity<App>, fg: gpui::Hsla, fill: gpui::Hsla) -> AnyElement {
+fn extension_manager_button(
+    view: &gpui::Entity<App>,
+    fg: gpui::Hsla,
+    fill: gpui::Hsla,
+) -> AnyElement {
     let view = view.clone();
-    div().id("guide-open-extensions").px_4().py_2().rounded_full().bg(fill)
-        .text_sm().text_color(fg).cursor_pointer()
+    div()
+        .id("guide-open-extensions")
+        .px_4()
+        .py_2()
+        .rounded_full()
+        .bg(fill)
+        .text_sm()
+        .text_color(fg)
+        .cursor_pointer()
         .child(rust_i18n::t!("ext_manager_title").to_string())
         .on_mouse_down(MouseButton::Left, move |_, _, cx| {
             view.update(cx, |this, cx| {
                 this.process_actions([Action::CloseGuide, Action::OpenExtManager]);
                 cx.notify();
             });
-        }).into_any_element()
+        })
+        .into_any_element()
 }
 
 fn practicable(topic: &Topic) -> bool {
@@ -316,17 +361,50 @@ impl App {
     /// the manager, including optional tool providers in their own count.
     fn guide_extension_inventory(&self, fg: gpui::Hsla, muted: gpui::Hsla) -> AnyElement {
         use atlas_model::ext_model::ExtKind;
-        let providers = self.ext_registry.extensions.iter().filter(|e| e.manifest.kind == ExtKind::ToolProvider).count();
-        let count = self.ext_registry.extensions.iter().filter(|e| !e.manifest.hidden && e.manifest.kind != ExtKind::ToolProvider).count();
-        let mut entries: Vec<_> = self.ext_registry.extensions.iter().filter(|e| !e.manifest.hidden).collect();
+        let providers = self
+            .ext_registry
+            .extensions
+            .iter()
+            .filter(|e| e.manifest.kind == ExtKind::ToolProvider)
+            .count();
+        let count = self
+            .ext_registry
+            .extensions
+            .iter()
+            .filter(|e| !e.manifest.hidden && e.manifest.kind != ExtKind::ToolProvider)
+            .count();
+        let mut entries: Vec<_> = self
+            .ext_registry
+            .extensions
+            .iter()
+            .filter(|e| !e.manifest.hidden)
+            .collect();
         entries.sort_by(|a, b| a.manifest.name.cmp(&b.manifest.name));
-        v_flex().gap_3()
-            .child(div().text_sm().text_color(muted).child(rust_i18n::t!("guide_extensions_count", count = count, tools = providers).to_string()))
+        v_flex()
+            .gap_3()
+            .child(
+                div().text_sm().text_color(muted).child(
+                    rust_i18n::t!("guide_extensions_count", count = count, tools = providers)
+                        .to_string(),
+                ),
+            )
             .children(entries.into_iter().map(|e| {
-                v_flex().gap_1()
-                    .child(div().text_sm().text_color(fg).child(format!("{} · {}", e.manifest.name, e.manifest.version)))
-                    .child(div().text_xs().text_color(muted).child(e.manifest.description.clone()))
-            })).into_any_element()
+                v_flex()
+                    .gap_1()
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(fg)
+                            .child(format!("{} · {}", e.manifest.name, e.manifest.version)),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(muted)
+                            .child(e.manifest.description.clone()),
+                    )
+            }))
+            .into_any_element()
     }
 
     /// "Or: [palette key] “Command name”" — the manual route to the same step.
@@ -361,8 +439,11 @@ impl App {
         };
         // Reading-only steps have no detector; the card's "Next" button moves on.
         if current.hit.is_some_and(|hit| hit(action)) {
-            self.state.overlay.guide_coach =
-                Some(GuideCoach { topic, step: step + 1, base: u64::MAX });
+            self.state.overlay.guide_coach = Some(GuideCoach {
+                topic,
+                step: step + 1,
+                base: u64::MAX,
+            });
         }
     }
 
@@ -382,8 +463,11 @@ impl App {
         if c.base == u64::MAX {
             self.state.overlay.guide_coach = Some(GuideCoach { base: now, ..c });
         } else if now != c.base {
-            self.state.overlay.guide_coach =
-                Some(GuideCoach { step: c.step + 1, base: u64::MAX, ..c });
+            self.state.overlay.guide_coach = Some(GuideCoach {
+                step: c.step + 1,
+                base: u64::MAX,
+                ..c
+            });
         }
     }
 
@@ -406,9 +490,10 @@ impl App {
         let topic = &TOPICS[active];
         let faint = border.opacity(0.55);
 
-        let nav = TOPICS.iter().enumerate().fold(
-            v_flex().gap_0p5().p_3().pt_4(),
-            |col, (i, t)| {
+        let nav = TOPICS
+            .iter()
+            .enumerate()
+            .fold(v_flex().gap_0p5().p_3().pt_4(), |col, (i, t)| {
                 let selected = i == active;
                 let v = view.clone();
                 col.child(
@@ -421,7 +506,11 @@ impl App {
                         .h(px(38.))
                         .rounded(px(10.))
                         .cursor_pointer()
-                        .bg(if selected { tile_bg.opacity(0.55) } else { gpui::transparent_black() })
+                        .bg(if selected {
+                            tile_bg.opacity(0.55)
+                        } else {
+                            gpui::transparent_black()
+                        })
                         .hover(move |h| h.bg(hover))
                         .when(selected, |row| {
                             row.child(
@@ -454,49 +543,52 @@ impl App {
                             });
                         }),
                 )
-            },
-        );
+            });
 
-        let steps = topic.steps.iter().enumerate().fold(v_flex(), |col, (n, s)| {
-            let keystroke = s.command.and_then(|c| self.command_shortcut_keystroke(c));
-            let via = self.guide_via(s.palette, muted);
-            col.child(
-                h_flex()
-                    .items_center()
-                    .gap_4()
-                    .py_4()
-                    .border_t_1()
-                    .border_color(faint)
-                    .child(
-                        div()
-                            .w(px(28.))
-                            .flex_none()
-                            .text_size(px(13.))
-                            .font_weight(gpui::FontWeight::LIGHT)
-                            .text_color(muted)
-                            .child(format!("{:02}", n + 1)),
-                    )
-                    .child(
-                        v_flex()
-                            .flex_1()
-                            .min_w_0()
-                            .gap_1()
-                            .child(
-                                div()
-                                    .w_full()
-                                    .whitespace_normal()
-                                    .text_size(px(16.))
-                                    .text_color(fg)
-                                    .child(tr(topic.id, &format!("s{}", n + 1))),
-                            )
-                            .when_some(via, |col, v| col.child(v))
-                            .when(s.icons, |col| {
-                                col.child(icon_theme_pills(&view, fg, muted, border, tile_bg))
-                            }),
-                    )
-                    .when_some(keystroke, |row, ks| row.child(Kbd::new(ks))),
-            )
-        });
+        let steps = topic
+            .steps
+            .iter()
+            .enumerate()
+            .fold(v_flex(), |col, (n, s)| {
+                let keystroke = s.command.and_then(|c| self.command_shortcut_keystroke(c));
+                let via = self.guide_via(s.palette, muted);
+                col.child(
+                    h_flex()
+                        .items_center()
+                        .gap_4()
+                        .py_4()
+                        .border_t_1()
+                        .border_color(faint)
+                        .child(
+                            div()
+                                .w(px(28.))
+                                .flex_none()
+                                .text_size(px(13.))
+                                .font_weight(gpui::FontWeight::LIGHT)
+                                .text_color(muted)
+                                .child(format!("{:02}", n + 1)),
+                        )
+                        .child(
+                            v_flex()
+                                .flex_1()
+                                .min_w_0()
+                                .gap_1()
+                                .child(
+                                    div()
+                                        .w_full()
+                                        .whitespace_normal()
+                                        .text_size(px(16.))
+                                        .text_color(fg)
+                                        .child(tr(topic.id, &format!("s{}", n + 1))),
+                                )
+                                .when_some(via, |col, v| col.child(v))
+                                .when(s.icons, |col| {
+                                    col.child(icon_theme_pills(&view, fg, muted, border, tile_bg))
+                                }),
+                        )
+                        .when_some(keystroke, |row, ks| row.child(Kbd::new(ks))),
+                )
+            });
 
         let start = practicable(topic).then(|| {
             let v = view.clone();
@@ -556,12 +648,11 @@ impl App {
                                     .justify_center()
                                     .child(icon(topic.icon, 18., fg)),
                             )
-                            .child(
-                                div()
-                                    .text_size(px(11.))
-                                    .text_color(muted)
-                                    .child(format!("{:02} / {:02}", active + 1, TOPICS.len())),
-                            ),
+                            .child(div().text_size(px(11.)).text_color(muted).child(format!(
+                                "{:02} / {:02}",
+                                active + 1,
+                                TOPICS.len()
+                            ))),
                     )
                     .child(
                         div()
@@ -584,20 +675,17 @@ impl App {
                     }),
             )
             .child(steps)
-            .when(topic.id == "extensions", |col| col
-                .child(self.guide_extension_inventory(fg, muted)))
+            .when(topic.id == "extensions", |col| {
+                col.child(self.guide_extension_inventory(fg, muted))
+            })
             .when_some(start, |col, b| {
                 col.child(
-                    v_flex()
-                        .gap_3()
-                        .items_start()
-                        .child(b)
-                        .child(
-                            div()
-                                .text_xs()
-                                .text_color(muted)
-                                .child(rust_i18n::t!("guide_hint").to_string()),
-                        ),
+                    v_flex().gap_3().items_start().child(b).child(
+                        div()
+                            .text_xs()
+                            .text_color(muted)
+                            .child(rust_i18n::t!("guide_hint").to_string()),
+                    ),
                 )
             });
 
@@ -616,11 +704,19 @@ impl App {
             .text_color(fg)
             .overflow_hidden()
             .occlude()
-            .child(div().absolute().top_0().left_0().right_0().h(px(160.)).bg(linear_gradient(
-                180.,
-                linear_color_stop(hsla(0., 0., 1., 0.045), 0.0),
-                linear_color_stop(hsla(0., 0., 1., 0.0), 1.0),
-            )))
+            .child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .right_0()
+                    .h(px(160.))
+                    .bg(linear_gradient(
+                        180.,
+                        linear_color_stop(hsla(0., 0., 1., 0.045), 0.0),
+                        linear_color_stop(hsla(0., 0., 1., 0.0), 1.0),
+                    )),
+            )
             .child(
                 h_flex()
                     .flex_1()
@@ -640,7 +736,13 @@ impl App {
                                     .font_weight(gpui::FontWeight::SEMIBOLD)
                                     .child(rust_i18n::t!("guide_title").to_string()),
                             )
-                            .child(div().id("guide-nav").flex_1().overflow_y_scroll().child(nav)),
+                            .child(
+                                div()
+                                    .id("guide-nav")
+                                    .flex_1()
+                                    .overflow_y_scroll()
+                                    .child(nav),
+                            ),
                     )
                     .child(page)
                     .child(
@@ -733,28 +835,24 @@ impl App {
         });
 
         let stop_view = view.clone();
-        let header = h_flex()
-            .items_center()
-            .gap_4()
-            .child(dots)
-            .child(
-                div()
-                    .id("guide-coach-close")
-                    .size(px(26.))
-                    .rounded_full()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .cursor_pointer()
-                    .hover(move |h| h.bg(hover))
-                    .child(icon(AtlasIcon::X, 11., muted))
-                    .on_mouse_down(MouseButton::Left, move |_ev, _w, cx| {
-                        stop_view.update(cx, |this, cx| {
-                            this.process_actions([Action::StopGuideCoach]);
-                            cx.notify();
-                        });
-                    }),
-            );
+        let header = h_flex().items_center().gap_4().child(dots).child(
+            div()
+                .id("guide-coach-close")
+                .size(px(26.))
+                .rounded_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .cursor_pointer()
+                .hover(move |h| h.bg(hover))
+                .child(icon(AtlasIcon::X, 11., muted))
+                .on_mouse_down(MouseButton::Left, move |_ev, _w, cx| {
+                    stop_view.update(cx, |this, cx| {
+                        this.process_actions([Action::StopGuideCoach]);
+                        cx.notify();
+                    });
+                }),
+        );
 
         let detect = current.is_some_and(Step::detectable);
         let next_view = view.clone();
@@ -843,12 +941,12 @@ impl App {
         } else {
             v_flex()
                 .gap_3()
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(muted)
-                        .child(format!("{} · {}/{}", tr(t.id, "title"), step + 1, total)),
-                )
+                .child(div().text_xs().text_color(muted).child(format!(
+                    "{} · {}/{}",
+                    tr(t.id, "title"),
+                    step + 1,
+                    total
+                )))
                 .child(
                     h_flex()
                         .items_center()
@@ -873,9 +971,10 @@ impl App {
                         .when_some(keystroke, |row, ks| row.child(Kbd::new(ks))),
                 )
                 .when_some(icons_row, |col, r| col.child(r))
-                .when(current.is_some_and(|s| s.command == Some("ext.manager")), |col| {
-                    col.child(extension_manager_button(&view, fg, tile_bg))
-                })
+                .when(
+                    current.is_some_and(|s| s.command == Some("ext.manager")),
+                    |col| col.child(extension_manager_button(&view, fg, tile_bg)),
+                )
                 .child(if detect {
                     h_flex()
                         .items_center()
@@ -917,33 +1016,32 @@ impl App {
                                 }),
                         )
                 } else {
-                    h_flex()
-                        .child(
-                            div()
-                                .id("guide-coach-next")
-                                .h(px(36.))
-                                .px_4()
-                                .rounded_full()
-                                .bg(accent)
-                                .text_color(accent_fg)
-                                .flex()
-                                .items_center()
-                                .text_sm()
-                                .font_weight(gpui::FontWeight::SEMIBOLD)
-                                .cursor_pointer()
-                                .hover(|h| h.opacity(0.9))
-                                .child(rust_i18n::t!("guide_next").to_string())
-                                .on_mouse_down(MouseButton::Left, move |_ev, _w, cx| {
-                                    next_view.update(cx, |this, cx| {
-                                        this.state.overlay.guide_coach = Some(GuideCoach {
-                                            topic: topic_ix,
-                                            step: step + 1,
-                                            base: u64::MAX,
-                                        });
-                                        cx.notify();
+                    h_flex().child(
+                        div()
+                            .id("guide-coach-next")
+                            .h(px(36.))
+                            .px_4()
+                            .rounded_full()
+                            .bg(accent)
+                            .text_color(accent_fg)
+                            .flex()
+                            .items_center()
+                            .text_sm()
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .cursor_pointer()
+                            .hover(|h| h.opacity(0.9))
+                            .child(rust_i18n::t!("guide_next").to_string())
+                            .on_mouse_down(MouseButton::Left, move |_ev, _w, cx| {
+                                next_view.update(cx, |this, cx| {
+                                    this.state.overlay.guide_coach = Some(GuideCoach {
+                                        topic: topic_ix,
+                                        step: step + 1,
+                                        base: u64::MAX,
                                     });
-                                }),
-                        )
+                                    cx.notify();
+                                });
+                            }),
+                    )
                 })
         };
 

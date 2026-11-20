@@ -160,11 +160,17 @@ impl ShellMenuHandle {
                 if std::fs::create_dir_all(&folder).is_err() {
                     return;
                 }
-                handle.send(ShellMenuRequest::Prewarm { key: "dir".into(), path: folder });
+                handle.send(ShellMenuRequest::Prewarm {
+                    key: "dir".into(),
+                    path: folder,
+                });
                 for ext in ["txt", "zip", "png"] {
                     let file = root.join(format!("a.{ext}"));
                     if file.exists() || std::fs::write(&file, b"").is_ok() {
-                        handle.send(ShellMenuRequest::Prewarm { key: format!(".{ext}"), path: file });
+                        handle.send(ShellMenuRequest::Prewarm {
+                            key: format!(".{ext}"),
+                            path: file,
+                        });
                     }
                 }
             });

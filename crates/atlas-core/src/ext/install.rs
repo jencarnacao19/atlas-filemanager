@@ -137,8 +137,15 @@ pub fn ensure_asset(id: &str, name: &str, bytes: &[u8]) -> anyhow::Result<()> {
 /// Seed the official icon provider from the application package on first use.
 /// This runs on the extension worker, preserving confined sidecar execution.
 pub(crate) fn ensure_packaged_icon_provider(directory: &Path) -> anyhow::Result<()> {
-    let filename = if cfg!(windows) { "atlas-icon-extension.exe" } else { "atlas-icon-extension" };
-    let source = std::env::current_exe()?.parent().context("application has no directory")?.join(filename);
+    let filename = if cfg!(windows) {
+        "atlas-icon-extension.exe"
+    } else {
+        "atlas-icon-extension"
+    };
+    let source = std::env::current_exe()?
+        .parent()
+        .context("application has no directory")?
+        .join(filename);
     let target = directory.join(filename);
     if !source.is_file() && target.is_file() {
         return Ok(()); // Independently installed provider in a development build.
@@ -149,17 +156,25 @@ pub(crate) fn ensure_packaged_icon_provider(directory: &Path) -> anyhow::Result<
 fn copy_packaged_program(source: &Path, target: &Path) -> anyhow::Result<()> {
     use sha2::{Digest as _, Sha256};
     use std::io::Write as _;
-    let bytes = std::fs::read(source).context("Packaged icon provider is missing; reinstall Atlas or the official icon extension")?;
-    if std::fs::read(target).is_ok_and(|current| Sha256::digest(&current) == Sha256::digest(&bytes)) {
+    let bytes = std::fs::read(source).context(
+        "Packaged icon provider is missing; reinstall Atlas or the official icon extension",
+    )?;
+    if std::fs::read(target).is_ok_and(|current| Sha256::digest(&current) == Sha256::digest(&bytes))
+    {
         return Ok(());
     }
-    let directory = target.parent().context("provider has no destination directory")?;
+    let directory = target
+        .parent()
+        .context("provider has no destination directory")?;
     std::fs::create_dir_all(directory)?;
     let mut staged = tempfile::NamedTempFile::new_in(directory)?;
     staged.write_all(&bytes)?;
     staged.as_file().sync_all()?;
     std::fs::set_permissions(staged.path(), std::fs::metadata(source)?.permissions())?;
-    staged.persist(target).map_err(|error| error.error).context("Cannot update the icon provider; close other Atlas operations and retry")?;
+    staged
+        .persist(target)
+        .map_err(|error| error.error)
+        .context("Cannot update the icon provider; close other Atlas operations and retry")?;
     Ok(())
 }
 
@@ -212,7 +227,9 @@ mod tests {
     fn packaged_provider_seeds_a_clean_profile_and_replaces_an_old_build() {
         let directory = tempfile::tempdir().unwrap();
         let source = directory.path().join("packaged.exe");
-        let target = directory.path().join("fresh-profile/extensions/icon-manager/provider.exe");
+        let target = directory
+            .path()
+            .join("fresh-profile/extensions/icon-manager/provider.exe");
         std::fs::write(&source, b"new-build").unwrap();
         copy_packaged_program(&source, &target).unwrap();
         assert_eq!(std::fs::read(&target).unwrap(), b"new-build");
@@ -220,7 +237,10 @@ mod tests {
         copy_packaged_program(&source, &target).unwrap();
         assert_eq!(std::fs::read(&target).unwrap(), b"new-build");
         copy_packaged_program(&source, &target).unwrap();
-        assert_eq!(std::fs::read_dir(target.parent().unwrap()).unwrap().count(), 1);
+        assert_eq!(
+            std::fs::read_dir(target.parent().unwrap()).unwrap().count(),
+            1
+        );
     }
 
     #[test]
@@ -261,4 +281,3 @@ mod tests {
         }
     }
 }
-

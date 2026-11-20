@@ -23,9 +23,9 @@ pub fn contains_items() -> Option<bool> {
             Ok(mut entries) => match entries.next() {
                 Some(Ok(_)) => return Some(true),
                 Some(Err(_)) => return None,
-                None => {},
+                None => {}
             },
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(_) => return None,
         }
     }
@@ -203,7 +203,12 @@ fn parse_deletion_date(s: &str) -> Option<SystemTime> {
         return None;
     }
     let b = s.as_bytes();
-    if b[4] != b'-' || b[7] != b'-' || (b[10] != b'T' && b[10] != b't') || b[13] != b':' || b[16] != b':' {
+    if b[4] != b'-'
+        || b[7] != b'-'
+        || (b[10] != b'T' && b[10] != b't')
+        || b[13] != b':'
+        || b[16] != b':'
+    {
         return None;
     }
     let year: i64 = s[0..4].parse().ok()?;
@@ -213,7 +218,12 @@ fn parse_deletion_date(s: &str) -> Option<SystemTime> {
     let min: u64 = s[14..16].parse().ok()?;
     let sec: u64 = s[17..19].parse().ok()?;
 
-    if !(1..=12).contains(&month) || !(1..=31).contains(&day) || hour >= 24 || min >= 60 || sec >= 60 {
+    if !(1..=12).contains(&month)
+        || !(1..=31).contains(&day)
+        || hour >= 24
+        || min >= 60
+        || sec >= 60
+    {
         return None;
     }
 
@@ -231,7 +241,16 @@ fn parse_deletion_date(s: &str) -> Option<SystemTime> {
     let days_in_months = [
         31,
         if is_leap_year(year) { 29 } else { 28 },
-        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
     ];
     for m in 0..(month as usize - 1) {
         total_days += days_in_months[m];
@@ -554,10 +573,20 @@ mod tests {
         std::fs::write(&conflict_payload, b"keep in bin").unwrap();
         std::fs::write(&conflict, b"keep original").unwrap();
         let (tx, rx) = flume::unbounded();
-        restore_items(vec![
-            (payload.clone(), metadata.clone(), restored.clone()),
-            (conflict_payload.clone(), root.path().join("other-metadata"), conflict.clone()),
-        ], 42, tx, vec![]).await;
+        restore_items(
+            vec![
+                (payload.clone(), metadata.clone(), restored.clone()),
+                (
+                    conflict_payload.clone(),
+                    root.path().join("other-metadata"),
+                    conflict.clone(),
+                ),
+            ],
+            42,
+            tx,
+            vec![],
+        )
+        .await;
         let events: Vec<_> = rx.try_iter().collect();
         assert!(events.iter().any(|event| matches!(event, BgResult::PathsRestored(paths) if paths == &vec![restored.clone()])));
         assert!(events.iter().any(|event| matches!(event, BgResult::OpComplete { id: 42, result: Err(errors), .. } if errors.len() == 1 && errors[0].kind == OpErrorKind::AlreadyExists)));
@@ -571,7 +600,10 @@ mod tests {
     #[test]
     fn test_percent_decode() {
         assert_eq!(percent_decode("hello%20world"), "hello world");
-        assert_eq!(percent_decode("/home/user/my%20file.txt"), "/home/user/my file.txt");
+        assert_eq!(
+            percent_decode("/home/user/my%20file.txt"),
+            "/home/user/my file.txt"
+        );
         assert_eq!(percent_decode("/plain/path.txt"), "/plain/path.txt");
         assert_eq!(percent_decode("foo%2Fbar"), "foo/bar");
     }
@@ -585,7 +617,8 @@ mod tests {
 
     #[test]
     fn test_parse_trashinfo() {
-        let content = "[Trash Info]\nPath=/home/user/test%20doc.txt\nDeletionDate=2026-10-10T12:00:00\n";
+        let content =
+            "[Trash Info]\nPath=/home/user/test%20doc.txt\nDeletionDate=2026-10-10T12:00:00\n";
         let meta = parse_trashinfo(content).unwrap();
         assert_eq!(meta.original_path, PathBuf::from("/home/user/test doc.txt"));
     }

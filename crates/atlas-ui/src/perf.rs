@@ -244,10 +244,17 @@ mod imp {
         // the ordinary UI-lab sequence or its default timing.
         static SEQUENCE: OnceLock<(u64, u64)> = OnceLock::new();
         let &(action_interval_ms, splits) = SEQUENCE.get_or_init(|| {
-            let bounded = |key, default, min, max| std::env::var(key).ok()
-                .and_then(|v| v.parse::<u64>().ok()).unwrap_or(default).clamp(min, max);
-            (bounded("ATLAS_PERF_SPLIT_INTERVAL_MS", 420, 16, 2000),
-             bounded("ATLAS_PERF_SPLIT_COUNT", 12, 1, 64))
+            let bounded = |key, default, min, max| {
+                std::env::var(key)
+                    .ok()
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(default)
+                    .clamp(min, max)
+            };
+            (
+                bounded("ATLAS_PERF_SPLIT_INTERVAL_MS", 420, 16, 2000),
+                bounded("ATLAS_PERF_SPLIT_COUNT", 12, 1, 64),
+            )
         });
         let set_grid_stage = 1 + splits * 2;
         let quit_stage = set_grid_stage + 1;
@@ -264,7 +271,8 @@ mod imp {
         // Let the final close settle and the teardown timer drain before the
         // Grid/Quit stages, including when actions arrive faster than motion.
         if next == set_grid_stage
-            && elapsed_ms < START_DELAY_MS + set_grid_stage * action_interval_ms + 400 {
+            && elapsed_ms < START_DELAY_MS + set_grid_stage * action_interval_ms + 400
+        {
             return None;
         }
         if UI_LAB_NEXT_ACTION

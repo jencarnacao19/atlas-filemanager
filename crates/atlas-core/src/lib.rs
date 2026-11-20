@@ -4,8 +4,8 @@
 //! Moved here from the legacy `src/{fs,cloud,ext,search,util}` trees (Phase J); the
 //! binary re-exports each as `crate::{fs,cloud,ext,search,util}` via shims.
 
-pub mod convert;
 pub mod cleanup;
+pub mod convert;
 pub mod ext;
 pub mod fs;
 pub mod license;

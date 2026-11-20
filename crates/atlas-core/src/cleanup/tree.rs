@@ -327,7 +327,11 @@ mod tests {
         let whole = t.snapshot(&root, 1).unwrap();
         assert_eq!((whole.bytes, whole.entry_count), (12, 3));
         assert_eq!(
-            whole.large_files.iter().map(|f| f.bytes).collect::<Vec<_>>(),
+            whole
+                .large_files
+                .iter()
+                .map(|f| f.bytes)
+                .collect::<Vec<_>>(),
             vec![7, 3, 2]
         );
         let child = t.snapshot(&root.join("a"), 2).unwrap();

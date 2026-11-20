@@ -16,14 +16,14 @@ pub mod assets;
 pub(crate) mod dnd;
 pub(crate) mod icon_theme;
 pub(crate) mod perf;
+#[cfg(windows)]
+pub(crate) mod shell_file_operation;
 /// Windows shell context-menu integration (IContextMenu enumeration + invoke).
 #[cfg(target_os = "windows")]
 pub(crate) mod shell_menu;
 /// Windows Shell thumbnail cache access via IShellItemImageFactory.
 #[cfg(target_os = "windows")]
 pub(crate) mod shell_thumb;
-#[cfg(windows)]
-pub(crate) mod shell_file_operation;
 pub mod ui;
 pub(crate) mod ui_wake;
 
@@ -174,7 +174,6 @@ pub struct SidebarRenameTag {
 pub struct SidebarRemoveBookmark {
     pub index: usize,
 }
-
 
 /// Launch the gpui application. The caller owns the tokio runtime and passes its
 /// handle in; gpui drives the UI on the calling (main) thread.
@@ -329,17 +328,23 @@ pub fn run(
             let weak_app = view.downgrade();
             let closing_app = view.downgrade();
             window.on_window_should_close(cx, move |_, cx| {
-                closing_app.update(cx, |app, cx| {
-                    let allowed = app.close_native_vault(false);
-                    cx.notify();
-                    allowed
-                }).unwrap_or(true)
+                closing_app
+                    .update(cx, |app, cx| {
+                        let allowed = app.close_native_vault(false);
+                        cx.notify();
+                        allowed
+                    })
+                    .unwrap_or(true)
             });
             cx.on_app_quit(move |cx| {
                 #[cfg(feature = "conversion-lab")]
-                if std::env::var_os("ATLAS_CONVERSION_LAB").is_some() { return std::future::ready(()); }
+                if std::env::var_os("ATLAS_CONVERSION_LAB").is_some() {
+                    return std::future::ready(());
+                }
                 #[cfg(feature = "ui-lab")]
-                if std::env::var_os("ATLAS_PREVIEW_LAB").is_some() { return std::future::ready(()); }
+                if std::env::var_os("ATLAS_PREVIEW_LAB").is_some() {
+                    return std::future::ready(());
+                }
                 weak_app.update(cx, |app, _cx| app.save_on_quit()).ok();
                 std::future::ready(())
             })
@@ -374,4 +379,3 @@ pub fn run(
 pub fn run_vault_diagnostic(directory: std::path::PathBuf) -> anyhow::Result<()> {
     app::vault::diagnostic::run(directory)
 }
-

@@ -26,8 +26,10 @@ impl RcClient {
                     "Object addresses require a Google Drive account"
                 );
                 if object.is_dir {
-                    anyhow::ensure!(parts.len() <= index + 2,
-                        "Refresh the destination folder to obtain its immutable object ID");
+                    anyhow::ensure!(
+                        parts.len() <= index + 2,
+                        "Refresh the destination folder to obtain its immutable object ID"
+                    );
                     return Ok((
                         format!("{id},root_folder_id={}:", object.id),
                         parts[index + 1..].join("/"),
@@ -36,8 +38,10 @@ impl RcClient {
                 anyhow::bail!("A file object cannot be used as a remote directory or destination");
             }
         }
-        anyhow::ensure!(!path.contains('/') || !self.is_drive(id).await?,
-            "Refresh the destination folder to obtain its immutable object ID");
+        anyhow::ensure!(
+            !path.contains('/') || !self.is_drive(id).await?,
+            "Refresh the destination folder to obtain its immutable object ID"
+        );
         Ok((format!("{id}:"), path.to_string()))
     }
     pub(crate) async fn copy_id_async(
@@ -57,10 +61,12 @@ impl RcClient {
         }
         let result = self.call("backend/command", body).await?;
         Ok(AsyncJob {
-            jobid: result
-                .get("jobid")
-                .and_then(Value::as_i64)
-                .ok_or_else(|| anyhow::Error::new(crate::cloud::control::OutcomeUnknown("copyid accepted without a job ID; verify the destination before retrying".into())))?,
+            jobid: result.get("jobid").and_then(Value::as_i64).ok_or_else(|| {
+                anyhow::Error::new(crate::cloud::control::OutcomeUnknown(
+                    "copyid accepted without a job ID; verify the destination before retrying"
+                        .into(),
+                ))
+            })?,
             group: group.into(),
         })
     }
