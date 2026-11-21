@@ -22,6 +22,7 @@ dotenvy = "0.15"
 toml = "0.8"
 sha2 = "0.10"
 hex = "0.4"
+ring = "0.17"
 
 [lints]
 workspace = true

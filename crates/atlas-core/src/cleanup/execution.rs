@@ -89,7 +89,13 @@ pub fn execute(
     if !policy::is_cleanup_root(&plan.temp_root) {
         return Err(io::Error::other("cleanup_scope_changed"));
     }
-    execute_in(plan, cancel, &mut progress, &history_dir()?, &plan.temp_root)
+    execute_in(
+        plan,
+        cancel,
+        &mut progress,
+        &history_dir()?,
+        &plan.temp_root,
+    )
 }
 
 // The trusted root is supplied exclusively by the production Known Folder
@@ -174,11 +180,12 @@ fn execute_using(
                 error: Some(e.to_string()),
             },
         };
-        report.results.push(result);
-        if let Err(error) = record(&mut journal, report.results.last().unwrap()) {
+        if let Err(error) = record(&mut journal, &result) {
+            report.results.push(result);
             report.error = Some(error.to_string());
             break;
         }
+        report.results.push(result);
         progress(report.results.len(), plan.candidates.len());
     }
     report.free_after = free(&plan.volume_root);
@@ -226,7 +233,7 @@ fn old_enough(filetime: u64) -> bool {
     seconds.checked_sub(11_644_473_600).is_some_and(|time| {
         now()
             .checked_sub(time)
-            .is_some_and(|age| Duration::from_secs(age) >= Duration::from_secs(7 * 24 * 3600))
+            .is_some_and(|age| Duration::from_secs(age) >= Duration::from_hours(168))
     })
 }
 fn delete(candidate: &CleanupCandidate) -> io::Result<u64> {
@@ -414,7 +421,7 @@ mod tests {
             .write(true)
             .open(&file)
             .unwrap()
-            .set_modified(SystemTime::now() - Duration::from_secs(8 * 24 * 3600))
+            .set_modified(SystemTime::now() - Duration::from_hours(192))
             .unwrap();
         let candidate = atlas_win_space::cleanup::inspect(&file).unwrap();
         let temp_root = fixture.path().to_owned();

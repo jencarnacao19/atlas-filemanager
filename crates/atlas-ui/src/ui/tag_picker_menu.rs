@@ -106,7 +106,7 @@ impl App {
             let t = cx.theme();
             (t.popover_foreground, t.muted_foreground, t.border, t.accent)
         };
-        
+
         let query = self
             .tag_picker_input
             .as_ref()
@@ -122,6 +122,8 @@ impl App {
         let selected = if items.is_empty() {
             0
         } else {
+            // reason: `self.tag_picker_menu` is checked at the top of this function.
+            #[allow(clippy::unwrap_used)]
             let state = self.tag_picker_menu.as_mut().unwrap();
             if state.selected >= items.len() {
                 state.selected = items.len() - 1;
@@ -135,7 +137,9 @@ impl App {
             .is_some_and(|state| state.scroll_to_selected)
         {
             self.tag_picker_scroll.scroll_to_item(selected);
-            self.tag_picker_menu.as_mut().unwrap().scroll_to_selected = false;
+            if let Some(menu) = self.tag_picker_menu.as_mut() {
+                menu.scroll_to_selected = false;
+            }
         }
 
         // Panel geometry.
@@ -168,28 +172,28 @@ impl App {
             let v = view.clone();
             rows.push(
                 tag_picker_row(index, &item, fg, muted, accent, is_selected, row_h)
-                .on_mouse_move({
-                    let v = view.clone();
-                    move |_, _, cx| {
+                    .on_mouse_move({
+                        let v = view.clone();
+                        move |_, _, cx| {
+                            v.update(cx, |this, cx| {
+                                if let Some(state) = this.tag_picker_menu.as_mut() {
+                                    state.selected = index;
+                                    cx.notify();
+                                }
+                            });
+                        }
+                    })
+                    .on_mouse_down(MouseButton::Left, move |_, _, cx| {
+                        let item = item.clone();
                         v.update(cx, |this, cx| {
-                            if let Some(state) = this.tag_picker_menu.as_mut() {
-                                state.selected = index;
-                                cx.notify();
-                            }
+                            this.activate_tag_picker_item(item, cx);
                         });
-                    }
-                })
-                .on_mouse_down(MouseButton::Left, move |_, _, cx| {
-                    let item = item.clone();
-                    v.update(cx, |this, cx| {
-                        this.activate_tag_picker_item(item, cx);
-                    });
-                })
-                .into_any_element(),
+                    })
+                    .into_any_element(),
             );
         }
 
-        let close_view = view.clone();
+        let close_view = view;
 
         // Full-window backdrop (click-to-close).
         div()
@@ -247,19 +251,15 @@ impl App {
                                     .track_scroll(&self.tag_picker_scroll)
                                     .when(rows.is_empty(), |list| {
                                         list.child(
-                                            div()
-                                                .px_2()
-                                                .py_2()
-                                                .text_sm()
-                                                .text_color(muted)
-                                                .child(rust_i18n::t!("tag_picker_empty").to_string()),
+                                            div().px_2().py_2().text_sm().text_color(muted).child(
+                                                rust_i18n::t!("tag_picker_empty").to_string(),
+                                            ),
                                         )
                                     })
                                     .children(rows),
                             )
                             .vertical_scrollbar(&self.tag_picker_scroll),
-                    )
-                    ,
+                    ),
             )
             .capture_key_down(cx.listener(|this, ev: &KeyDownEvent, _window, cx| {
                 if this.handle_tag_picker_key(ev, cx) {
@@ -367,12 +367,16 @@ fn tag_picker_items(
                 name: definition.name.clone(),
                 color: definition.color,
                 assigned: !paths.is_empty()
-                    && paths.iter().all(|path| cache.tags_of(path).contains(&definition.id)),
+                    && paths
+                        .iter()
+                        .all(|path| cache.tags_of(path).contains(&definition.id)),
             });
         }
     }
     if !query.is_empty() && !exact_match {
-        items.push(TagPickerItem::Create { name: query.to_string() });
+        items.push(TagPickerItem::Create {
+            name: query.to_string(),
+        });
     }
     items
 }
@@ -446,9 +450,13 @@ fn tag_picker_row(
 }
 
 fn rgb8_to_hsla([r, g, b]: [u8; 3]) -> gpui::Hsla {
-    let (r, g, b) = (f32::from(r) / 255., f32::from(g) / 255., f32::from(b) / 255.);
+    let (r, g, b) = (
+        f32::from(r) / 255.,
+        f32::from(g) / 255.,
+        f32::from(b) / 255.,
+    );
     let (max, min) = (r.max(g).max(b), r.min(g).min(b));
-    let l = (max + min) / 2.;
+    let l = f32::midpoint(max, min);
     let d = max - min;
     if d == 0. {
         return gpui::hsla(0., 0., l, 1.);
@@ -484,10 +492,19 @@ mod tests {
         cache.assign_local(tag, &paths[..1]);
 
         let items = tag_picker_items(&cache, "Main", &paths, "");
-        assert!(matches!(items.as_slice(), [TagPickerItem::Existing { assigned: false, .. }]));
+        assert!(matches!(
+            items.as_slice(),
+            [TagPickerItem::Existing {
+                assigned: false,
+                ..
+            }]
+        ));
         cache.assign_local(tag, &paths);
         let items = tag_picker_items(&cache, "Main", &paths, "");
-        assert!(matches!(items.as_slice(), [TagPickerItem::Existing { assigned: true, .. }]));
+        assert!(matches!(
+            items.as_slice(),
+            [TagPickerItem::Existing { assigned: true, .. }]
+        ));
     }
 
     #[test]
@@ -503,6 +520,12 @@ mod tests {
         assert!(matches!(items.last(), Some(TagPickerItem::Create { name }) if name == "Art"));
         let items = tag_picker_items(&cache, "Main", &[], "artWORKS");
         assert_eq!(items.len(), 1);
-        assert!(matches!(items[0], TagPickerItem::Existing { assigned: false, .. }));
+        assert!(matches!(
+            items[0],
+            TagPickerItem::Existing {
+                assigned: false,
+                ..
+            }
+        ));
     }
 }

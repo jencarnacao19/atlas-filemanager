@@ -3,9 +3,13 @@
 //!
 //! Moved here from the legacy `src/{fs,cloud,ext,search,util}` trees (Phase J); the
 //! binary re-exports each as `crate::{fs,cloud,ext,search,util}` via shims.
+// reason: the sync `std::fs` ban in clippy.toml protects the GPUI foreground
+// thread in atlas-ui. This crate's file I/O runs on worker threads
+// (`spawn_blocking`, sidecars, background jobs), so blocking calls are expected.
+#![allow(clippy::disallowed_methods)]
 
-pub mod convert;
 pub mod cleanup;
+pub mod convert;
 pub mod ext;
 pub mod fs;
 pub mod license;

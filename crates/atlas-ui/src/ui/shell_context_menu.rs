@@ -5,6 +5,9 @@
 //! The Atlas section is cross-platform; native items only appear on Windows.
 //! Atlas rows dispatch the same boxed gpui actions the old `PopupMenu` used, so
 //! all existing wiring is reused. Native rows are invoked through the worker.
+// reason: the native shell rows, their invocation point and submenu filling only
+// exist on Windows; other platforms compile the Atlas section alone.
+#![cfg_attr(not(windows), allow(dead_code, unused_imports))]
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -44,11 +47,22 @@ pub(crate) struct UiNativeItem {
 const OPEN_WITH_GROUP: u32 = u32::MAX;
 
 fn native_open_with(item: &UiNativeItem) -> bool {
-    if item.verb.as_deref().is_some_and(|verb| verb.eq_ignore_ascii_case("openwith")) {
+    if item
+        .verb
+        .as_deref()
+        .is_some_and(|verb| verb.eq_ignore_ascii_case("openwith"))
+    {
         return true;
     }
-    let label = item.title.replace('&', "").trim().trim_end_matches(['.', '…']).to_lowercase();
-    ["open with", "abrir con"].iter().any(|prefix| label == *prefix || label.starts_with(&format!("{prefix} ")))
+    let label = item
+        .title
+        .replace('&', "")
+        .trim()
+        .trim_end_matches(['.', '…'])
+        .to_lowercase();
+    ["open with", "abrir con"]
+        .iter()
+        .any(|prefix| label == *prefix || label.starts_with(&format!("{prefix} ")))
 }
 
 #[derive(Clone)]
@@ -195,6 +209,8 @@ impl AtlasCmd {
             Self::Properties => rust_i18n::t!("root_properties").to_string(),
         }
     }
+    // reason: callers treat this like the other optional row icons.
+    #[allow(clippy::unnecessary_wraps)]
     fn icon(self) -> Option<AtlasIcon> {
         match self {
             Self::DiskCleanup => Some(AtlasIcon::HardDrive),
@@ -314,10 +330,7 @@ impl CtxRow {
     fn selectable(&self) -> bool {
         matches!(
             self,
-            CtxRow::Atlas { .. }
-                | CtxRow::Ext { .. }
-                | CtxRow::Native { .. }
-                | CtxRow::DesktopApp { .. }
+            Self::Atlas { .. } | Self::Ext { .. } | Self::Native { .. } | Self::DesktopApp { .. }
         )
     }
 }
@@ -353,8 +366,7 @@ impl App {
         let same_parent = paths
             .first()
             .and_then(|p| p.parent())
-            .map(|p0| paths.iter().all(|p| p.parent() == Some(p0)))
-            .unwrap_or(false);
+            .is_some_and(|p0| paths.iter().all(|p| p.parent() == Some(p0)));
 
         let is_recycle_bin = self
             .state
@@ -365,7 +377,10 @@ impl App {
         let loading = {
             // Skip the native shell Build for RecycleBin items: the $R paths are not
             // valid shell namespace objects and the native menu would duplicate Restore.
-            if same_parent && !is_recycle_bin && !paths.iter().any(|p| atlas_core::vault::is_private_path(p)) {
+            if same_parent
+                && !is_recycle_bin
+                && !paths.iter().any(|p| atlas_core::vault::is_private_path(p))
+            {
                 if let Some(handle) = &self.shell_menu {
                     handle.send(crate::shell_menu::ShellMenuRequest::Build {
                         id: menu_id,
@@ -386,7 +401,11 @@ impl App {
         };
 
         #[cfg(windows)]
-        let cache_key = if loading { native_cache_key(&paths, false) } else { None };
+        let cache_key = if loading {
+            native_cache_key(&paths, false)
+        } else {
+            None
+        };
         #[cfg(not(windows))]
         let cache_key: Option<String> = None;
         #[cfg(windows)]
@@ -414,7 +433,10 @@ impl App {
         } else {
             self.ext_registry.context_commands_for(&selection)
         };
-        let desktop_apps = if paths.is_empty() || is_recycle_bin || paths.iter().any(|p| atlas_core::vault::is_private_path(p)) {
+        let desktop_apps = if paths.is_empty()
+            || is_recycle_bin
+            || paths.iter().any(|p| atlas_core::vault::is_private_path(p))
+        {
             Vec::new()
         } else {
             paths
@@ -511,15 +533,17 @@ impl App {
                                     && i.title == title
                             });
                             match hit {
-                                Some(item) => handle.send(
-                                    crate::shell_menu::ShellMenuRequest::Invoke {
+                                Some(item) => {
+                                    handle.send(crate::shell_menu::ShellMenuRequest::Invoke {
                                         id,
                                         item_id: item.id,
                                         screen_pt,
-                                    },
-                                ),
-                                None => handle
-                                    .send(crate::shell_menu::ShellMenuRequest::Dismiss { id }),
+                                    });
+                                }
+                                None => {
+                                    handle
+                                        .send(crate::shell_menu::ShellMenuRequest::Dismiss { id });
+                                }
                             }
                         }
                         continue;
@@ -551,22 +575,32 @@ impl App {
                             m.expanded.clear();
                         }
                         m.native = ui;
-                        if open_with_expanded { m.expanded.insert(OPEN_WITH_GROUP); }
+                        if open_with_expanded {
+                            m.expanded.insert(OPEN_WITH_GROUP);
+                        }
                         m.loading = false;
                         m.stale = false;
                         if open_with_expanded {
-                            for item in m.native.iter().filter(|item| native_open_with(item) && submenu_children_missing(std::slice::from_ref(item), item.id)) {
-                                handle.send(crate::shell_menu::ShellMenuRequest::ExpandSubmenu { id: m.menu_id, item_id: item.id });
+                            for item in m.native.iter().filter(|item| {
+                                native_open_with(item)
+                                    && submenu_children_missing(std::slice::from_ref(item), item.id)
+                            }) {
+                                handle.send(crate::shell_menu::ShellMenuRequest::ExpandSubmenu {
+                                    id: m.menu_id,
+                                    item_id: item.id,
+                                });
                             }
                         }
                         for title in reopen {
                             if let Some(sub) = submenu_id_by_title(&m.native, &title) {
                                 m.expanded.insert(sub);
                                 if submenu_children_missing(&m.native, sub) {
-                                    handle.send(crate::shell_menu::ShellMenuRequest::ExpandSubmenu {
-                                        id: m.menu_id,
-                                        item_id: sub,
-                                    });
+                                    handle.send(
+                                        crate::shell_menu::ShellMenuRequest::ExpandSubmenu {
+                                            id: m.menu_id,
+                                            item_id: sub,
+                                        },
+                                    );
                                 }
                             }
                         }
@@ -580,10 +614,10 @@ impl App {
                         .cloned()
                         .collect();
                     let sel_key = format!("sel|{key}");
-                    if !self.ctx_native.items.contains_key(&sel_key) {
-                        let ui = native_items_to_ui(selection, cx);
-                        self.ctx_native.items.insert(sel_key, ui);
-                    }
+                    self.ctx_native
+                        .items
+                        .entry(sel_key)
+                        .or_insert_with(|| native_items_to_ui(selection, cx));
                     // A folder build doubles as the background (empty-space) menu.
                     if key == "dir" && !self.ctx_native.items.contains_key("bg") {
                         let ui = native_items_to_ui(items, cx);
@@ -640,7 +674,8 @@ impl App {
             ATLAS_ITEMS_RECYCLE
         } else {
             ATLAS_ITEMS
-        }.to_vec();
+        }
+        .to_vec();
         let drive_root = cfg!(windows)
             && !state.background
             && state.paths.len() == 1
@@ -653,10 +688,19 @@ impl App {
             ];
         }
         if !state.background && !is_recycle_bin && !drive_root {
-            if state.paths.iter().any(|p| atlas_core::vault::is_private_path(p)) {
+            if state
+                .paths
+                .iter()
+                .any(|p| atlas_core::vault::is_private_path(p))
+            {
                 atlas_items = vec![(AtlasCmd::UnlockFolder, false)];
-            } else if state.paths.len() == 1 && state.paths[0].is_dir()
-                && self.state.active_tab_data().is_some_and(|t| !t.location.is_archive()) {
+            } else if state.paths.len() == 1
+                && state.paths[0].is_dir()
+                && self
+                    .state
+                    .active_tab_data()
+                    .is_some_and(|t| !t.location.is_archive())
+            {
                 atlas_items.insert(2, (AtlasCmd::ProtectFolder, false));
             }
         }
@@ -667,19 +711,41 @@ impl App {
             let mut rows = Vec::new();
             for (cmd, sep_after) in &atlas_items {
                 rows.push(CtxRow::Atlas { cmd: *cmd });
-                if *cmd == AtlasCmd::Open && (!state.desktop_apps.is_empty() || state.native.iter().any(native_open_with)) {
+                if *cmd == AtlasCmd::Open
+                    && (!state.desktop_apps.is_empty() || state.native.iter().any(native_open_with))
+                {
                     let expanded = state.expanded.contains(&OPEN_WITH_GROUP);
-                    rows.push(CtxRow::Native { id: OPEN_WITH_GROUP, title: rust_i18n::t!("open_with").to_string(), icon: None,
-                        depth: 0, submenu: true, expanded, disabled: false, is_default: false });
+                    rows.push(CtxRow::Native {
+                        id: OPEN_WITH_GROUP,
+                        title: rust_i18n::t!("open_with").to_string(),
+                        icon: None,
+                        depth: 0,
+                        submenu: true,
+                        expanded,
+                        disabled: false,
+                        is_default: false,
+                    });
                     if expanded {
                         for app in &state.desktop_apps {
-                            rows.push(CtxRow::DesktopApp { app: app.clone(), depth: 1 });
+                            rows.push(CtxRow::DesktopApp {
+                                app: app.clone(),
+                                depth: 1,
+                            });
                         }
                         for native in state.native.iter().filter(|item| native_open_with(item)) {
                             match &native.kind {
-                                UiItemKind::Submenu { children: Some(children) } => push_native_tree(children, 1, &state.expanded, &mut rows),
-                                UiItemKind::Submenu { children: None } => rows.push(CtxRow::Loading),
-                                _ => push_native_tree(std::slice::from_ref(native), 1, &state.expanded, &mut rows),
+                                UiItemKind::Submenu {
+                                    children: Some(children),
+                                } => push_native_tree(children, 1, &state.expanded, &mut rows),
+                                UiItemKind::Submenu { children: None } => {
+                                    rows.push(CtxRow::Loading);
+                                }
+                                _ => push_native_tree(
+                                    std::slice::from_ref(native),
+                                    1,
+                                    &state.expanded,
+                                    &mut rows,
+                                ),
                             }
                         }
                     }
@@ -701,7 +767,12 @@ impl App {
             if !state.native.is_empty() || state.loading {
                 rows.push(CtxRow::Separator);
             }
-            let native: Vec<_> = state.native.iter().filter(|item| state.background || !native_open_with(item)).cloned().collect();
+            let native: Vec<_> = state
+                .native
+                .iter()
+                .filter(|item| state.background || !native_open_with(item))
+                .cloned()
+                .collect();
             push_native_tree(&native, 0, &state.expanded, &mut rows);
             if state.loading {
                 rows.push(CtxRow::Loading);
@@ -714,12 +785,15 @@ impl App {
             let mut cands: Vec<CtxRow> = Vec::new();
 
             for (cmd, _) in &atlas_items {
-                cand_titles.push(cmd.label().to_string());
+                cand_titles.push(cmd.label().clone());
                 cands.push(CtxRow::Atlas { cmd: *cmd });
             }
             for app in &state.desktop_apps {
                 cand_titles.push(format!("{} {}", rust_i18n::t!("open_with"), app.name));
-                cands.push(CtxRow::DesktopApp { app: app.clone(), depth: 0 });
+                cands.push(CtxRow::DesktopApp {
+                    app: app.clone(),
+                    depth: 0,
+                });
             }
             for cmd in &state.ext_cmds {
                 cand_titles.push(cmd.command.title.clone());
@@ -737,7 +811,7 @@ impl App {
             order
                 .into_iter()
                 .map(|i| std::mem::replace(&mut cands[i], CtxRow::Separator))
-                .filter(|r| r.selectable())
+                .filter(CtxRow::selectable)
                 .collect()
         };
         sanitize_separators(rows)
@@ -788,9 +862,7 @@ impl App {
         if reveal_ms < reveal_duration as f32 {
             window.request_animation_frame();
         }
-        let (anchor, selected) = state
-            .map(|s| (s.anchor, s.selected))
-            .unwrap_or((Point::default(), 0));
+        let (anchor, selected) = state.map_or((Point::default(), 0), |s| (s.anchor, s.selected));
 
         // Clamp the panel into the window so it never spills off an edge.
         let win = window.bounds().size;
@@ -842,7 +914,7 @@ impl App {
                     item.label = rust_i18n::t!("palette_searching").to_string().into();
                 }
                 CtxRow::Atlas { cmd } => {
-                    item.label = cmd.label().to_string().into();
+                    item.label = cmd.label().clone().into();
                     item.icon = cmd.icon().map(MenuIcon::Theme);
                     let command_id = cmd.command_id();
                     item.shortcut_editable = crate::input::commands::command_remappable(command_id);
@@ -884,7 +956,12 @@ impl App {
                     item.emphasized = *is_default;
                 }
                 CtxRow::DesktopApp { app, depth } => {
-                    item.label = if *depth == 0 { format!("{} {}", rust_i18n::t!("open_with"), app.name) } else { app.name.clone() }.into();
+                    item.label = if *depth == 0 {
+                        format!("{} {}", rust_i18n::t!("open_with"), app.name)
+                    } else {
+                        app.name.clone()
+                    }
+                    .into();
                     item.depth = *depth;
                     item.icon = Some(MenuIcon::Theme(AtlasIcon::Eye));
                 }
@@ -1046,12 +1123,12 @@ impl App {
                 .inset_0()
                 .size_full()
                 .on_mouse_down(MouseButton::Left, move |_e, _w, cx| {
-                    v.update(cx, |this, cx| this.close_ctx_menu(cx));
+                    v.update(cx, Self::close_ctx_menu);
                 })
                 .on_mouse_down(MouseButton::Right, {
-                    let v = view.clone();
+                    let v = view;
                     move |_e, _w, cx| {
-                        v.update(cx, |this, cx| this.close_ctx_menu(cx));
+                        v.update(cx, Self::close_ctx_menu);
                     }
                 })
                 .child(
@@ -1196,8 +1273,20 @@ impl App {
     }
 
     fn ctx_expand_selected(&mut self, rows: &[CtxRow], selectable: &[usize], expand: bool) {
-        let local_group = self.ctx_menu.as_ref().and_then(|m| selectable.get(m.selected))
-            .and_then(|&index| rows.get(index)).is_some_and(|row| matches!(row, CtxRow::Native { id: OPEN_WITH_GROUP, .. }));
+        let local_group = self
+            .ctx_menu
+            .as_ref()
+            .and_then(|m| selectable.get(m.selected))
+            .and_then(|&index| rows.get(index))
+            .is_some_and(|row| {
+                matches!(
+                    row,
+                    CtxRow::Native {
+                        id: OPEN_WITH_GROUP,
+                        ..
+                    }
+                )
+            });
         if local_group {
             self.set_open_with_expanded(expand);
             return;
@@ -1239,7 +1328,7 @@ impl App {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let selected = self.ctx_menu.as_ref().map(|m| m.selected).unwrap_or(0);
+        let selected = self.ctx_menu.as_ref().map_or(0, |m| m.selected);
         let Some(&row_i) = selectable.get(selected) else {
             return;
         };
@@ -1256,7 +1345,7 @@ impl App {
                 self.run_ctx_ext(&ext_id, &cmd_id, cx);
             }
             CtxRow::Native { id, submenu, .. } => {
-                self.activate_ctx_native(*id, *submenu, window, cx)
+                self.activate_ctx_native(*id, *submenu, window, cx);
             }
             CtxRow::DesktopApp { app, .. } => {
                 let app = app.clone();
@@ -1288,14 +1377,37 @@ impl App {
     }
 
     #[cfg(feature = "ui-lab")]
-    pub(crate) fn diagnostic_cleanup_menu(&mut self, path: PathBuf, activate: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        self.open_ctx_menu(vec![path],gpui::point(gpui::px(400.),gpui::px(180.)),window,cx);
-        let available=self.ctx_menu_rows("","").iter().any(|row|matches!(row,CtxRow::Atlas {cmd:AtlasCmd::DiskCleanup}));
+    pub(crate) fn diagnostic_cleanup_menu(
+        &mut self,
+        path: PathBuf,
+        activate: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        self.open_ctx_menu(
+            vec![path],
+            gpui::point(gpui::px(400.), gpui::px(180.)),
+            window,
+            cx,
+        );
+        let available = self.ctx_menu_rows("", "").iter().any(|row| {
+            matches!(
+                row,
+                CtxRow::Atlas {
+                    cmd: AtlasCmd::DiskCleanup
+                }
+            )
+        });
         if available && activate {
-            let paths=self.ctx_menu.as_ref().map(|m|m.paths.clone());
-            self.run_ctx_atlas(AtlasCmd::DiskCleanup,window,cx);
-            assert!(self.cleanup_panel.is_some(),"Cleanup menu command did not open the panel: {paths:?}");
-        }else{self.close_ctx_menu(cx);}
+            let paths = self.ctx_menu.as_ref().map(|m| m.paths.clone());
+            self.run_ctx_atlas(AtlasCmd::DiskCleanup, window, cx);
+            assert!(
+                self.cleanup_panel.is_some(),
+                "Cleanup menu command did not open the panel: {paths:?}"
+            );
+        } else {
+            self.close_ctx_menu(cx);
+        }
         available
     }
 
@@ -1327,17 +1439,20 @@ impl App {
                 }
             }
             AtlasCmd::UnlockFolder => {
-                if let Some(path) = menu_paths.first() { self.try_open_vault(path); }
+                if let Some(path) = menu_paths.first() {
+                    self.try_open_vault(path);
+                }
             }
             AtlasCmd::Convert => {
-                if !is_archive {
+                if is_archive {
+                    self.toast_error(rust_i18n::t!("convert_local_only").into_owned());
+                } else {
                     self.open_converter_for(menu_paths);
                     // Open at the right-click point, beside the files, not where the menu item was.
                     if let Some(anchor) = menu_anchor {
                         self.anchor_converter(anchor);
                     }
                 }
-                else { self.toast_error(rust_i18n::t!("convert_local_only").into_owned()); }
             }
             AtlasCmd::Open => match menu_paths.as_slice() {
                 [path] if cfg!(windows) && atlas_core::cleanup::is_drive_root(path) => {
@@ -1378,7 +1493,7 @@ impl App {
                 if let Some(dest) = self
                     .state
                     .active_tab_data()
-                    .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+                    .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
                 {
                     self.process_actions(vec![Action::Paste { dest }]);
                 }
@@ -1435,7 +1550,7 @@ impl App {
                 if let Some(dir) = self
                     .state
                     .active_tab_data()
-                    .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+                    .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
                 {
                     self.process_actions(vec![Action::OpenTerminal { dir }]);
                 }
@@ -1492,7 +1607,11 @@ impl App {
         };
 
         #[cfg(windows)]
-        let cache_key = if loading { native_cache_key(&[], true) } else { None };
+        let cache_key = if loading {
+            native_cache_key(&[], true)
+        } else {
+            None
+        };
         #[cfg(not(windows))]
         let cache_key: Option<String> = None;
         #[cfg(windows)]
@@ -1548,7 +1667,10 @@ impl App {
         cx: &mut Context<Self>,
     ) {
         if id == OPEN_WITH_GROUP {
-            let expanded = self.ctx_menu.as_ref().is_some_and(|menu| menu.expanded.contains(&OPEN_WITH_GROUP));
+            let expanded = self
+                .ctx_menu
+                .as_ref()
+                .is_some_and(|menu| menu.expanded.contains(&OPEN_WITH_GROUP));
             self.set_open_with_expanded(!expanded);
             cx.notify();
             return;
@@ -1557,8 +1679,7 @@ impl App {
             let expand = self
                 .ctx_menu
                 .as_ref()
-                .map(|m| !m.expanded.contains(&id))
-                .unwrap_or(false);
+                .is_some_and(|m| !m.expanded.contains(&id));
             if let Some(m) = self.ctx_menu.as_mut() {
                 if expand {
                     m.expanded.insert(id);
@@ -1568,11 +1689,12 @@ impl App {
             }
             #[cfg(windows)]
             if expand {
-                let (need, menu_id) = self
-                    .ctx_menu
-                    .as_ref()
-                    .map(|m| (!m.stale && submenu_children_missing(&m.native, id), m.menu_id))
-                    .unwrap_or((false, 0));
+                let (need, menu_id) = self.ctx_menu.as_ref().map_or((false, 0), |m| {
+                    (
+                        !m.stale && submenu_children_missing(&m.native, id),
+                        m.menu_id,
+                    )
+                });
                 if need {
                     if let Some(handle) = &self.shell_menu {
                         handle.send(crate::shell_menu::ShellMenuRequest::ExpandSubmenu {
@@ -1618,15 +1740,26 @@ impl App {
     }
 
     fn set_open_with_expanded(&mut self, expanded: bool) {
-        let Some(menu) = &mut self.ctx_menu else { return; };
-        if expanded { menu.expanded.insert(OPEN_WITH_GROUP); }
-        else { menu.expanded.remove(&OPEN_WITH_GROUP); }
+        let Some(menu) = &mut self.ctx_menu else {
+            return;
+        };
+        if expanded {
+            menu.expanded.insert(OPEN_WITH_GROUP);
+        } else {
+            menu.expanded.remove(&OPEN_WITH_GROUP);
+        }
         menu.scroll_to_selected = true;
         #[cfg(windows)]
         if expanded && !menu.stale {
             if let Some(handle) = &self.shell_menu {
-                for item in menu.native.iter().filter(|item| native_open_with(item) && submenu_children_missing(std::slice::from_ref(item), item.id)) {
-                    handle.send(crate::shell_menu::ShellMenuRequest::ExpandSubmenu { id: menu.menu_id, item_id: item.id });
+                for item in menu.native.iter().filter(|item| {
+                    native_open_with(item)
+                        && submenu_children_missing(std::slice::from_ref(item), item.id)
+                }) {
+                    handle.send(crate::shell_menu::ShellMenuRequest::ExpandSubmenu {
+                        id: menu.menu_id,
+                        item_id: item.id,
+                    });
                 }
             }
         }
@@ -1694,7 +1827,7 @@ pub(crate) fn show_properties(path: &std::path::Path) {
             ..Default::default()
         };
         unsafe {
-            let _ = ShellExecuteExW(&mut info);
+            let _ = ShellExecuteExW(&raw mut info);
         }
     }
     #[cfg(not(windows))]
@@ -1727,7 +1860,7 @@ pub(crate) fn show_this_pc_properties() {
             ..Default::default()
         };
         unsafe {
-            let _ = ShellExecuteExW(&mut info);
+            let _ = ShellExecuteExW(&raw mut info);
         }
     }
 }
@@ -1757,7 +1890,7 @@ fn show_properties_multi(paths: &[PathBuf]) {
 /// `App` borrow held by `ctx_menu_rows`.
 fn rank_titles(query: &str, titles: &[String]) -> Vec<usize> {
     let mut scorer = atlas_core::search::fuzzy::FuzzyScorer::new();
-    scorer.rank(query, titles.iter().map(|s| s.as_str()))
+    scorer.rank(query, titles.iter().map(std::string::String::as_str))
 }
 
 /// Append the native tree (depth-aware, expansion-aware) as logical rows.
@@ -1903,7 +2036,7 @@ fn cursor_screen_pos() -> (i32, i32) {
     use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
     let mut pt = POINT { x: 0, y: 0 };
     unsafe {
-        let _ = GetCursorPos(&mut pt);
+        let _ = GetCursorPos(&raw mut pt);
     }
     (pt.x, pt.y)
 }

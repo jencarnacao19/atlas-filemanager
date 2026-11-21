@@ -123,9 +123,7 @@ fn route_info(source: &Path, option: &ConversionOption, tools: &Tools) -> RouteI
             matches!(dst, "jpg" | "webp" | "avif" | "heic" | "jxl")
         }
         Some(Backend::SystemAudio) => matches!(dst, "mp3" | "aac" | "m4a"),
-        Some(
-            Backend::SystemVideo | Backend::External(Tool::Ffmpeg) | Backend::External(Tool::Opus),
-        ) => true,
+        Some(Backend::SystemVideo | Backend::External(Tool::Ffmpeg | Tool::Opus)) => true,
         _ => false,
     };
     let edge = matches!(
@@ -234,7 +232,14 @@ impl Placement {
             } else {
                 pad + d * 0.5
             };
-            (width, height, height - 2.0 * pad, wheel_x, height * 0.5, info_left)
+            (
+                width,
+                height,
+                height - 2.0 * pad,
+                wheel_x,
+                height * 0.5,
+                info_left,
+            )
         };
         let clamp = |v: f32, size: f32, room: f32| v.min(room - size - m).max(m);
         Self {
@@ -293,19 +298,22 @@ impl App {
         let count = session.options().len();
         let key = event.keystroke.key.as_str();
         // Keyboard takes over from a stale pointer preview.
-        self.converter.as_mut().unwrap().hovered = None;
+        if let Some(session) = self.converter.as_mut() {
+            session.hovered = None;
+        }
         match key {
             "escape" => self.dismiss_converter(),
             "left" if event.keystroke.modifiers.alt => self.converter_back(),
             "right" if event.keystroke.modifiers.alt => self.converter_forward(),
             "enter" if choosing => self.start_conversion(),
             "i" if choosing && event.keystroke.modifiers.alt => {
-                self.activate_selected_conversion_engine()
+                self.activate_selected_conversion_engine();
             }
             _ if !choosing || count == 0 => {}
-            "left" | "right" | "up" | "down" | "pageup" | "pagedown" | "tab" | "home"
-            | "end" => {
+            "left" | "right" | "up" | "down" | "pageup" | "pagedown" | "tab" | "home" | "end" => {
                 let rings = geometry::rings(count);
+                // reason: `self.converter` is checked at the top of this handler.
+                #[allow(clippy::unwrap_used)]
                 let session = self.converter.as_mut().unwrap();
                 let current = session.selected.min(count - 1);
                 let outward = matches!(key, "up" | "pageup");
@@ -322,7 +330,11 @@ impl App {
                     "home" => 0,
                     "end" => count - 1,
                     _ => {
-                        let delta = if event.keystroke.modifiers.shift { -1 } else { 1 };
+                        let delta = if event.keystroke.modifiers.shift {
+                            -1
+                        } else {
+                            1
+                        };
                         (current as isize + delta).rem_euclid(count as isize) as usize
                     }
                 };
@@ -331,6 +343,8 @@ impl App {
             digit if matches!(digit.parse::<usize>(), Ok(1..=9)) => {
                 let rings = geometry::rings(count);
                 let n = digit.parse::<usize>().unwrap_or(1) - 1;
+                // reason: `self.converter` is checked at the top of this handler.
+                #[allow(clippy::unwrap_used)]
                 let session = self.converter.as_mut().unwrap();
                 if let Some(ring) = geometry::ring_of(&rings, session.selected.min(count - 1)) {
                     if n < ring.len {
@@ -364,9 +378,8 @@ impl App {
         if session.minimized {
             let done_text = match &session.phase {
                 Phase::Running { done, total, .. } => format!("{done} / {total}"),
-                Phase::Finished(report) => {
-                    text("convert_done_count").replace("%{count}", &report.outputs().len().to_string())
-                }
+                Phase::Finished(report) => text("convert_done_count")
+                    .replace("%{count}", &report.outputs().len().to_string()),
                 _ => text("convert_title"),
             };
             let fraction = match &session.phase {
@@ -383,10 +396,18 @@ impl App {
                     .px_3()
                     .py_2()
                     .rounded_xl()
-                    .bg(if is_glass { popover.opacity(0.70) } else { popover.opacity(0.92) })
+                    .bg(if is_glass {
+                        popover.opacity(0.70)
+                    } else {
+                        popover.opacity(0.92)
+                    })
                     .when(is_glass, |s| s.backdrop_blur(px(16.0)))
                     .border_1()
-                    .border_color(if is_glass { border.opacity(0.35) } else { border.opacity(0.55) })
+                    .border_color(if is_glass {
+                        border.opacity(0.35)
+                    } else {
+                        border.opacity(0.55)
+                    })
                     .shadow_xl()
                     .occlude()
                     .child(icon(AtlasIcon::ArrowClockwise, 15., accent))
@@ -433,14 +454,17 @@ impl App {
                             .cursor_pointer()
                             .text_color(muted)
                             .hover(move |s| s.bg(fg.opacity(0.10)).text_color(fg))
-                            .on_mouse_down(MouseButton::Left, cx.listener(|app, _, _, cx| {
-                                if app.converter.as_ref().is_some_and(|s| s.running()) {
-                                    app.cancel_conversion();
-                                }
-                                app.dismiss_converter();
-                                cx.stop_propagation();
-                                cx.notify();
-                            }))
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(|app, _, _, cx| {
+                                    if app.converter.as_ref().is_some_and(super::Session::running) {
+                                        app.cancel_conversion();
+                                    }
+                                    app.dismiss_converter();
+                                    cx.stop_propagation();
+                                    cx.notify();
+                                }),
+                            )
                             .child(icon(AtlasIcon::X, 11., muted)),
                     ),
             )
@@ -458,6 +482,8 @@ impl App {
         let win = window.bounds().size;
         let (ww, wh) = (f32::from(win.width), f32::from(win.height));
         let zoom = f32::from(window.rem_size()) / crate::ui::BASE_PX;
+        // reason: `self.converter` is checked at the top of `render_converter`.
+        #[allow(clippy::unwrap_used)]
         let anchor = *self
             .converter
             .as_mut()
@@ -497,6 +523,8 @@ impl App {
             border.opacity(0.55)
         };
 
+        // reason: `self.converter` is checked at the top of `render_converter`.
+        #[allow(clippy::unwrap_used)]
         let wheel_slot = match &self.converter.as_ref().unwrap().phase {
             Phase::Discovering => v_flex()
                 .size(px(d))
@@ -558,7 +586,13 @@ impl App {
                             .h(px(3.))
                             .rounded_full()
                             .bg(fg.opacity(0.12))
-                            .child(div().h_full().w(px(bar * fraction)).rounded_full().bg(accent)),
+                            .child(
+                                div()
+                                    .h_full()
+                                    .w(px(bar * fraction))
+                                    .rounded_full()
+                                    .bg(accent),
+                            ),
                     )
                     .child(
                         div()
@@ -664,7 +698,7 @@ impl App {
             .relative()
             .left(px(if place.stack { 0.0 } else { info_dx }))
             .top(px(if place.stack { info_dy } else { 0.0 }))
-            .when(place.stack, |s| s.w_full())
+            .when(place.stack, gpui::Styled::w_full)
             .when(!place.stack, |s| s.w(px(place.info_w)))
             .h(px(place.info_h))
             .justify_between()
@@ -687,8 +721,11 @@ impl App {
             .h(px(place.height))
             .flex()
             .items_center()
-            .when(place.stack, |s| s.flex_col())
-            .when(!place.stack && place.info_left, |s| s.flex_row_reverse())
+            .when(place.stack, gpui::Styled::flex_col)
+            .when(
+                !place.stack && place.info_left,
+                gpui::Styled::flex_row_reverse,
+            )
             .gap(px(place.gap))
             .p(px(place.pad))
             .text_color(fg)
@@ -701,12 +738,18 @@ impl App {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .when(!matches!(self.converter.as_ref().map(|s| &s.phase), Some(Phase::Choosing)), |s| {
-                        s.rounded_full()
-                            .bg(card_bg)
-                            .border_1()
-                            .border_color(card_border)
-                    })
+                    .when(
+                        !matches!(
+                            self.converter.as_ref().map(|s| &s.phase),
+                            Some(Phase::Choosing)
+                        ),
+                        |s| {
+                            s.rounded_full()
+                                .bg(card_bg)
+                                .border_1()
+                                .border_color(card_border)
+                        },
+                    )
                     .child(wheel_slot),
             )
             .child(info);
@@ -772,6 +815,8 @@ impl App {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let diameter = geometry::radius(&rings) * 2.0 * scale;
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_ref().unwrap();
         let options = session.options();
         if options.is_empty() {
@@ -824,10 +869,14 @@ impl App {
         };
         let opened = session.opened;
         let app = cx.entity().downgrade();
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_mut().unwrap();
         let view = session
             .wheel
-            .get_or_insert_with(|| cx.new(|_| wheel_view::WheelView::new(app, opened, props.clone())))
+            .get_or_insert_with(|| {
+                cx.new(|_| wheel_view::WheelView::new(app, opened, props.clone()))
+            })
             .clone();
         view.update(cx, |v, cx| {
             if v.props != props {
@@ -845,6 +894,8 @@ impl App {
         &mut self,
         cx: &mut Context<Self>,
     ) -> (AnyElement, Option<AnyElement>) {
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_ref().unwrap();
         let (fg, muted, accent, accent_fg, danger) = {
             let t = cx.theme();
@@ -930,16 +981,21 @@ impl App {
             }
             if session.running() {
                 column = column
-                    .child(button("convert-minimize", text("convert_minimize"), cx, |app| {
-                        if let Some(s) = &mut app.converter {
-                            s.minimized = true;
-                        }
-                    }))
+                    .child(button(
+                        "convert-minimize",
+                        text("convert_minimize"),
+                        cx,
+                        |app| {
+                            if let Some(s) = &mut app.converter {
+                                s.minimized = true;
+                            }
+                        },
+                    ))
                     .child(button(
                         "convert-cancel",
                         text("convert_cancel"),
                         cx,
-                        App::cancel_conversion,
+                        Self::cancel_conversion,
                     ));
             }
             return (column.into_any_element(), None);
@@ -1043,11 +1099,15 @@ impl App {
                     .child(text(note)),
             );
         }
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_ref().unwrap();
         if !enabled || session.package.is_some() || session.package_error.is_some() {
             column = column.child(self.render_conversion_detail(cx));
         }
 
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_ref().unwrap();
         let multi_ring = geometry::rings(session.options().len()).len() > 1;
         let footer = v_flex()
@@ -1098,6 +1158,8 @@ impl App {
     }
 
     fn render_conversion_detail(&mut self, cx: &mut Context<Self>) -> AnyElement {
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_ref().unwrap();
         let options = session.options();
         let Some(option) = options.get(session.selected) else {
@@ -1142,7 +1204,7 @@ impl App {
                             app.handle_ext_action(crate::app::ext::ExtAction::SetEnabled {
                                 id: id.clone(),
                                 enabled: true,
-                            })
+                            });
                         },
                     ));
                 } else if let Some(request) = session
@@ -1150,7 +1212,10 @@ impl App {
                     .get(tool)
                     .filter(|_| session.package.is_none())
                 {
-                    let size = format!("{:.1} MiB", request.tool.download_bytes as f64 / 1048576.0);
+                    let size = format!(
+                        "{:.1} MiB",
+                        request.tool.download_bytes as f64 / 1_048_576.0
+                    );
                     detail = detail.child(button(
                         "convert-install-package",
                         rust_i18n::t!("convert_install_package", engine = tool.name(), size = size)
@@ -1165,7 +1230,7 @@ impl App {
                                     "convert_package_disk",
                                     size = format!(
                                         "{:.1} MiB",
-                                        request.tool.installed_bytes as f64 / 1048576.0
+                                        request.tool.installed_bytes as f64 / 1_048_576.0
                                     )
                                 )
                                 .into_owned(),
@@ -1205,19 +1270,19 @@ impl App {
                 "convert-rescan",
                 text("convert_rescan"),
                 cx,
-                App::refresh_conversion_tools,
+                Self::refresh_conversion_tools,
             ));
         }
         if let Some(package) = &session.package {
             let label = match package.progress {
                 atlas_core::ext::tool_package::Progress::Download { bytes, total } => {
                     let amount = total.map_or_else(
-                        || format!("{:.1} MiB", bytes as f64 / 1048576.0),
+                        || format!("{:.1} MiB", bytes as f64 / 1_048_576.0),
                         |total| {
                             format!(
                                 "{:.1} / {:.1} MiB",
-                                bytes as f64 / 1048576.0,
-                                total as f64 / 1048576.0
+                                bytes as f64 / 1_048_576.0,
+                                total as f64 / 1_048_576.0
                             )
                         },
                     );
@@ -1250,7 +1315,7 @@ impl App {
                         },
                     ),
                     cx,
-                    App::cancel_conversion_package,
+                    Self::cancel_conversion_package,
                 ));
             }
         }
@@ -1273,6 +1338,8 @@ impl App {
         edge_applies: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        // reason: only called from `render_converter`, which returns early when `self.converter` is None.
+        #[allow(clippy::unwrap_used)]
         let session = self.converter.as_ref().unwrap();
         let quality = session.settings.quality;
         let edge = session.settings.max_edge;
@@ -1334,7 +1401,7 @@ impl App {
                         "convert-folder",
                         text("convert_folder"),
                         cx,
-                        App::choose_conversion_directory,
+                        Self::choose_conversion_directory,
                     ))
                     .when(custom_dir, |s| {
                         s.child(value_button(

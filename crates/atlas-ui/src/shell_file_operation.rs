@@ -1,3 +1,6 @@
+// reason: COM glue: these lints fire inside the windows-rs `#[implement]` expansion,
+// and `new` returns the COM interface rather than `Self` by design.
+#![allow(clippy::ref_as_ptr, clippy::inline_always, clippy::new_ret_no_self)]
 #![allow(unsafe_code, non_snake_case)]
 //! Native Windows operations. Run on blocking workers, never GPUI callbacks.
 //! Each call owns an STA and an item progress sink, so cancellation, per-item
@@ -9,63 +12,110 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
 };
-use windows::core::{implement, Ref, HRESULT, PCWSTR};
 use windows::core::Interface as _;
+use windows::core::{implement, Ref, HRESULT, PCWSTR};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL,
     COINIT_APARTMENTTHREADED,
 };
+// reason: the shell COM surface used here spans dozens of names.
+#[allow(clippy::wildcard_imports)]
 use windows::Win32::UI::Shell::*;
 
 /// Create a real Shell link without replacing a pre-existing destination.
+// reason: removes one temporary file after the shell operation completed.
+#[allow(clippy::disallowed_methods)]
 pub(crate) fn create_shortcut(source: PathBuf, destination: PathBuf) -> Result<PathBuf, OpError> {
     let error_path = source.clone();
     std::thread::spawn(move || {
         let run = || -> Result<PathBuf, OpError> {
-            unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok() }
-                .map_err(|error| OpError { path: source.clone(), kind: error_kind(&error) })?;
+            unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok() }.map_err(|error| {
+                OpError {
+                    path: source.clone(),
+                    kind: error_kind(&error),
+                }
+            })?;
             let _apartment = Apartment;
-            let name = source.file_name().map(std::ffi::OsStr::to_os_string).unwrap_or_else(|| {
-                // A copied drive root has no file_name; a literal `C:\` is not
-                // a valid Windows filename for its link.
-                let label: String = source.to_string_lossy().chars().filter(|ch| ch.is_alphanumeric()).collect();
-                if label.is_empty() { "Drive".into() } else { label.into() }
-            });
+            let name = source.file_name().map_or_else(
+                || {
+                    // A copied drive root has no file_name; a literal `C:\` is not
+                    // a valid Windows filename for its link.
+                    let label: String = source
+                        .to_string_lossy()
+                        .chars()
+                        .filter(|ch| ch.is_alphanumeric())
+                        .collect();
+                    if label.is_empty() {
+                        "Drive".into()
+                    } else {
+                        label.into()
+                    }
+                },
+                std::ffi::OsStr::to_os_string,
+            );
             let suffix = rust_i18n::t!("shortcut_filename_suffix");
             let mut counter = 1u32;
             let target = loop {
                 let mut link_name = name.clone();
                 link_name.push(format!(" - {suffix}"));
-                if counter > 1 { link_name.push(format!(" ({counter})")); }
+                if counter > 1 {
+                    link_name.push(format!(" ({counter})"));
+                }
                 link_name.push(".lnk");
                 let path = destination.join(link_name);
-                match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
-                    Ok(file) => { drop(file); break path; }
+                match std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(&path)
+                {
+                    Ok(file) => {
+                        drop(file);
+                        break path;
+                    }
                     Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
                         counter = counter.checked_add(1).ok_or_else(|| OpError {
-                            path: path.clone(), kind: OpErrorKind::Msg("Too many shortcuts".into()) })?;
-                    },
-                    Err(error) => return Err(OpError { path, kind: OpErrorKind::Msg(error.to_string()) }),
+                            path: path.clone(),
+                            kind: OpErrorKind::Msg("Too many shortcuts".into()),
+                        })?;
+                    }
+                    Err(error) => {
+                        return Err(OpError {
+                            path,
+                            kind: OpErrorKind::Msg(error.to_string()),
+                        })
+                    }
                 }
             };
             let save = || -> windows::core::Result<()> {
                 unsafe {
                     let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_ALL)?;
                     link.SetPath(PCWSTR(wide(source.as_os_str()).as_ptr()))?;
-                    if let Some(parent) = source.parent() { link.SetWorkingDirectory(PCWSTR(wide(parent.as_os_str()).as_ptr()))?; }
+                    if let Some(parent) = source.parent() {
+                        link.SetWorkingDirectory(PCWSTR(wide(parent.as_os_str()).as_ptr()))?;
+                    }
                     let persistence: windows::Win32::System::Com::IPersistFile = link.cast()?;
                     persistence.Save(PCWSTR(wide(target.as_os_str()).as_ptr()), true)
                 }
             };
             if let Err(error) = save() {
                 let _ = std::fs::remove_file(&target);
-                return Err(OpError { path: target, kind: error_kind(&error) });
+                return Err(OpError {
+                    path: target,
+                    kind: error_kind(&error),
+                });
             }
             Ok(target)
         };
         run()
-    }).join().unwrap_or_else(|_| Err(OpError { path: error_path, kind: OpErrorKind::Msg("Windows shortcut worker failed".into()) }))
+    })
+    .join()
+    .unwrap_or_else(|_| {
+        Err(OpError {
+            path: error_path,
+            kind: OpErrorKind::Msg("Windows shortcut worker failed".into()),
+        })
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -283,7 +333,7 @@ impl IFileOperationProgressSink_Impl for Progress_Impl {
 
 fn error_kind(error: &windows::core::Error) -> OpErrorKind {
     match error.code().0 as u32 {
-        0x800704C7 | 0x80270000 | 0x80270001 | 0x80004004 => OpErrorKind::Cancelled,
+        0x8007_04C7 | 0x8027_0000 | 0x8027_0001 | 0x8000_4004 => OpErrorKind::Cancelled,
         code if code >> 16 == 0x8007 => atlas_core::fs::transfer::io_error_kind(
             &std::io::Error::from_raw_os_error((code & 0xffff) as i32),
         ),
@@ -342,10 +392,15 @@ fn execute_sta(
         let operation_api: IFileOperation =
             unsafe { CoCreateInstance(&FileOperation, None, CLSCTX_ALL)? };
         let mut flags = FOF_NOCONFIRMMKDIR | FOFX_EARLYFAILURE;
-        let private = atlas_core::vault::live::is_private(operation.source()) || match &operation {
-            Operation::Copy { destination, .. } | Operation::Move { destination, .. } | Operation::Rename { destination, .. } => atlas_core::vault::live::is_private(destination),
-            Operation::Delete { .. } => false,
-        };
+        let private = atlas_core::vault::live::is_private(operation.source())
+            || match &operation {
+                Operation::Copy { destination, .. }
+                | Operation::Move { destination, .. }
+                | Operation::Rename { destination, .. } => {
+                    atlas_core::vault::live::is_private(destination)
+                }
+                Operation::Delete { .. } => false,
+            };
         if !private && !matches!(operation, Operation::Delete { recycle: false, .. }) {
             flags |= FOF_ALLOWUNDO | FOFX_ADDUNDORECORD;
         }
@@ -686,7 +741,11 @@ mod tests {
         let bytes = std::fs::read(&first).unwrap();
         let second = create_shortcut(source.clone(), fixture.0.clone()).unwrap();
         assert_ne!(first, second);
-        assert!(second.file_name().unwrap().to_string_lossy().ends_with(" (2).lnk"));
+        assert!(second
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .ends_with(" (2).lnk"));
         assert_eq!(std::fs::read(&first).unwrap(), bytes);
         unsafe {
             CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok().unwrap();
@@ -694,9 +753,15 @@ mod tests {
             for path in [first, second] {
                 let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_ALL).unwrap();
                 let persistence: windows::Win32::System::Com::IPersistFile = link.cast().unwrap();
-                persistence.Load(PCWSTR(wide(path.as_os_str()).as_ptr()), windows::Win32::System::Com::STGM_READ).unwrap();
+                persistence
+                    .Load(
+                        PCWSTR(wide(path.as_os_str()).as_ptr()),
+                        windows::Win32::System::Com::STGM_READ,
+                    )
+                    .unwrap();
                 let mut buffer = [0u16; 32768];
-                link.GetPath(&mut buffer, std::ptr::null_mut(), SLGP_RAWPATH.0 as u32).unwrap();
+                link.GetPath(&mut buffer, std::ptr::null_mut(), SLGP_RAWPATH.0 as u32)
+                    .unwrap();
                 let length = buffer.iter().position(|&unit| unit == 0).unwrap();
                 let resolved = PathBuf::from(std::ffi::OsString::from_wide(&buffer[..length]));
                 assert_eq!(resolved, source);

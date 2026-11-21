@@ -180,6 +180,8 @@ mod tests {
     }
 
     #[test]
+    // reason: three probe points, not a tuple conversion.
+    #[allow(clippy::tuple_array_conversions)]
     fn moving_beyond_either_edge_keeps_accelerating_on_both_axes() {
         let bounds = Bounds::from_corners(point(px(10.0), px(20.0)), point(px(210.0), px(220.0)));
         for (edge, near, far) in [

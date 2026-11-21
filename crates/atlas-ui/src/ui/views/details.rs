@@ -1,13 +1,11 @@
 //! Details view (table): `render_pane` (dispatch + Details body) + row/header cells.
 #![allow(clippy::too_many_lines)] // reason: cohesive view renderer kept whole
 
-use crate::app::{App, ColResizeState, DetailsColumn, RubberTarget};
-use crate::input::action::Action;
+use crate::app::{App, DetailsColumn, RubberTarget};
 use crate::ui::drag::FileDragSource as _;
 use crate::ui::drag_hover::DragHoverId;
 use crate::ui::file_icons::FileIcon;
 use crate::ui::glass::backdrop_tint;
-use crate::ui::icons::{icon, AtlasIcon};
 use crate::ui::layout_region::{
     layout_region, timed_layout_region, PANE_CRUMBS_TIMINGS, PANE_DETAILS_HEADER_TIMINGS,
     PANE_VIEWPORT_TIMINGS,
@@ -19,8 +17,7 @@ use atlas_model::settings::ViewMode;
 use gpui::prelude::*;
 use gpui::ColorExt as _;
 use gpui::{
-    div, img, px, AnyElement, Context, Div, Entity, Hsla, MouseButton, Pixels, SharedString,
-    Stateful, Window,
+    div, img, px, AnyElement, Context, Entity, Hsla, MouseButton, Pixels, SharedString, Window,
 };
 use gpui_component::input::InputState;
 use gpui_component::scroll::ScrollableElement;
@@ -40,26 +37,7 @@ pub(crate) struct DetailsColors {
     pub glass: bool,
 }
 
-#[derive(Clone)]
-struct DetailsColumnDrag {
-    column: DetailsColumn,
-}
-
-impl Render for DetailsColumnDrag {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        // Invisible: the visible floating header box is drawn by `details_header` at a
-        // fixed y so it only tracks the cursor horizontally.
-        div()
-    }
-}
-
 impl App {
-    pub const EXPERIMENTAL_IMM_TREE: bool = true;
-    pub const EXPERIMENTAL_IMM_DETAILS: bool = true;
-    pub const EXPERIMENTAL_IMM_LIST: bool = true;
-    pub const EXPERIMENTAL_IMM_GRID: bool = true;
-    pub const EXPERIMENTAL_IMM_MILLER: bool = true;
-
     /// Render the file view for a pane (Details/Grid/List/Miller). Public to the
     /// crate so `ui::pane_panel::FilePanel` (a Dock `Panel`) can delegate here.
     pub(crate) fn render_pane(
@@ -70,7 +48,14 @@ impl App {
     ) -> AnyElement {
         self.sync_view_transition(pane_id, cx);
         if let Some(tab) = self.tab_data_for(pane_id) {
-            let mode = if matches!(tab.view_mode, ViewMode::Details | ViewMode::List | ViewMode::Grid) { tab.group_by } else { atlas_model::tab::GroupBy::None };
+            let mode = if matches!(
+                tab.view_mode,
+                ViewMode::Details | ViewMode::List | ViewMode::Grid
+            ) {
+                tab.group_by
+            } else {
+                atlas_model::tab::GroupBy::None
+            };
             let collapsed = tab.collapsed_groups.clone();
             let visibility = (tab.show_files, tab.show_folders);
             let is_branch = tab.is_branch_view;
@@ -107,9 +92,7 @@ impl App {
             .tab_states
             .get(&pane_id)
             .is_some_and(|ts| ts.selection.scroll_to_selected);
-        if should_scroll_selected
-            && self.scroll_keyboard_selection(pane_id)
-        {
+        if should_scroll_selected && self.scroll_keyboard_selection(pane_id) {
             if let Some(ts) = self.state.tab_states.get_mut(&pane_id) {
                 ts.selection.scroll_to_selected = false;
             }
@@ -140,37 +123,12 @@ impl App {
             )
         });
         match view_mode {
-            ViewMode::Grid => {
-                if Self::EXPERIMENTAL_IMM_GRID {
-                    return self.render_grid_view_imm(pane_id, window, cx);
-                }
-                return self.render_grid(pane_id, window, cx);
-            }
-            ViewMode::List => {
-                if Self::EXPERIMENTAL_IMM_LIST {
-                    return self.render_list_view_imm(pane_id, window, cx);
-                }
-                return self.render_list_compact(pane_id, window, cx);
-            }
-            ViewMode::Miller => {
-                if Self::EXPERIMENTAL_IMM_MILLER {
-                    return self.render_miller_imm(pane_id, window, cx);
-                }
-                return self.render_miller(pane_id, window, cx);
-            }
-            ViewMode::Tree => {
-                if Self::EXPERIMENTAL_IMM_TREE {
-                    return self.render_tree_view_imm(pane_id, window, cx);
-                }
-                return self.render_tree_view(pane_id, window, cx);
-            }
-            ViewMode::Details => {
-                if Self::EXPERIMENTAL_IMM_DETAILS {
-                    return self.render_details_view_imm(pane_id, window, cx);
-                }
-            }
+            ViewMode::Grid => self.render_grid_view_imm(pane_id, window, cx),
+            ViewMode::List => self.render_list_view_imm(pane_id, window, cx),
+            ViewMode::Miller => self.render_miller_imm(pane_id, window, cx),
+            ViewMode::Tree => self.render_tree_view_imm(pane_id, window, cx),
+            ViewMode::Details => self.render_details_canvas(pane_id, window, cx),
         }
-        self.render_details_canvas(pane_id, window, cx)
     }
 
     pub(crate) fn render_details_canvas(
@@ -262,8 +220,12 @@ impl App {
         // Category discovery runs in the background when a listing arrives.
         // filtered_visible: Arc::clone in the common no-filter case (O(1), no alloc).
         let filter_perf = crate::perf::span("details.render.filter_projection");
-        let type_labels = self.state.tab_states.get(&pane_id)
-            .map(|ts| ts.ready_type_labels().to_vec()).unwrap_or_default();
+        let type_labels = self
+            .state
+            .tab_states
+            .get(&pane_id)
+            .map(|ts| ts.ready_type_labels().to_vec())
+            .unwrap_or_default();
         let filtered_visible = self.flat_visible_indices(pane_id);
         // Grouped panes lay headers into the same row space as files.
         let group_cells = self.grouped_cells(pane_id, atlas_model::grouping::GroupFlow::Rows);
@@ -288,7 +250,7 @@ impl App {
 
         let header = details_header(
             &header_layout,
-            filtered_visible.clone(),
+            filtered_visible,
             &view,
             pane_id,
             &sort_col,
@@ -423,13 +385,13 @@ impl App {
                 crate::ui::views::details_element::DetailsBodyElement::new(
                     pane_id,
                     view.downgrade(),
-                    fv.clone(),
+                    fv,
                     row_h,
                     base_scroll.clone(),
                     (*layout).clone(),
                     content_lod,
                     colors,
-                    row_font.clone(),
+                    row_font,
                     font_size,
                     dragging,
                     row_motion,
@@ -443,7 +405,11 @@ impl App {
             };
 
             let group_overlays = group_cells.as_ref().map_or_else(Vec::new, |groups| {
-                let colors = crate::ui::group_header::GroupHeaderColors { fg, muted, border: cx.theme().border };
+                let colors = crate::ui::group_header::GroupHeaderColors {
+                    fg,
+                    muted,
+                    border: cx.theme().border,
+                };
                 groups
                     .headers
                     .iter()
@@ -498,7 +464,10 @@ impl App {
             });
 
             div()
-                .id(SharedString::from(format!("details-viewport-{}", pane_id.0)))
+                .id(SharedString::from(format!(
+                    "details-viewport-{}",
+                    pane_id.0
+                )))
                 .size_full()
                 .relative()
                 .overflow_hidden()
@@ -558,7 +527,10 @@ impl App {
         .child(timed_layout_region(
             "pane.viewport",
             PANE_VIEWPORT_TIMINGS,
-            layout_region("pane.viewport_body", self.transition_viewport(pane_id, inner)),
+            layout_region(
+                "pane.viewport_body",
+                self.transition_viewport(pane_id, inner),
+            ),
         ))
         .on_prepaint_child({
             let v = prepaint_view;
@@ -604,12 +576,20 @@ pub fn entry_type_label(entry: &FileEntry) -> String {
 }
 
 pub(crate) fn entry_display_size(entry: &FileEntry) -> String {
-    if entry.kind() == FileKind::Dir { return String::new(); }
-    entry.size().map(atlas_core::util::display::format_size).unwrap_or_default()
+    if entry.kind() == FileKind::Dir {
+        return String::new();
+    }
+    entry
+        .size()
+        .map(atlas_core::util::display::format_size)
+        .unwrap_or_default()
 }
 
 pub(crate) fn entry_display_date(entry: &FileEntry) -> String {
-    entry.modified.map(atlas_core::util::display::format_date).unwrap_or_default()
+    entry
+        .modified
+        .map(atlas_core::util::display::format_date)
+        .unwrap_or_default()
 }
 
 impl App {
@@ -711,7 +691,7 @@ fn details_header(
         view.downgrade(),
         layout.clone(),
         visible,
-        colors.clone(),
+        *colors,
         font,
         font_size,
         sort_col.clone(),
@@ -723,260 +703,6 @@ fn details_header(
         content_lod,
     )
     .into_any_element()
-}
-
-fn details_column_label(column: DetailsColumn) -> String {
-    match column {
-        DetailsColumn::Size => rust_i18n::t!("column_size").into_owned(),
-        DetailsColumn::Modified => rust_i18n::t!("column_modified").into_owned(),
-        DetailsColumn::Type => rust_i18n::t!("column_type").into_owned(),
-    }
-}
-
-/// One absolutely-positioned metadata header cell: sort/type content (clipped),
-/// reorder drag source (the floating box is the gpui drag image), and a right-edge
-/// resize handle. While this column is the one being dragged it's hidden in place,
-/// leaving a gap the others slide around.
-fn details_header_cell(
-    col: DetailsColumnLayout,
-    view: &Entity<App>,
-    pane_id: TabId,
-    sort_col: &SortColumn,
-    sort_dir: &SortDir,
-    has_type_filter: bool,
-    type_labels: &[String],
-    is_dragging: bool,
-    colors: &DetailsColors,
-) -> AnyElement {
-    let column = col.column;
-    let content = match column {
-        DetailsColumn::Size | DetailsColumn::Modified => {
-            let sort = if column == DetailsColumn::Size {
-                SortColumn::Size
-            } else {
-                SortColumn::Modified
-            };
-            sort_cell(
-                view,
-                pane_id,
-                sort,
-                &details_column_label(column),
-                sort_col,
-                sort_dir,
-                colors,
-            )
-            .into_any_element()
-        }
-        DetailsColumn::Type => type_header_cell(
-            view,
-            pane_id,
-            sort_col,
-            sort_dir,
-            has_type_filter,
-            type_labels.to_vec(),
-            colors,
-        )
-        .into_any_element(),
-    };
-    div()
-        .id(SharedString::from(format!(
-            "details-col-{}-{}",
-            pane_id.0,
-            column.key()
-        )))
-        .absolute()
-        .left(px(col.x))
-        .top_0()
-        .bottom_0()
-        .w(px(col.w))
-        .flex()
-        .items_center()
-        // While dragging, hide the source in place so its slot reads as the gap
-        // the floating box will land in.
-        .when(is_dragging, |s| s.opacity(0.0))
-        // Clipped content, inset by CELL_PAD to match the row data alignment.
-        .child(
-            div()
-                .flex_1()
-                .min_w(px(0.))
-                .pl(crate::ui::rem_px(CELL_PAD))
-                .overflow_hidden()
-                .child(content),
-        )
-        .on_drag(
-            DetailsColumnDrag { column },
-            move |drag, _pos, _window, cx| {
-                cx.new(|_| DetailsColumnDrag {
-                    column: drag.column,
-                })
-            },
-        )
-        .into_any_element()
-}
-
-/// Wide (10px) grab zone straddling the column's RIGHT edge — easy to hit from
-/// either side — with an always-visible 1px centred separator and a subtle accent
-/// wash on hover so it reads as draggable. Drag right = wider (Explorer-style);
-/// the global `rubber_layer` applies the delta on move (see `interactions.rs`).
-fn col_resize_handle(
-    col: &'static str,
-    cur_width: f32,
-    edge_x: f32,
-    pane_id: TabId,
-    view: &Entity<App>,
-    border: Hsla,
-    accent: Hsla,
-) -> Stateful<Div> {
-    let v = view.clone();
-    div()
-        .id(SharedString::from(format!("rh-{col}-{}", pane_id.0)))
-        .absolute()
-        .left(px(edge_x - 5.))
-        .top_0()
-        .bottom_0()
-        .w(px(10.))
-        .flex()
-        .justify_center()
-        .cursor_col_resize()
-        .occlude()
-        .hover(|s| s.bg(accent.opacity(0.18)))
-        .child(div().h_full().w(px(1.)).bg(border.opacity(0.55)))
-        .on_mouse_down(MouseButton::Left, move |ev, _window, cx| {
-            let start_x = f32::from(ev.position.x);
-            v.update(cx, |this, _cx| {
-                this.col_resize = Some(ColResizeState {
-                    col,
-                    pane: pane_id,
-                    start_x,
-                    start_width: cur_width,
-                });
-            });
-            cx.stop_propagation();
-        })
-}
-
-/// Clickable column header that toggles sort column/direction.
-/// Phosphor ArrowUp/Down icons indicate the active sort direction.
-fn sort_cell(
-    view: &Entity<App>,
-    pane_id: TabId,
-    col: SortColumn,
-    label: &str,
-    cur_col: &SortColumn,
-    cur_dir: &SortDir,
-    colors: &DetailsColors,
-) -> Stateful<Div> {
-    let is_active = col == *cur_col;
-    let next_dir = if is_active && *cur_dir == SortDir::Asc {
-        SortDir::Desc
-    } else {
-        SortDir::Asc
-    };
-    let label_color = if is_active {
-        colors.accent
-    } else {
-        colors.muted
-    };
-    let sort_icon = if is_active {
-        let kind = if *cur_dir == SortDir::Asc {
-            AtlasIcon::ArrowUp
-        } else {
-            AtlasIcon::ArrowDown
-        };
-        Some(icon(kind, 9.0, colors.accent))
-    } else {
-        None
-    };
-    let v = view.clone();
-    div()
-        .id(SharedString::from(format!("hdr-{}-{:?}", pane_id.0, col)))
-        .cursor_pointer()
-        .flex()
-        .items_center()
-        .gap_1()
-        .text_color(label_color)
-        .child(label.to_string())
-        .when_some(sort_icon, |el, ico| el.child(ico))
-        .on_click(move |_ev, _window, cx| {
-            let col = col.clone();
-            let dir = next_dir.clone();
-            v.update(cx, |this, cx| {
-                this.process_actions(vec![Action::SetSort { col, dir }]);
-                cx.notify();
-            });
-        })
-}
-
-/// Type column header: left-click sorts by extension, right-click opens the
-/// searchable multi-select filter overlay.
-fn type_header_cell(
-    view: &Entity<App>,
-    pane_id: TabId,
-    cur_col: &SortColumn,
-    cur_dir: &SortDir,
-    has_filter: bool,
-    type_labels: Vec<String>,
-    colors: &DetailsColors,
-) -> Stateful<Div> {
-    let col = SortColumn::Extension;
-    let is_active = col == *cur_col;
-    let next_dir = if is_active && *cur_dir == SortDir::Asc {
-        SortDir::Desc
-    } else {
-        SortDir::Asc
-    };
-    let label_color = if has_filter || is_active {
-        colors.accent
-    } else {
-        colors.muted
-    };
-    let sort_icon = if is_active {
-        let kind = if *cur_dir == SortDir::Asc {
-            AtlasIcon::ArrowUp
-        } else {
-            AtlasIcon::ArrowDown
-        };
-        Some(icon(kind, 9.0, colors.accent))
-    } else {
-        None
-    };
-    let v = view.clone();
-    let vr = view.clone();
-    div()
-        .id(SharedString::from(format!("hdr-type-{}", pane_id.0)))
-        .cursor_pointer()
-        .flex()
-        .items_center()
-        .gap_1()
-        .text_color(label_color)
-        .child(rust_i18n::t!("column_type"))
-        // Active filter indicator: small dot next to the label.
-        .when(has_filter, |el| {
-            el.child(
-                div()
-                    .w(crate::ui::rem_px(5.))
-                    .h(crate::ui::rem_px(5.))
-                    .rounded_full()
-                    .bg(colors.accent),
-            )
-        })
-        .when_some(sort_icon, |el, ico| el.child(ico))
-        .on_click(move |_ev, _window, cx| {
-            let col = col.clone();
-            let dir = next_dir.clone();
-            v.update(cx, |this, cx| {
-                this.process_actions(vec![Action::SetSort { col, dir }]);
-                cx.notify();
-            });
-        })
-        .on_mouse_down(MouseButton::Right, move |ev, window, cx| {
-            let pos = ev.position;
-            let labels = type_labels.clone();
-            vr.update(cx, |this, cx| {
-                this.open_type_filter_menu(pane_id, pos, labels, window, cx);
-            });
-            cx.stop_propagation();
-        })
 }
 
 /// Fixed height for canvas rows — eliminates per-row flex layout cost.
@@ -1080,10 +806,9 @@ impl DetailsContentLod {
 fn details_lod_enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| {
-        std::env::var("ATLAS_DETAILS_LOD")
-            .ok()
-            .map(|value| !matches!(value.as_str(), "" | "0" | "false" | "FALSE" | "off" | "OFF"))
-            .unwrap_or(true)
+        std::env::var("ATLAS_DETAILS_LOD").ok().is_none_or(|value| {
+            !matches!(value.as_str(), "" | "0" | "false" | "FALSE" | "off" | "OFF")
+        })
     })
 }
 
@@ -1136,7 +861,7 @@ pub(crate) fn prime_details_file_icons_range(
                 let entry = ts.entries.get(*visible.get(i)?)?;
                 Some(crate::ui::file_icons::FileIconRef {
                     path: entry.path(),
-                    kind: entry.kind().clone(),
+                    kind: entry.kind(),
                     extension: entry
                         .extension()
                         .as_ref()
@@ -1296,13 +1021,15 @@ fn blend_layouts(
                 positions
                     .iter()
                     .find(|(col, _)| *col == c.column)
-                    .map(|(_, x)| *x)
-                    .unwrap_or_else(|| {
-                        from.columns
-                            .iter()
-                            .find(|f| f.column == c.column)
-                            .map_or(c.x, |f| f.x)
-                    })
+                    .map_or_else(
+                        || {
+                            from.columns
+                                .iter()
+                                .find(|f| f.column == c.column)
+                                .map_or(c.x, |f| f.x)
+                        },
+                        |(_, x)| *x,
+                    )
             } else {
                 from.columns
                     .iter()
@@ -1331,7 +1058,7 @@ fn render_rename_row(
     entry: &FileEntry,
     entry_idx: usize,
     odd: bool,
-    selected: bool,
+    _selected: bool,
     pane_id: TabId,
     view: &Entity<App>,
     colors: &DetailsColors,
@@ -1357,7 +1084,7 @@ fn render_rename_row(
 
     let name = entry.name.to_string();
     let fallback_icon = FileIcon::Builtin {
-        kind: entry.kind().clone(),
+        kind: entry.kind(),
         extension: entry
             .extension()
             .as_ref()
@@ -1365,9 +1092,9 @@ fn render_rename_row(
     };
     let meta_cells = layout.columns.iter().map(|col| {
         let text = match col.column {
-            DetailsColumn::Size => crate::ui::views::details::entry_display_size(&entry).clone(),
-            DetailsColumn::Modified => crate::ui::views::details::entry_display_date(&entry).clone(),
-            DetailsColumn::Type => crate::ui::views::details::entry_type_label(&entry).clone(),
+            DetailsColumn::Size => crate::ui::views::details::entry_display_size(entry),
+            DetailsColumn::Modified => crate::ui::views::details::entry_display_date(entry),
+            DetailsColumn::Type => crate::ui::views::details::entry_type_label(entry),
         };
         div()
             .absolute()

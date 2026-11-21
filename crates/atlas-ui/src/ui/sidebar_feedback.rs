@@ -2,8 +2,8 @@
 use crate::{
     app::App,
     ui::{
-        imm::motion::ActionPulse,
         icons::AtlasIcon,
+        imm::motion::ActionPulse,
         surface::{paint_theme_icon, Slot},
     },
 };
@@ -81,7 +81,7 @@ impl RenderOnce for RecycleIcon {
                     let mut tint = color;
                     tint.alpha *= pulse * 0.65;
                     window.paint_quad(
-                        gpui::outline(bounds, tint, Default::default())
+                        gpui::outline(bounds, tint, gpui::BorderStyle::default())
                             .corner_radii(Corners::all(px(4.0))),
                     );
                 }

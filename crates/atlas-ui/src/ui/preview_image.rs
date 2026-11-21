@@ -58,7 +58,8 @@ impl ImageGeometry {
             const PAD: f32 = 3.0;
             let max_w = (vw * 0.40).clamp(56.0, 148.0).min((vw - 24.0).max(1.0));
             let max_h = (vh * 0.30).clamp(42.0, 112.0).min((vh - 24.0).max(1.0));
-            let mini_scale = ((max_w - PAD * 2.0).max(1.0) / sw).min((max_h - PAD * 2.0).max(1.0) / sh);
+            let mini_scale =
+                ((max_w - PAD * 2.0).max(1.0) / sw).min((max_h - PAD * 2.0).max(1.0) / sh);
             let (tw, th) = (sw * mini_scale, sh * mini_scale);
             let frame = Bounds {
                 origin: point(
@@ -200,8 +201,11 @@ pub(crate) fn image_canvas(
                         }
                         let state = this.preview_view.entry(tab).or_default();
                         let zoom = (state.zoom * delta.clamp(-0.4, 0.4).exp()).clamp(0.1, 48.0);
-                        ImageGeometry::new(geometry.viewport, source, *state)
-                            .zoom_at(state, zoom, event.position);
+                        ImageGeometry::new(geometry.viewport, source, *state).zoom_at(
+                            state,
+                            zoom,
+                            event.position,
+                        );
                         cx.notify();
                     });
                 }
@@ -301,7 +305,7 @@ fn paint_minimap(
             background.opacity(0.92),
             px(1.0),
             border.opacity(0.55),
-            Default::default(),
+            gpui::BorderStyle::default(),
         ));
     });
     window.paint_layer(minimap.frame, |window| {
@@ -341,7 +345,7 @@ fn paint_minimap(
             gpui::transparent_black(),
             px(1.0),
             gpui::hsla(0.0, 0.0, 0.0, 0.6),
-            Default::default(),
+            gpui::BorderStyle::default(),
         ));
         window.paint_quad(gpui::quad(
             visible,
@@ -349,7 +353,7 @@ fn paint_minimap(
             accent.opacity(0.14),
             px(2.0),
             accent,
-            Default::default(),
+            gpui::BorderStyle::default(),
         ));
     });
 }

@@ -195,7 +195,11 @@ pub fn execute(
     let edition = edition::current();
     let free = edition == edition::Edition::Free;
     let planned = plan.commands.len();
-    let used_today = if free { crate::usage::conversions_today() } else { 0 };
+    let used_today = if free {
+        crate::usage::conversions_today()
+    } else {
+        0
+    };
     let allowed = edition
         .check(Feature::BatchConversion, planned)
         .and_then(|()| edition.check(Feature::ConversionsPerDay, used_today + planned));
@@ -405,7 +409,7 @@ fn execute_one(command: &Command, plan: &Plan, cancel: &AtomicBool) -> Result<Pa
         match output.persist_noclobber(&destination) {
             Ok(()) => return Ok(destination),
             Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => {
-                output = error.path
+                output = error.path;
             }
             Err(error) => return Err(error.error.into()),
         }

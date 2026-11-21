@@ -17,7 +17,7 @@ const MAX_FILES: usize = 256;
 const MAX_CANDIDATES: usize = 20_000;
 const MAX_DEPTH: usize = 128;
 const MAX_PATH_BYTES: usize = 16 * 1024 * 1024;
-const MIN_AGE: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+const MIN_AGE: Duration = Duration::from_hours(168);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ScanMode {
@@ -51,7 +51,7 @@ impl ScanJob {
             paused: job.paused.clone(),
             snapshot: DiskSnapshot {
                 generation,
-                root: root.clone(),
+                root,
                 ..Default::default()
             },
             rows: BinaryHeap::new(),
@@ -195,7 +195,7 @@ impl Worker {
                 self.finish();
                 return;
             }
-            self.snapshot.root = temp.clone();
+            self.snapshot.root.clone_from(&temp);
             self.read_root(&temp);
         } else {
             if policy::protected(&root)
@@ -263,15 +263,12 @@ impl Worker {
     }
     fn store_tree(&mut self, tree: super::tree::SpaceTree, root: &Path) {
         let tree = Arc::new(tree);
-        match tree.snapshot(root, self.snapshot.generation) {
-            Some(snapshot) => {
-                super::tree::store(tree);
-                self.send_final(snapshot);
-            }
-            None => {
-                self.snapshot.status = ScanStatus::Failed;
-                self.finish();
-            }
+        if let Some(snapshot) = tree.snapshot(root, self.snapshot.generation) {
+            super::tree::store(tree);
+            self.send_final(snapshot);
+        } else {
+            self.snapshot.status = ScanStatus::Failed;
+            self.finish();
         }
     }
     fn send_final(&mut self, snapshot: DiskSnapshot) {
@@ -334,14 +331,13 @@ impl Worker {
     }
     fn read_root(&mut self, root: &Path) {
         #[cfg(windows)]
-        let _lease = match atlas_win_space::cleanup::pin_directory(root, true) {
-            Ok(lease) => lease,
-            Err(_) => {
-                self.snapshot.status = ScanStatus::Failed;
-                self.snapshot.errors += 1;
-                self.snapshot.message = Some("cleanup_unavailable".into());
-                return;
-            }
+        let _lease = if let Ok(lease) = atlas_win_space::cleanup::pin_directory(root, true) {
+            lease
+        } else {
+            self.snapshot.status = ScanStatus::Failed;
+            self.snapshot.errors += 1;
+            self.snapshot.message = Some("cleanup_unavailable".into());
+            return;
         };
         let valid = fs::symlink_metadata(root).is_ok_and(|m| m.is_dir() && !unsafe_entry(&m));
         if !valid
@@ -353,13 +349,12 @@ impl Worker {
             self.snapshot.message = Some("cleanup_unavailable".into());
             return;
         }
-        let entries = match fs::read_dir(root) {
-            Ok(entries) => entries,
-            Err(_) => {
-                self.snapshot.status = ScanStatus::Failed;
-                self.snapshot.errors += 1;
-                return;
-            }
+        let entries = if let Ok(entries) = fs::read_dir(root) {
+            entries
+        } else {
+            self.snapshot.status = ScanStatus::Failed;
+            self.snapshot.errors += 1;
+            return;
         };
         self.publish(None);
         for entry in entries {
@@ -394,6 +389,7 @@ impl Worker {
         }
     }
 
+    #[cfg(windows)]
     fn maybe_publish(&mut self) {
         if self.last_publish.elapsed() >= Duration::from_millis(250) {
             self.publish(None);
@@ -425,19 +421,17 @@ impl Worker {
             return 0;
         }
         #[cfg(windows)]
-        let _lease = match atlas_win_space::cleanup::pin_directory(path, false) {
-            Ok(lease) => lease,
-            Err(_) => {
-                self.snapshot.skipped += 1;
-                return 0;
-            }
+        let _lease = if let Ok(lease) = atlas_win_space::cleanup::pin_directory(path, false) {
+            lease
+        } else {
+            self.snapshot.skipped += 1;
+            return 0;
         };
-        let entries = match fs::read_dir(path) {
-            Ok(entries) => entries,
-            Err(_) => {
-                self.snapshot.errors += 1;
-                return 0;
-            }
+        let entries = if let Ok(entries) = fs::read_dir(path) {
+            entries
+        } else {
+            self.snapshot.errors += 1;
+            return 0;
         };
         let mut bytes = 0u64;
         for entry in entries {
@@ -571,7 +565,7 @@ fn unsafe_entry(metadata: &fs::Metadata) -> bool {
     {
         use std::os::windows::fs::MetadataExt;
         // Reparse points and offline/recall-on-open/data-access files are not traversed.
-        metadata.file_attributes() & (0x400 | 0x1000 | 0x40000 | 0x400000) != 0
+        metadata.file_attributes() & (0x400 | 0x1000 | 0x40000 | 0x0040_0000) != 0
     }
     #[cfg(not(windows))]
     {
@@ -661,7 +655,7 @@ mod tests {
                     .write(true)
                     .open(path)
                     .unwrap()
-                    .set_modified(SystemTime::now() - Duration::from_secs(8 * 24 * 3600))
+                    .set_modified(SystemTime::now() - Duration::from_hours(192))
                     .unwrap();
             }
         }

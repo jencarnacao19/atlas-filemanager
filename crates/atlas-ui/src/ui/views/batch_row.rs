@@ -3,11 +3,11 @@
 
 use crate::app::App;
 use atlas_model::batch_rename::RenameIssue;
+use gpui::ColorExt as _;
 use gpui::{
     point, px, size, App as GpuiApp, Bounds, ContentMask, Font, Hsla, Pixels, SharedString,
     TextAlign, TextRun, WeakEntity, Window,
 };
-use gpui::ColorExt as _;
 use std::path::Path;
 
 /// Everything a row needs to paint its in-place name.
@@ -96,7 +96,7 @@ pub(super) fn paint_row_edit(
     window.with_content_mask(
         Some(ContentMask {
             bounds: cell,
-            fade_out: Default::default(),
+            fade_out: gpui::Edges::default(),
         }),
         |window| {
             let caret_x = x0 + line.x_for_index(byte_of(&edit.text, edit.caret_col));
@@ -111,7 +111,14 @@ pub(super) fn paint_row_edit(
                     gpui_component::ActiveTheme::theme(&*cx).selection,
                 ));
             }
-            let _ = line.paint(point(x0, text_y), px(row_h), TextAlign::Left, None, window, cx);
+            let _ = line.paint(
+                point(x0, text_y),
+                px(row_h),
+                TextAlign::Left,
+                None,
+                window,
+                cx,
+            );
 
             if edit.caret_on {
                 window.paint_quad(gpui::fill(

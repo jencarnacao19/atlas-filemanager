@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 pub const PROTOCOL_VERSION: u32 = 1;
 pub const PIPE_PATH: &str = r"\\.\pipe\AtlasSearchService-v1";
 
+// reason: IPC messages are built once per request; boxing buys nothing.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServiceRequest {
     Hello { protocol: u32 },
@@ -291,18 +293,17 @@ mod tests {
     use super::*;
 
     #[test]
-
     #[ignore = "needs a built atlas-search-service executable"]
-
     fn test_find_search_service_exe() {
         let exe = find_search_service_exe();
-        assert!(exe.is_some(), "should locate atlas-search-service.exe in workspace target");
+        assert!(
+            exe.is_some(),
+            "should locate atlas-search-service.exe in workspace target"
+        );
     }
 
     #[test]
-
     #[ignore = "needs the search service and real drives"]
-
     fn test_ensure_service_and_multi_drive_search() {
         let started = ensure_service_started();
         assert!(started, "search service should start and be available");
@@ -311,14 +312,21 @@ mod tests {
         let backend = WindowsServiceBackend::new();
         let query = SearchQuery::text("windows");
         let batch = backend.search(&query);
-        assert!(!batch.results.is_empty(), "search for 'windows' should return results");
+        assert!(
+            !batch.results.is_empty(),
+            "search for 'windows' should return results"
+        );
 
         let drive_letters: std::collections::HashSet<char> = batch
             .results
             .iter()
             .filter_map(|r| r.path.to_str()?.chars().next())
             .collect();
-        println!("Drives found in search results: {:?}", drive_letters);
-        assert!(drive_letters.contains(&'C') || drive_letters.contains(&'F') || drive_letters.contains(&'E'));
+        println!("Drives found in search results: {drive_letters:?}");
+        assert!(
+            drive_letters.contains(&'C')
+                || drive_letters.contains(&'F')
+                || drive_letters.contains(&'E')
+        );
     }
 }

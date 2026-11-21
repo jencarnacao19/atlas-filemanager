@@ -1,4 +1,7 @@
 //! Optional native render/interaction harness. Never linked into normal builds.
+// reason: a feature-gated diagnostic harness, not shipped app code: it panics on
+// setup failure and writes its evidence to disk on purpose.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use crate::app::App;
 use gpui::{Entity, Window};
 use std::path::PathBuf;
@@ -225,9 +228,7 @@ fn frame(
             return true;
         }
     }
-    if step >= 600 {
-        panic!("Conversion lab did not finish");
-    }
+    assert!(step < 600, "Conversion lab did not finish");
     window.refresh();
     false
 }

@@ -182,7 +182,7 @@ fn pcm_wave(bits: u16, channels: u16, rate: u32, samples: &[u8]) -> Vec<u8> {
     wave.extend_from_slice(b"data");
     wave.extend_from_slice(&length.to_le_bytes());
     wave.extend_from_slice(samples);
-    if length % 2 != 0 {
+    if !length.is_multiple_of(2) {
         wave.push(0);
     }
     wave
@@ -353,7 +353,7 @@ fn handmade_flac_is_lossless_for_all_pcm_depths_channels_and_containers() {
     for bits in [8_u16, 16, 24, 32] {
         for channels in [1_u16, 2, 6, 8] {
             let width = usize::from(bits / 8);
-            let mut state = 0x12345678_u32;
+            let mut state = 0x1234_5678_u32;
             let mut samples = Vec::new();
             // Constant, predictable, noise and full-scale extremes, plus a short tail.
             for frame in 0..12291 {
@@ -435,7 +435,7 @@ fn handmade_flac_compresses_tones_silence_short_tails_and_multibyte_frame_number
                 let sample = if name == "silence" {
                     0
                 } else {
-                    ((index as f64 * 440.0 * std::f64::consts::TAU / 44100.0).sin() * 16000.0)
+                    ((f64::from(index) * 440.0 * std::f64::consts::TAU / 44100.0).sin() * 16000.0)
                         as i16
                 };
                 sample.to_le_bytes()
@@ -496,7 +496,7 @@ fn subtitle_pipeline_converts_without_engines_and_keeps_originals() {
     std::fs::write(&path, source).unwrap();
     for target in ["vtt", "ass", "smi", "ttml", "lrc", "txt"] {
         let plan = Plan::build(
-            &[path.clone()],
+            std::slice::from_ref(&path),
             target,
             Settings::default(),
             Tools::default(),
@@ -628,7 +628,7 @@ fn native_svg_refuses_external_images_and_decompression_bombs() {
     let source = dir.path().join("large.svgz");
     let mut gzip =
         flate2::write::GzEncoder::new(File::create(&source).unwrap(), flate2::Compression::fast());
-    let block = [b' '; 1024 * 1024];
+    let block = vec![b' '; 1024 * 1024];
     for _ in 0..65 {
         gzip.write_all(&block).unwrap();
     }
@@ -774,7 +774,7 @@ fn windows_audio_encodes_and_decodes_without_external_tools() {
             "Missing system {target} encoder"
         );
         let plan = Plan::build(
-            &[source.clone()],
+            std::slice::from_ref(&source),
             target,
             Settings::default(),
             tools.clone(),
@@ -817,7 +817,7 @@ fn windows_audio_encodes_and_decodes_without_external_tools() {
         }
         for target in ["flac", "aiff", "au"] {
             let plan = Plan::build(
-                &[encoded.clone()],
+                std::slice::from_ref(&encoded),
                 target,
                 Settings::default(),
                 tools.clone(),
@@ -899,7 +899,7 @@ fn native_image_outputs_are_decodable_and_resize_is_bounded() {
     assert_eq!(image::open(&png.outputs()[0]).unwrap().width(), 8);
     for target in ["jpg", "webp", "bmp", "tiff", "gif", "ico"] {
         let plan = Plan::build(
-            &[source.clone()],
+            std::slice::from_ref(&source),
             target,
             Settings {
                 max_edge: Some(10),
@@ -1126,7 +1126,7 @@ fn plan_rejects_directories_missing_engines_and_no_op_batches() {
     let source = dir.path().join("audio.mp3");
     std::fs::write(&source, b"placeholder").unwrap();
     assert!(Plan::build(
-        &[source.clone()],
+        std::slice::from_ref(&source),
         "wav",
         Settings::default(),
         Tools::default()
@@ -1207,7 +1207,7 @@ fn docx_export_is_an_ooxml_package_with_escaped_text() {
 #[test]
 fn installed_ffmpeg_converts_real_audio_when_available() {
     let mut tools = Tools::discover();
-    tools.1 = Default::default(); // This test exercises the optional engine explicitly.
+    tools.1 = crate::convert::tools::SystemAudio::default(); // This test exercises the optional engine explicitly.
     if !tools.has(Tool::Ffmpeg) {
         eprintln!("FFmpeg integration not run: engine not installed");
         return;

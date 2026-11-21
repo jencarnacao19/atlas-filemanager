@@ -98,8 +98,7 @@ impl App {
             let rename_to =
                 atlas_core::fs::transfer::unique_target(&conflict.request.dest, &item.target_name)
                     .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| name.clone());
+                    .map_or_else(|| name.clone(), |n| n.to_string_lossy().into_owned());
             let mut row = v_flex()
                 .gap_2()
                 .py_2()

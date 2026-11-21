@@ -34,7 +34,6 @@ impl App {
             layers.push(self.render_converter(window, cx));
         }
 
-
         if self.state.overlay.show_settings {
             layers.push(self.render_settings(window, cx));
         }

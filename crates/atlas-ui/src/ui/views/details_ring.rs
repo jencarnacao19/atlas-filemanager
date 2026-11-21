@@ -118,6 +118,8 @@ impl DetailsRowRing {
     }
 
     /// Sync one row into the ring. Runs `fill` only on miss.
+    // reason: the slot is filled just above when it missed.
+    #[allow(clippy::expect_used)]
     pub fn sync_row(
         &mut self,
         row: usize,
@@ -173,6 +175,8 @@ impl DetailsRowRing {
             return;
         }
 
+        // reason: the slot is checked just above.
+        #[allow(clippy::expect_used)]
         let s = self.slots[ix].as_mut().expect("slot checked above");
         if s.selected != selected {
             s.selected_at = selected.then(Instant::now);
@@ -248,17 +252,36 @@ mod tests {
     #[test]
     fn text_cache_identity_tracks_raw_size_date_and_file_kind() {
         use atlas_model::file_entry::{FileEntry, FileEntryData, FileKind};
-        let make = |kind, size, modified| FileEntry::from(FileEntryData {
-            name: "same.txt".into(), path: "same.txt".into(), kind, size, modified,
-            _is_hidden: false, _is_symlink: false, archive_root: None, recycle_info: None,
-        });
+        let make = |kind, size, modified| {
+            FileEntry::from(FileEntryData {
+                name: "same.txt".into(),
+                path: "same.txt".into(),
+                kind,
+                size,
+                modified,
+                _is_hidden: false,
+                _is_symlink: false,
+                archive_root: None,
+                recycle_info: None,
+            })
+        };
         let font = gpui::font("Test");
-        let key = |entry: &FileEntry| details_row_shape_key(0, entry, Some("txt"), &font, gpui::px(14.0));
+        let key =
+            |entry: &FileEntry| details_row_shape_key(0, entry, Some("txt"), &font, gpui::px(14.0));
         let original = make(FileKind::File, Some(1), Some(std::time::UNIX_EPOCH));
         assert_eq!(key(&original), key(&original.clone()));
-        assert_ne!(key(&original), key(&make(FileKind::Symlink, Some(1), original.modified)));
-        assert_ne!(key(&original), key(&make(FileKind::File, Some(2), original.modified)));
-        assert_ne!(key(&original), key(&make(FileKind::File, None, original.modified)));
+        assert_ne!(
+            key(&original),
+            key(&make(FileKind::Symlink, Some(1), original.modified))
+        );
+        assert_ne!(
+            key(&original),
+            key(&make(FileKind::File, Some(2), original.modified))
+        );
+        assert_ne!(
+            key(&original),
+            key(&make(FileKind::File, None, original.modified))
+        );
         assert_ne!(key(&original), key(&make(FileKind::File, Some(1), None)));
     }
 
@@ -270,7 +293,7 @@ mod tests {
         DetailsRowSlot {
             size: None,
             interactive: true,
-            path: Default::default(),
+            path: std::path::PathBuf::default(),
             row,
             shape_key: key,
             selected_at: None,

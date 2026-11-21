@@ -92,7 +92,7 @@ impl RenderOnce for DisclosureBody {
             .child(
                 canvas(
                     |_, _, _| {},
-                    move |_, _, window, _| {
+                    move |_, (), window, _| {
                         if active {
                             window.request_animation_frame();
                         }
@@ -122,7 +122,7 @@ impl RenderOnce for AnimatedHeight {
         self.content.h(px(height.max(0.0))).child(
             canvas(
                 |_, _, _| {},
-                move |_, _, window, _| {
+                move |_, (), window, _| {
                     if active {
                         window.request_animation_frame();
                     }

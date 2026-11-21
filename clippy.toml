@@ -8,6 +8,8 @@
 # `#[allow(clippy::disallowed_methods)]` with a `// reason: …` comment.
 
 allow-unwrap-in-tests = true
+# 64 KiB I/O copy buffers on worker threads are intended; flag anything larger.
+array-size-threshold = 131072
 allow-expect-in-tests = true
 
 disallowed-methods = [

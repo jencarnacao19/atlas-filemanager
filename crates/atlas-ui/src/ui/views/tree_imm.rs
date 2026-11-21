@@ -22,13 +22,13 @@
 
 use crate::app::App;
 use crate::input::action::Action;
-use crate::ui::imm::cut::RectCut;
-use crate::ui::imm::motion::{presentation_epoch, DisclosureMotion, PresenceMotion, RowMotion};
 use crate::ui::drag_hover::{
     DragHoverCommand, DragHoverDropCommand, DragHoverId, DragHoverKind, DragHoverTarget,
 };
 use crate::ui::glass::backdrop_tint;
 use crate::ui::icons::{is_windows_theme, AtlasIcon};
+use crate::ui::imm::cut::RectCut;
+use crate::ui::imm::motion::{presentation_epoch, DisclosureMotion, PresenceMotion, RowMotion};
 use crate::ui::root::ctrl_scroll;
 use crate::ui::selection_checkbox;
 use crate::ui::surface::{
@@ -221,7 +221,12 @@ fn apply_disclosure_accordion(rows: &mut [TreeRowPrepaint], row_h: f32) {
         let slot_y = row.layout.row_slot.y;
         let path = row.entry.path();
         if row.opacity < 1.0 {
-            if let Some(parent_y) = path.ancestors().skip(1).find_map(|p| presented.get(p)).copied() {
+            if let Some(parent_y) = path
+                .ancestors()
+                .skip(1)
+                .find_map(|p| presented.get(p))
+                .copied()
+            {
                 let opacity = row.opacity.clamp(0.0, 1.0);
                 row.dy = (parent_y + (slot_y - parent_y) * opacity) - slot_y;
                 row.clip_top = Some(parent_y + row_h);
@@ -233,7 +238,12 @@ fn apply_disclosure_accordion(rows: &mut [TreeRowPrepaint], row_h: f32) {
     for row in rows.iter_mut().filter(|row| !row.interactive) {
         let slot_y = row.layout.row_slot.y;
         let path = row.entry.path();
-        if let Some(parent_y) = path.ancestors().skip(1).find_map(|p| presented.get(p)).copied() {
+        if let Some(parent_y) = path
+            .ancestors()
+            .skip(1)
+            .find_map(|p| presented.get(p))
+            .copied()
+        {
             let opacity = row.opacity.clamp(0.0, 1.0);
             row.dy = (parent_y + (slot_y - parent_y) * opacity) - slot_y;
             row.clip_top = Some(parent_y + row_h);
@@ -384,7 +394,11 @@ impl Element for TreeImmElement {
         };
         let scroll_y = (-f32::from(self.scroll.offset().y)).max(0.0);
         let (start_idx, end_idx) = crate::ui::imm::scroll::live_span(
-            scroll_y, scroll_y + viewport_h, row_h, 2, self.rows.len(),
+            scroll_y,
+            scroll_y + viewport_h,
+            row_h,
+            2,
+            self.rows.len(),
         );
         let visible_count = end_idx.saturating_sub(start_idx);
 
@@ -421,13 +435,7 @@ impl Element for TreeImmElement {
         let journey_rows = (viewport_h / row_h.max(1.0)).ceil() + 2.0;
         let (positions, moving) = motion.update(cx, |state, _| {
             state.long_journey_rows = journey_rows;
-            state.sample(
-                &targets,
-                epoch,
-                [scroll_y, row_h, viewport_h],
-                instant,
-                now,
-            )
+            state.sample(&targets, epoch, [scroll_y, row_h, viewport_h], instant, now)
         });
         let positions: std::collections::HashMap<_, _> =
             positions.into_iter().map(|(i, y, _)| (i, y)).collect();
@@ -438,19 +446,36 @@ impl Element for TreeImmElement {
                 bounds
             };
             this.pane_view_bounds.insert(pane_id, viewport_bounds);
-            this.row_rects.borrow_mut().insert(pane_id, (start_idx..end_idx).map(|i| {
-                (i, Bounds {
-                    origin: point(origin.x, origin.y + px(positions.get(&i).copied().unwrap_or(i as f32 * row_h))),
-                    size: size(bounds.size.width, px(row_h)),
-                })
-            }).collect());
+            this.row_rects.borrow_mut().insert(
+                pane_id,
+                (start_idx..end_idx)
+                    .map(|i| {
+                        (
+                            i,
+                            Bounds {
+                                origin: point(
+                                    origin.x,
+                                    origin.y
+                                        + px(positions
+                                            .get(&i)
+                                            .copied()
+                                            .unwrap_or(i as f32 * row_h)),
+                                ),
+                                size: size(bounds.size.width, px(row_h)),
+                            },
+                        )
+                    })
+                    .collect(),
+            );
             this.refresh_rubber_for_pane(pane_id, cx);
             for i in start_idx..end_idx {
                 let entry = &self.rows[i].0;
                 this.maybe_request_file_icon(&crate::ui::file_icons::FileIconRef {
                     path: entry.path(),
                     kind: entry.kind().clone(),
-                    extension: entry.extension().map(|value| SharedString::from(value.to_string())),
+                    extension: entry
+                        .extension()
+                        .map(|value| SharedString::from(value.to_string())),
                 });
             }
             let is_drag_active = this.is_drag_active(has_gpui_drag);
@@ -524,7 +549,9 @@ impl Element for TreeImmElement {
                 let cursor = keyboard_cursor == Some(i);
                 let hovered = current_hover_row == Some(i);
                 let is_blinking = is_dir && blink_folder_path.as_ref() == Some(&entry.path());
-                let editing = crate::ui::views::rename::active_input_for_path(this, pane_id, &entry.path()).is_some();
+                let editing =
+                    crate::ui::views::rename::active_input_for_path(this, pane_id, &entry.path())
+                        .is_some();
 
                 let icon_tex = this
                     .row_icon_for_entry(&entry.path(), &entry.kind(), entry.extension().as_deref())
@@ -553,7 +580,7 @@ impl Element for TreeImmElement {
 
                 let size_line = layout.size_slot.map(|slot| {
                     shape_text_truncated(
-                        &crate::ui::views::details::entry_display_size(&entry),
+                        &crate::ui::views::details::entry_display_size(entry),
                         &font,
                         font_size,
                         meta_color,
@@ -564,7 +591,7 @@ impl Element for TreeImmElement {
 
                 let date_line = layout.date_slot.map(|slot| {
                     shape_text_truncated(
-                        &crate::ui::views::details::entry_display_date(&entry),
+                        &crate::ui::views::details::entry_display_date(entry),
                         &font,
                         font_size,
                         meta_color,
@@ -606,12 +633,7 @@ impl Element for TreeImmElement {
         );
         let selection: Vec<_> = prepaint_rows
             .iter()
-            .map(|row| {
-                (
-                    row.entry.path(),
-                    row.selected && row.check_slot.is_some(),
-                )
-            })
+            .map(|row| (row.entry.path(), row.selected && row.check_slot.is_some()))
             .collect();
         let selected_at = feedback.update(cx, |state, _| state.sample(&selection, now));
         let disclosure = window.use_keyed_state(
@@ -717,200 +739,234 @@ impl Element for TreeImmElement {
                     point(bounds.left(), origin.y + px(top)),
                     bounds.bottom_right(),
                 ),
-                fade_out: Default::default(),
+                fade_out: Edges::default(),
             });
             let origin = point(origin.x, origin.y + px(row.dy));
             window.with_content_mask(clip, |window| {
-            window.with_element_opacity(Some(row.opacity * crate::ui::views::rename::cut_path_opacity(&self.app, &row.entry.path(), cx)), |window| {
-                let row_slot = row.layout.row_slot;
-                let row_bounds = row_slot.to_bounds(origin);
-
-                // 1. Row background fill (Selection > Hover > Normal)
-                if row.selected && !row.editing {
-                    paint_rounded(window, row_bounds, 3.0 * zoom, colors.accent);
-                } else if row.interactive && (active_hover_idx == Some(row.idx) || row.hovered) {
-                    paint_rounded(window, row_bounds, 3.0 * zoom, colors.hover);
-                }
-
-                // Visual blink feedback during drag hover
-                if row.interactive {
-                    crate::ui::operation_feedback::paint_file_feedback(&self.app, &row.entry.path(), row_bounds, colors.accent, 3.0 * zoom, window, cx);
-                }
-                if row.is_blinking {
-                    paint_rounded(window, row_bounds, 3.0 * zoom, colors.accent.opacity(0.40));
-                }
-
-                // Keyboard cursor indicator border
-                if row.cursor && !row.selected && row.interactive {
-                    let border_col = colors
-                        .accent
-                        .opacity(if row.selected { 0.95 } else { 0.65 });
-                    window.paint_quad(gpui::quad(
-                        row_bounds,
-                        Corners::all(px(3.0 * zoom)),
-                        transparent_black(),
-                        Edges::all(px(1.0)),
-                        border_col,
-                        Default::default(),
-                    ));
-                }
-
-                // 2. Indentation guide lines: 1px vertical line at x + 8.0 for each depth level
-                let guide_color = if row.selected && !row.editing {
-                    colors.accent_fg.opacity(0.35)
-                } else {
-                    colors.border.opacity(0.40)
-                };
-                for &guide_x in &row.layout.indent_guide_xs {
-                    let line_bounds = Bounds {
-                        origin: point(origin.x + px(guide_x), row_bounds.origin.y),
-                        size: size(px(1.0), row_bounds.size.height),
-                    };
-                    paint_fill(window, line_bounds, guide_color);
-                }
-
-                // 3. Directory chevron icon
-                if let Some(ch_slot) = row.layout.chevron_slot {
-                    let chevron_color = if row.selected && !row.editing {
-                        colors.accent_fg
-                    } else {
-                        colors.muted
-                    };
-                    let sz = CHEVRON_ICON_SZ * zoom;
-                    let icon_bounds = Bounds {
-                        origin: point(
-                            origin.x + px(ch_slot.x + (ch_slot.w - sz) * 0.5),
-                            origin.y + px(ch_slot.y + (ch_slot.h - sz) * 0.5),
-                        ),
-                        size: size(px(sz), px(sz)),
-                    };
-                    let center = icon_bounds.center();
-                    let scale = window.scale_factor();
-                    let transform = gpui::TransformationMatrix::unit()
-                        .translate(center.scale(scale))
-                        .rotate(gpui::radians(row.openness * std::f32::consts::FRAC_PI_2))
-                        .translate(center.scale(-scale));
-                    let _ = window.paint_svg(
-                        icon_bounds,
-                        AtlasIcon::CaretRight.path().into(),
-                        None,
-                        transform,
-                        chevron_color,
-                        cx,
-                    );
-                }
-
-                // 4. File / folder icon
-                let icon_slot = row.layout.icon_slot;
-                let icon_sz = ICON_SZ * zoom;
-                let icon_b = icon_slot.to_bounds(origin);
-                let icon_bounds = Bounds {
-                    origin: point(
-                        icon_b.origin.x + px((f32::from(icon_b.size.width) - icon_sz) * 0.5),
-                        icon_b.origin.y + px((f32::from(icon_b.size.height) - icon_sz) * 0.5),
+                window.with_element_opacity(
+                    Some(
+                        row.opacity
+                            * crate::ui::views::rename::cut_path_opacity(
+                                &self.app,
+                                &row.entry.path(),
+                                cx,
+                            ),
                     ),
-                    size: size(px(icon_sz), px(icon_sz)),
-                };
+                    |window| {
+                        let row_slot = row.layout.row_slot;
+                        let row_bounds = row_slot.to_bounds(origin);
 
-                if row.selected && row.check_slot.is_some() {
-                    selection_checkbox::paint_animated(
-                        window,
-                        cx,
-                        icon_bounds.center(),
-                        selection_checkbox::ROW_SIZE * zoom,
-                        row.selected_at,
-                    );
-                } else if let Some(tex) = &row.icon_tex {
-                    let _ = window.paint_image(
-                        icon_bounds,
-                        icon_bounds,
-                        Corners::all(px(0.0)),
-                        tex.clone(),
-                        0,
-                        false,
-                    );
-                } else {
-                    let icon_kind = if row.entry.kind() == FileKind::Dir {
-                        AtlasIcon::Folder
-                    } else {
-                        AtlasIcon::File
-                    };
-                    let icon_color = if row.selected && !row.editing {
-                        colors.accent_fg
-                    } else {
-                        colors.accent
-                    };
-                    paint_theme_icon(
-                        window,
-                        cx,
-                        origin,
-                        icon_slot,
-                        icon_kind,
-                        windows_theme,
-                        icon_sz,
-                        icon_color,
-                    );
-                }
+                        // 1. Row background fill (Selection > Hover > Normal)
+                        if row.selected && !row.editing {
+                            paint_rounded(window, row_bounds, 3.0 * zoom, colors.accent);
+                        } else if row.interactive
+                            && (active_hover_idx == Some(row.idx) || row.hovered)
+                        {
+                            paint_rounded(window, row_bounds, 3.0 * zoom, colors.hover);
+                        }
 
-                // 5. Filename
-                if !row.editing {
-                    let name_bounds = row.layout.name_slot.to_bounds(origin);
-                    if name_bounds.size.width > px(0.0) {
-                        window.paint_layer(name_bounds, |window| {
-                            let text_x = name_bounds.origin.x;
-                            let text_y = origin.y + px(text_origin_y(row_slot.y, zoom));
-                            let _ = row.name_line.paint(
-                                point(text_x, text_y),
-                                px(row_slot.h),
-                                TextAlign::Left,
-                                None,
+                        // Visual blink feedback during drag hover
+                        if row.interactive {
+                            crate::ui::operation_feedback::paint_file_feedback(
+                                &self.app,
+                                &row.entry.path(),
+                                row_bounds,
+                                colors.accent,
+                                3.0 * zoom,
                                 window,
                                 cx,
                             );
-                        });
-                    }
-                }
-
-                // 6. Aligned metadata: Size
-                if let (Some(size_slot), Some(size_line)) = (row.layout.size_slot, &row.size_line) {
-                    let size_bounds = size_slot.to_bounds(origin);
-                    if size_bounds.size.width > px(0.0) {
-                        window.paint_layer(size_bounds, |window| {
-                            let text_w = line_width(size_line);
-                            let text_x = size_bounds.origin.x + size_bounds.size.width - px(text_w);
-                            let text_y = origin.y + px(text_origin_y(row_slot.y, zoom));
-                            let _ = size_line.paint(
-                                point(text_x, text_y),
-                                px(row_slot.h),
-                                TextAlign::Left,
-                                None,
+                        }
+                        if row.is_blinking {
+                            paint_rounded(
                                 window,
+                                row_bounds,
+                                3.0 * zoom,
+                                colors.accent.opacity(0.40),
+                            );
+                        }
+
+                        // Keyboard cursor indicator border
+                        if row.cursor && !row.selected && row.interactive {
+                            let border_col =
+                                colors
+                                    .accent
+                                    .opacity(if row.selected { 0.95 } else { 0.65 });
+                            window.paint_quad(gpui::quad(
+                                row_bounds,
+                                Corners::all(px(3.0 * zoom)),
+                                transparent_black(),
+                                Edges::all(px(1.0)),
+                                border_col,
+                                gpui::BorderStyle::default(),
+                            ));
+                        }
+
+                        // 2. Indentation guide lines: 1px vertical line at x + 8.0 for each depth level
+                        let guide_color = if row.selected && !row.editing {
+                            colors.accent_fg.opacity(0.35)
+                        } else {
+                            colors.border.opacity(0.40)
+                        };
+                        for &guide_x in &row.layout.indent_guide_xs {
+                            let line_bounds = Bounds {
+                                origin: point(origin.x + px(guide_x), row_bounds.origin.y),
+                                size: size(px(1.0), row_bounds.size.height),
+                            };
+                            paint_fill(window, line_bounds, guide_color);
+                        }
+
+                        // 3. Directory chevron icon
+                        if let Some(ch_slot) = row.layout.chevron_slot {
+                            let chevron_color = if row.selected && !row.editing {
+                                colors.accent_fg
+                            } else {
+                                colors.muted
+                            };
+                            let sz = CHEVRON_ICON_SZ * zoom;
+                            let icon_bounds = Bounds {
+                                origin: point(
+                                    origin.x + px(ch_slot.x + (ch_slot.w - sz) * 0.5),
+                                    origin.y + px(ch_slot.y + (ch_slot.h - sz) * 0.5),
+                                ),
+                                size: size(px(sz), px(sz)),
+                            };
+                            let center = icon_bounds.center();
+                            let scale = window.scale_factor();
+                            let transform = gpui::TransformationMatrix::unit()
+                                .translate(center.scale(scale))
+                                .rotate(gpui::radians(row.openness * std::f32::consts::FRAC_PI_2))
+                                .translate(center.scale(-scale));
+                            let _ = window.paint_svg(
+                                icon_bounds,
+                                AtlasIcon::CaretRight.path().into(),
+                                None,
+                                transform,
+                                chevron_color,
                                 cx,
                             );
-                        });
-                    }
-                }
+                        }
 
-                // 7. Aligned metadata: Date
-                if let (Some(date_slot), Some(date_line)) = (row.layout.date_slot, &row.date_line) {
-                    let date_bounds = date_slot.to_bounds(origin);
-                    if date_bounds.size.width > px(0.0) {
-                        window.paint_layer(date_bounds, |window| {
-                            let text_w = line_width(date_line);
-                            let text_x = date_bounds.origin.x + date_bounds.size.width - px(text_w);
-                            let text_y = origin.y + px(text_origin_y(row_slot.y, zoom));
-                            let _ = date_line.paint(
-                                point(text_x, text_y),
-                                px(row_slot.h),
-                                TextAlign::Left,
-                                None,
+                        // 4. File / folder icon
+                        let icon_slot = row.layout.icon_slot;
+                        let icon_sz = ICON_SZ * zoom;
+                        let icon_b = icon_slot.to_bounds(origin);
+                        let icon_bounds = Bounds {
+                            origin: point(
+                                icon_b.origin.x
+                                    + px((f32::from(icon_b.size.width) - icon_sz) * 0.5),
+                                icon_b.origin.y
+                                    + px((f32::from(icon_b.size.height) - icon_sz) * 0.5),
+                            ),
+                            size: size(px(icon_sz), px(icon_sz)),
+                        };
+
+                        if row.selected && row.check_slot.is_some() {
+                            selection_checkbox::paint_animated(
                                 window,
                                 cx,
+                                icon_bounds.center(),
+                                selection_checkbox::ROW_SIZE * zoom,
+                                row.selected_at,
                             );
-                        });
-                    }
-                }
-            });
+                        } else if let Some(tex) = &row.icon_tex {
+                            let _ = window.paint_image(
+                                icon_bounds,
+                                icon_bounds,
+                                Corners::all(px(0.0)),
+                                tex.clone(),
+                                0,
+                                false,
+                            );
+                        } else {
+                            let icon_kind = if row.entry.kind() == FileKind::Dir {
+                                AtlasIcon::Folder
+                            } else {
+                                AtlasIcon::File
+                            };
+                            let icon_color = if row.selected && !row.editing {
+                                colors.accent_fg
+                            } else {
+                                colors.accent
+                            };
+                            paint_theme_icon(
+                                window,
+                                cx,
+                                origin,
+                                icon_slot,
+                                icon_kind,
+                                windows_theme,
+                                icon_sz,
+                                icon_color,
+                            );
+                        }
+
+                        // 5. Filename
+                        if !row.editing {
+                            let name_bounds = row.layout.name_slot.to_bounds(origin);
+                            if name_bounds.size.width > px(0.0) {
+                                window.paint_layer(name_bounds, |window| {
+                                    let text_x = name_bounds.origin.x;
+                                    let text_y = origin.y + px(text_origin_y(row_slot.y, zoom));
+                                    let _ = row.name_line.paint(
+                                        point(text_x, text_y),
+                                        px(row_slot.h),
+                                        TextAlign::Left,
+                                        None,
+                                        window,
+                                        cx,
+                                    );
+                                });
+                            }
+                        }
+
+                        // 6. Aligned metadata: Size
+                        if let (Some(size_slot), Some(size_line)) =
+                            (row.layout.size_slot, &row.size_line)
+                        {
+                            let size_bounds = size_slot.to_bounds(origin);
+                            if size_bounds.size.width > px(0.0) {
+                                window.paint_layer(size_bounds, |window| {
+                                    let text_w = line_width(size_line);
+                                    let text_x =
+                                        size_bounds.origin.x + size_bounds.size.width - px(text_w);
+                                    let text_y = origin.y + px(text_origin_y(row_slot.y, zoom));
+                                    let _ = size_line.paint(
+                                        point(text_x, text_y),
+                                        px(row_slot.h),
+                                        TextAlign::Left,
+                                        None,
+                                        window,
+                                        cx,
+                                    );
+                                });
+                            }
+                        }
+
+                        // 7. Aligned metadata: Date
+                        if let (Some(date_slot), Some(date_line)) =
+                            (row.layout.date_slot, &row.date_line)
+                        {
+                            let date_bounds = date_slot.to_bounds(origin);
+                            if date_bounds.size.width > px(0.0) {
+                                window.paint_layer(date_bounds, |window| {
+                                    let text_w = line_width(date_line);
+                                    let text_x =
+                                        date_bounds.origin.x + date_bounds.size.width - px(text_w);
+                                    let text_y = origin.y + px(text_origin_y(row_slot.y, zoom));
+                                    let _ = date_line.paint(
+                                        point(text_x, text_y),
+                                        px(row_slot.h),
+                                        TextAlign::Left,
+                                        None,
+                                        window,
+                                        cx,
+                                    );
+                                });
+                            }
+                        }
+                    },
+                );
             });
         }
 
@@ -955,7 +1011,13 @@ impl Element for TreeImmElement {
                             let path = ch_path.clone();
                             cx.stop_propagation();
                             click_view.update(cx, |this, cx| {
-                                if this.suppress_navigation_double_click(pane_id, ev.position, ev.click_count) { return; }
+                                if this.suppress_navigation_double_click(
+                                    pane_id,
+                                    ev.position,
+                                    ev.click_count,
+                                ) {
+                                    return;
+                                }
                                 this.activate_tab(pane_id);
                                 this.process_actions(vec![Action::ToggleTreeExpand(path)]);
                                 this.notify_pane(pane_id, cx);
@@ -981,8 +1043,15 @@ impl Element for TreeImmElement {
                             cx.stop_propagation();
                             click_view.update(cx, |this, cx| {
                                 this.tree_entry_left_mouse_down(
-                                    pane_id, idx, path, is_dir, ev.position, shift, ctrl,
-                                    if on_check { 1 } else { ev.click_count }, cx,
+                                    pane_id,
+                                    idx,
+                                    path,
+                                    is_dir,
+                                    ev.position,
+                                    shift,
+                                    ctrl,
+                                    if on_check { 1 } else { ev.click_count },
+                                    cx,
                                 );
                             });
                             return;
@@ -1049,10 +1118,18 @@ impl Element for TreeImmElement {
 
 /// Transparent drag source over the tree rows. The press already selected the
 /// row (element mouse-down), so a drag carries the whole tree selection.
-fn tree_drag_layer(view: &gpui::Entity<App>, pane_id: TabId, row_h: f32, total_height: f32) -> AnyElement {
+fn tree_drag_layer(
+    view: &gpui::Entity<App>,
+    pane_id: TabId,
+    row_h: f32,
+    total_height: f32,
+) -> AnyElement {
     let drag_view = view.clone();
     div()
-        .id(SharedString::from(format!("tree-imm-drag-layer-{}", pane_id.0)))
+        .id(SharedString::from(format!(
+            "tree-imm-drag-layer-{}",
+            pane_id.0
+        )))
         .absolute()
         .top_0()
         .left_0()
@@ -1066,7 +1143,9 @@ fn tree_drag_layer(view: &gpui::Entity<App>, pane_id: TabId, row_h: f32, total_h
                     if !ts.selection.selected.contains(&row) {
                         return None;
                     }
-                    ts.visible_tree_rows_snapshot().get(row).map(|r| (row, r.0.path()))
+                    ts.visible_tree_rows_snapshot()
+                        .get(row)
+                        .map(|r| (row, r.0.path()))
                 })
             };
             let Some((row, anchor)) = item else {
@@ -1133,9 +1212,10 @@ impl App {
             .get(&pane_id)
             .filter(|(fp, _, _)| *fp == fingerprint)
             .map(|(_, rows, pending)| (rows.clone(), pending.clone()));
-        let (rows, pending): (Arc<[(FileEntry, usize, bool, bool)]>, Vec<PathBuf>) = match cached {
-            Some(hit) => hit,
-            None => {
+        let (rows, pending): (Arc<[(FileEntry, usize, bool, bool)]>, Vec<PathBuf>) =
+            if let Some(hit) = cached {
+                hit
+            } else {
                 let Some(ts) = self.state.tab_states.get_mut(&pane_id) else {
                     return div().into_any_element();
                 };
@@ -1153,8 +1233,7 @@ impl App {
                 self.tree_rows_cache
                     .insert(pane_id, (fingerprint, rows.clone(), pending.clone()));
                 (rows, pending)
-            }
-        };
+            };
 
         // Fetch children asynchronously if an expanded directory has not loaded them yet.
         for path in pending {
@@ -1198,9 +1277,13 @@ impl App {
             let count = rows.len();
             let total_height = count as f32 * row_h;
             let max_scroll = self.file_scroll_max(total_height, viewport_h);
-            if crate::ui::imm::scroll::apply_deferred(&scroll, true, viewport_h, max_scroll, |row| {
-                (row < count).then(|| (row as f32 * row_h, row_h))
-            }) {
+            if crate::ui::imm::scroll::apply_deferred(
+                &scroll,
+                true,
+                viewport_h,
+                max_scroll,
+                |row| (row < count).then_some((row as f32 * row_h, row_h)),
+            ) {
                 scroll_y = (-f32::from(base_scroll.offset().y)).max(0.0);
             }
             if scroll_y > max_scroll {
@@ -1285,14 +1368,27 @@ impl App {
                 .skip(start_idx)
                 .take(end_idx.saturating_sub(start_idx))
                 .find_map(|(i, (entry, depth, _, _))| {
-                    let input =
-                        crate::ui::views::rename::active_input_for_path(self, pane_id, &entry.path())?;
-                    Some((i, entry.name.to_string(), *depth, entry.kind() == FileKind::Dir, input))
+                    let input = crate::ui::views::rename::active_input_for_path(
+                        self,
+                        pane_id,
+                        &entry.path(),
+                    )?;
+                    Some((
+                        i,
+                        entry.name.to_string(),
+                        *depth,
+                        entry.kind() == FileKind::Dir,
+                        input,
+                    ))
                 });
             let rename_overlay = rename_target.map(|(i, name, depth, is_dir, input)| {
                 let total_w = {
                     let tracked = f32::from(base_scroll.bounds().size.width);
-                    if tracked > 1.0 { tracked } else { f32::from(window.viewport_size().width) }
+                    if tracked > 1.0 {
+                        tracked
+                    } else {
+                        f32::from(window.viewport_size().width)
+                    }
                 };
                 let gutter = 0.0;
                 let layout = compute_tree_row_layout(
@@ -1325,7 +1421,10 @@ impl App {
             });
 
             let content_scroller = div()
-                .id(SharedString::from(format!("tree-imm-viewport-{}", pane_id.0)))
+                .id(SharedString::from(format!(
+                    "tree-imm-viewport-{}",
+                    pane_id.0
+                )))
                 .size_full()
                 .relative()
                 .overflow_hidden()
@@ -1379,6 +1478,40 @@ impl App {
         .child(self.transition_viewport(pane_id, body))
         .into_any_element()
     }
+}
+
+/// Cheap, order-independent digest of everything `visible_tree_rows` reads: the
+/// root listing, filter/visibility flags, which folders are expanded and the
+/// identity (pointer + length) of each loaded child list.
+fn tree_fingerprint(ts: &atlas_model::tab::TabState) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let hash_one = |value: &dyn Fn(&mut std::collections::hash_map::DefaultHasher)| {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        value(&mut hasher);
+        hasher.finish()
+    };
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    ts.entries_version.hash(&mut hasher);
+    ts.filter.hash(&mut hasher);
+    ts.show_files.hash(&mut hasher);
+    ts.show_folders.hash(&mut hasher);
+    ts.tree.expanded.len().hash(&mut hasher);
+    ts.tree.children.len().hash(&mut hasher);
+    let expanded = ts
+        .tree
+        .expanded
+        .iter()
+        .fold(0_u64, |acc, path| acc ^ hash_one(&|h| path.hash(h)));
+    let children = ts.tree.children.iter().fold(0_u64, |acc, (path, list)| {
+        acc ^ hash_one(&|h| {
+            path.hash(h);
+            (list.as_ptr() as usize).hash(h);
+            list.len().hash(h);
+        })
+    });
+    expanded.hash(&mut hasher);
+    children.hash(&mut hasher);
+    hasher.finish()
 }
 
 #[cfg(test)]
@@ -1480,7 +1613,11 @@ mod tests {
     fn test_prepaint_row(path: &str, y: f32, opacity: f32, interactive: bool) -> TreeRowPrepaint {
         use atlas_model::file_entry::FileEntryData;
         let entry: FileEntry = FileEntryData {
-            name: std::path::Path::new(path).file_name().unwrap_or_default().to_string_lossy().into(),
+            name: std::path::Path::new(path)
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into(),
             path: PathBuf::from(path),
             kind: FileKind::File,
             size: None,
@@ -1489,7 +1626,8 @@ mod tests {
             _is_symlink: false,
             archive_root: None,
             recycle_info: None,
-        }.into();
+        }
+        .into();
         let layout = TreeRowLayout {
             row_slot: Slot::new(0.0, y, 400.0, 24.0),
             chevron_slot: None,
@@ -1576,38 +1714,4 @@ mod tests {
         assert_eq!(rows[5].dy, -60.0);
         assert_eq!(rows[5].clip_top, Some(24.0));
     }
-}
-
-/// Cheap, order-independent digest of everything `visible_tree_rows` reads: the
-/// root listing, filter/visibility flags, which folders are expanded and the
-/// identity (pointer + length) of each loaded child list.
-fn tree_fingerprint(ts: &atlas_model::tab::TabState) -> u64 {
-    use std::hash::{Hash, Hasher};
-    let hash_one = |value: &dyn Fn(&mut std::collections::hash_map::DefaultHasher)| {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        value(&mut hasher);
-        hasher.finish()
-    };
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    ts.entries_version.hash(&mut hasher);
-    ts.filter.hash(&mut hasher);
-    ts.show_files.hash(&mut hasher);
-    ts.show_folders.hash(&mut hasher);
-    ts.tree.expanded.len().hash(&mut hasher);
-    ts.tree.children.len().hash(&mut hasher);
-    let expanded = ts
-        .tree
-        .expanded
-        .iter()
-        .fold(0_u64, |acc, path| acc ^ hash_one(&|h| path.hash(h)));
-    let children = ts.tree.children.iter().fold(0_u64, |acc, (path, list)| {
-        acc ^ hash_one(&|h| {
-            path.hash(h);
-            (list.as_ptr() as usize).hash(h);
-            list.len().hash(h);
-        })
-    });
-    expanded.hash(&mut hasher);
-    children.hash(&mut hasher);
-    hasher.finish()
 }

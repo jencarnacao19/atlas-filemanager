@@ -31,7 +31,7 @@ impl ZipProvider {
             let entry = zip.by_index(i)?;
             // enclosed_name() rejects zip-slip paths (../, absolute, etc.).
             let mut inner = match entry.enclosed_name() {
-                Some(n) => n.to_path_buf(),
+                Some(n) => n.clone(),
                 None => continue,
             };
             let s = inner.to_string_lossy();

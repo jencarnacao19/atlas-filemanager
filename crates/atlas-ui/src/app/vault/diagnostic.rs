@@ -1,18 +1,24 @@
 //! Hidden native render + real controller regression, with isolated test data.
-use super::{App, Phase};
-use anyhow::ensure;
-use gpui::{px, size, AppContext, Entity, Window, WindowBounds, WindowOptions};
-use gpui_component::{Root, ThemeRegistry, TitleBar};
-use std::{
-    path::PathBuf,
-    time::{Duration, Instant},
+// reason: a feature-gated diagnostic harness, not shipped app code: it panics on
+// setup failure and writes its evidence to disk on purpose.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
+use std::path::PathBuf;
+#[cfg(windows)]
+use {
+    super::{App, Phase},
+    anyhow::ensure,
+    gpui::{px, size, AppContext, Entity, Window, WindowBounds, WindowOptions},
+    gpui_component::{Root, ThemeRegistry, TitleBar},
+    std::time::{Duration, Instant},
 };
 
+#[cfg(windows)]
 fn draw(window: &mut Window, cx: &mut gpui::App) {
     window.simulate_next_frame(cx);
     window.refresh();
     window.draw(cx).clear(cx);
 }
+#[cfg(windows)]
 fn fill(app: &Entity<App>, values: &[&str], window: &mut Window, cx: &mut gpui::App) {
     app.update(cx, |app, cx| {
         app.ensure_vault_inputs(window, cx);
@@ -24,6 +30,7 @@ fn fill(app: &Entity<App>, values: &[&str], window: &mut Window, cx: &mut gpui::
         }
     });
 }
+#[cfg(windows)]
 fn capture(
     app: &Entity<App>,
     directory: &std::path::Path,
@@ -39,6 +46,7 @@ fn capture(
         .save(directory.join(format!("{label}.png")))?;
     Ok(())
 }
+#[cfg(windows)]
 fn idle(app: &Entity<App>, window: &mut Window, cx: &mut gpui::App) -> bool {
     app.update(cx, |app, cx| {
         app.drain_bg_results(cx);

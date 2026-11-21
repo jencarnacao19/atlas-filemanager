@@ -25,13 +25,10 @@ impl App {
         let idx = self
             .renaming_profile_idx
             .unwrap_or(self.state.profiles.active_idx);
-        let name = self
-            .state
-            .profiles
-            .profiles
-            .get(idx)
-            .map(|p| p.name.clone())
-            .unwrap_or_else(|| self.state.profiles.active().name.clone());
+        let name = self.state.profiles.profiles.get(idx).map_or_else(
+            || self.state.profiles.active().name.clone(),
+            |p| p.name.clone(),
+        );
         self.rename_profile_input
             .get_or_insert_with(|| crate::ui::text_input::single_line(window, cx, "", name))
             .clone()
@@ -179,7 +176,7 @@ impl App {
         self.overlay_scrim_custom(
             "scrim-rename-profile",
             view,
-            |this| this.close_rename_profile(),
+            Self::close_rename_profile,
             focus,
             panel.into_any_element(),
             cx,

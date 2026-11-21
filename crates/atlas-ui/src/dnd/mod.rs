@@ -12,6 +12,10 @@
 //! dnd/macos.rs          — (future) NSPasteboard / NSDraggingSource
 //! dnd/linux.rs          — (future) XDND / wl_data_device
 //! ```
+// reason: this layer also holds the FreeDesktop uri-list helpers and the Linux
+// bridge placeholder. Parts are reached on one platform only, and the XDND /
+// wl_data_device bridge that will consume the rest is not wired yet.
+#![allow(dead_code)]
 
 use std::path::PathBuf;
 
@@ -20,7 +24,7 @@ use std::path::PathBuf;
 pub mod windows;
 
 pub mod linux {
-    use super::*;
+    use super::{parse_uri_list_bytes, DropZones, PathBuf};
     use std::sync::{Arc, Mutex};
 
     pub const MIME_TEXT_URI_LIST: &str = super::MIME_TEXT_URI_LIST;
@@ -216,6 +220,8 @@ pub fn format_uri_list_with_cut(paths: &[PathBuf], is_cut: bool) -> String {
 /// Parses a `text/uri-list` or multi-line text into a list of valid local `PathBuf`s and a cut flag.
 /// Safely ignores comment lines (`#`), empty lines, and non-file schemes.
 /// Decodes percent-encoded characters like `%20`.
+// reason: absolute paths and file URIs are separate cases that resolve the same way.
+#[allow(clippy::if_same_then_else)]
 pub fn parse_uri_list_with_cut(text: &str) -> (Vec<PathBuf>, bool) {
     let mut paths = Vec::new();
     let mut is_cut = false;
@@ -243,14 +249,14 @@ pub fn parse_uri_list_with_cut(text: &str) -> (Vec<PathBuf>, bool) {
             } else {
                 format!("/{rest}")
             })
-        } else if let Some(rest) = trimmed.strip_prefix("file:/") {
-            Some(if rest.starts_with('/') {
-                rest.to_string()
-            } else {
-                format!("/{rest}")
-            })
         } else {
-            None
+            trimmed.strip_prefix("file:/").map(|rest| {
+                if rest.starts_with('/') {
+                    rest.to_string()
+                } else {
+                    format!("/{rest}")
+                }
+            })
         };
 
         if let Some(raw_path) = uri_path {
@@ -308,7 +314,7 @@ impl DropEffect {
     /// Returns `true` when source files should be removed after the drop
     /// (i.e., the operation was effectively a move).
     pub fn is_move(self) -> bool {
-        matches!(self, DropEffect::Move)
+        matches!(self, Self::Move)
     }
 }
 
@@ -400,7 +406,7 @@ impl DropZones {
 /// Windows Explorer semantics: same volume → move, different volume → copy.
 ///
 /// On platforms without volume concepts (SFTP, cloud), returns `Copy`.
-pub fn default_effect_for_paths(sources: &[PathBuf], dest: &PathBuf) -> DropEffect {
+pub fn default_effect_for_paths(sources: &[PathBuf], dest: &std::path::Path) -> DropEffect {
     let all_same = sources
         .iter()
         .all(|s| atlas_core::fs::paths::same_volume(s, dest));
@@ -503,11 +509,7 @@ mod tests {
     #[test]
     fn parse_uri_list_with_raw_existing_paths() {
         // /tmp or /etc always exist on Linux
-        let existing = if cfg!(windows) {
-            "C:\\Windows"
-        } else {
-            "/tmp"
-        };
+        let existing = if cfg!(windows) { "C:\\Windows" } else { "/tmp" };
         let (paths, is_cut) = parse_uri_list_with_cut(existing);
         assert!(!is_cut);
         assert_eq!(paths, vec![PathBuf::from(existing)]);

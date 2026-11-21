@@ -60,7 +60,7 @@ pub(crate) fn row_tops(heights: &[f32], pad: f32) -> (Vec<f32>, f32) {
 pub(crate) fn visible_rows(tops: &[f32], heights: &[f32], from: f32, to: f32) -> Range<usize> {
     let (mut lo, mut hi) = (0, tops.len());
     while lo < hi {
-        let mid = (lo + hi) / 2;
+        let mid = usize::midpoint(lo, hi);
         if tops[mid] + heights[mid] <= from {
             lo = mid + 1;
         } else {
@@ -224,7 +224,9 @@ mod tests {
 
     #[test]
     fn visible_rows_never_skip_a_row_that_intersects() {
-        let heights: Vec<f32> = (0..200).map(|i| if i % 7 == 0 { 32.0 } else { 36.0 }).collect();
+        let heights: Vec<f32> = (0..200)
+            .map(|i| if i % 7 == 0 { 32.0 } else { 36.0 })
+            .collect();
         let (tops, _) = row_tops(&heights, 4.0);
         for from in [0.0, 13.0, 777.0, 3_001.0, 7_000.0] {
             let to = from + 600.0;

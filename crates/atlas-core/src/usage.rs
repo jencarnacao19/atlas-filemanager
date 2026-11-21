@@ -3,6 +3,7 @@
 // reason: tiny JSON read once per process and cached; writes happen off the UI thread.
 #![allow(clippy::disallowed_methods)]
 
+#[cfg(not(test))]
 use crate::util::config::config_dir;
 use serde::{Deserialize, Serialize};
 use std::sync::{Mutex, PoisonError};

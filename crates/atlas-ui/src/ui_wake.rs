@@ -6,13 +6,16 @@ static LISTENERS: Mutex<Vec<flume::Sender<()>>> = Mutex::new(Vec::new());
 
 pub(crate) fn subscribe() -> flume::Receiver<()> {
     let (tx, rx) = flume::bounded(1);
-    LISTENERS.lock().unwrap_or_else(|e| e.into_inner()).push(tx);
+    LISTENERS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .push(tx);
     rx
 }
 
 pub(crate) fn wake() {
     LISTENERS
         .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .retain(|tx| !matches!(tx.try_send(()), Err(flume::TrySendError::Disconnected(()))));
 }

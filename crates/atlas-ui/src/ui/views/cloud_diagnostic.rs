@@ -1,5 +1,8 @@
 //! Hidden native regression harness. Cloud replies are fixtures; no user OAuth,
 //! accounts, clipboard, configuration or remote data are touched.
+// reason: a feature-gated diagnostic harness, not shipped app code: it panics on
+// setup failure and writes its evidence to disk on purpose.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use crate::{app::App, ui::drag_hover::DragHoverDropCommand};
 use atlas_model::{
     app_state::BgResult,
@@ -44,14 +47,23 @@ fn fixture_entries() -> Vec<FileEntry> {
 }
 
 fn massive_entries(count: usize) -> Vec<FileEntry> {
-    (0..count).map(|index| {
-        let name = format!("Object {index:07}.txt");
-        FileEntry::from(FileEntryData {
-            path: atlas_model::remote_path::join("", &format!("object-{index}"), &name, false).into(),
-            name: name.into(), kind: FileKind::File, size: Some(index as u64), modified: None,
-            _is_hidden: false, _is_symlink: false, archive_root: None, recycle_info: None,
+    (0..count)
+        .map(|index| {
+            let name = format!("Object {index:07}.txt");
+            FileEntry::from(FileEntryData {
+                path: atlas_model::remote_path::join("", &format!("object-{index}"), &name, false)
+                    .into(),
+                name: name.into(),
+                kind: FileKind::File,
+                size: Some(index as u64),
+                modified: None,
+                _is_hidden: false,
+                _is_symlink: false,
+                archive_root: None,
+                recycle_info: None,
+            })
         })
-    }).collect()
+        .collect()
 }
 
 fn fixture_reply(app: &Entity<App>, cx: &mut gpui::App) {
@@ -133,7 +145,7 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                         if let Some(atlas_model::layout_tree::Tile::Pane(tab)) = app.state.pane_tree.tiles.get_mut(pane) {
                             tab.view_mode = ViewMode::Details;
                         }
-                        app.navigate_remote(pane, "drive-one".into(), "".into());
+                        app.navigate_remote(pane, "drive-one".into(), String::new());
                     });
                     fixture_reply(&app, cx);
                     draw(window, cx);
@@ -157,9 +169,9 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                         anyhow::ensure!(ring.collect_rows(hit.start_idx, hit.end_idx).len() == hit.end_idx - hit.start_idx,
                             "visible rows are missing without pointer input");
                         anyhow::ensure!(matches!(app.tab_drop_command(pane), Some(DragHoverDropCommand::TransferTo(path))
-                            if path == PathBuf::from("remote:drive-one")));
+                            if path == *"remote:drive-one"));
                         anyhow::ensure!(matches!(app.folder_drop_command(pane, Path::new("nested")), DragHoverDropCommand::TransferTo(path)
-                            if path == PathBuf::from("remote:drive-one/nested")));
+                            if path == *"remote:drive-one/nested"));
                     }
                     capture(&directory, "cloud-duplicates-settled", window)?;
                     app.update(cx, |app, _| {
@@ -203,7 +215,7 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                         app.state.preview.paths[&app.state.focused_tile].clone()
                     });
                     app.update(cx, |app, _| {
-                        app.navigate_remote(app.state.focused_tile, "drive-two".into(), "".into());
+                        app.navigate_remote(app.state.focused_tile, "drive-two".into(), String::new());
                     });
                     fixture_reply(&app, cx);
                     app.update(cx, |app, _| {
@@ -223,7 +235,7 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                     let source = atlas_model::remote_path::join("", "selected-object", "dragged.txt", false);
                     app.update(cx, |app, cx| {
                         let tab = app.state.focused_tile;
-                        app.navigate_remote(tab, "drive-one".into(), "".into());
+                        app.navigate_remote(tab, "drive-one".into(), String::new());
                         let op_id = app.state.tab_states[&tab].last_nav_op_id;
                         app.process_bg_results(vec![BgResult::DirListed { tab, op_id, entries: vec![FileEntryData {
                             name: "dragged.txt".into(), path: source.clone().into(), kind: FileKind::File,
@@ -238,12 +250,12 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                         app.details_hit[&app.state.focused_tile].row_bounds(0).center()
                     };
                     window.dispatch_event(gpui::PlatformInput::MouseDown(gpui::MouseDownEvent {
-                        position: start, modifiers: Default::default(), button: gpui::MouseButton::Left,
+                        position: start, modifiers: gpui::Modifiers::default(), button: gpui::MouseButton::Left,
                         click_count: 1, first_mouse: false,
                     }), cx);
                     draw(window, cx);
                     window.dispatch_event(gpui::PlatformInput::MouseMove(gpui::MouseMoveEvent {
-                        position: start + gpui::point(px(25.), px(5.)), modifiers: Default::default(), pressed_button: Some(gpui::MouseButton::Left),
+                        position: start + gpui::point(px(25.), px(5.)), modifiers: gpui::Modifiers::default(), pressed_button: Some(gpui::MouseButton::Left),
                     }), cx);
                     draw(window, cx);
                     anyhow::ensure!(cx.active_drag().is_some_and(|drag| drag.value.is::<crate::ui::root::DraggedCloudFiles>()),
@@ -256,12 +268,12 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                         gpui::point(bounds.center().x, bounds.bottom() - px(90.))
                     };
                     window.dispatch_event(gpui::PlatformInput::MouseMove(gpui::MouseMoveEvent {
-                        position: destination, modifiers: Default::default(), pressed_button: Some(gpui::MouseButton::Left),
+                        position: destination, modifiers: gpui::Modifiers::default(), pressed_button: Some(gpui::MouseButton::Left),
                     }), cx);
                     draw(window, cx);
                     capture(&directory, "cloud-drag-local-preview", window)?;
                     window.dispatch_event(gpui::PlatformInput::MouseUp(gpui::MouseUpEvent {
-                        position: destination, modifiers: Default::default(), button: gpui::MouseButton::Left, click_count: 1,
+                        position: destination, modifiers: gpui::Modifiers::default(), button: gpui::MouseButton::Left, click_count: 1,
                     }), cx);
                     draw(window, cx);
                     anyhow::ensure!(rx.try_iter().any(|command| matches!(command,
@@ -295,7 +307,7 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                         window.update(cx, |_, window, cx| {
                             app.update(cx, |app, cx| {
                                 let tab = app.state.focused_tile;
-                                app.navigate_remote(tab, "scale-account".into(), "".into());
+                                app.navigate_remote(tab, "scale-account".into(), String::new());
                                 let op_id = app.state.tab_states[&tab].last_nav_op_id;
                                 app.process_bg_results(vec![BgResult::DirListed { tab, op_id, entries }]);
                                 app.notify_pane(tab, cx);
@@ -338,7 +350,7 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                 let _ = std::fs::write(directory.join("failed.txt"), format!("{error:#}"));
             }
             *result.borrow_mut() = checked;
-            let _ = cx.update(|cx| cx.quit());
+            let () = cx.update(|cx| cx.quit());
         }).detach();
     });
     let outcome = std::mem::replace(&mut *final_result.borrow_mut(), Ok(()));

@@ -115,13 +115,15 @@ fn collect(node: &serde_json::Value, parent_removable: bool, out: &mut Vec<Remov
                 .get("label")
                 .and_then(|v| v.as_str())
                 .filter(|s| !s.is_empty())
-                .map(str::to_string)
-                .unwrap_or_else(|| {
-                    node.get("name")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or(&dev)
-                        .to_string()
-                });
+                .map_or_else(
+                    || {
+                        node.get("name")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or(&dev)
+                            .to_string()
+                    },
+                    str::to_string,
+                );
             let size = node
                 .get("size")
                 .and_then(|v| v.as_str())

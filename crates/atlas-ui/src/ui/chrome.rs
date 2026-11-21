@@ -59,7 +59,7 @@ impl App {
                     .when(!is_glass, |s| {
                         s.border_1().border_color(cx.theme().border.opacity(0.60))
                     })
-                    .when(glass_shadows_enabled(), |s| s.shadow_lg())
+                    .when(glass_shadows_enabled(), gpui::Styled::shadow_lg)
                     .cursor_pointer()
                     .text_color(muted)
                     .motion_feedback()
@@ -88,16 +88,12 @@ impl App {
         None
     }
 
-    /// Toggle for immediate-mode experimental chrome (O(1) rect-slicing).
-    /// Enabled for testing.
-    pub const EXPERIMENTAL_IMM_CHROME: bool = true;
-
     /// Compact breadcrumb strip rendered at the top of each pane, showing the
     /// pane's current path. Clicking any segment navigates that specific pane.
     pub(crate) fn render_crumb_strip(
         &self,
         pane_id: TabId,
-        view: &Entity<App>,
+        view: &Entity<Self>,
         fg: Hsla,
         muted: Hsla,
         border: Hsla,
@@ -106,22 +102,34 @@ impl App {
     ) -> AnyElement {
         let body = self.render_crumb_strip_body(pane_id, view, fg, muted, border, header_bg);
         let commands = self.pinned_header_commands(cx);
-        let loading = self.state.tab_states.get(&pane_id).is_some_and(|state|
-            matches!(state.load_state, atlas_model::tab::LoadState::Loading) ||
-            state.miller.columns.iter().any(|column| matches!(column.load_state, atlas_model::tab::LoadState::Loading))) ||
-            self.tree_loading.iter().any(|(pane, _)| *pane == pane_id);
-        let watcher_failed = self.tab_data_for(pane_id).is_some_and(|tab|
-            matches!(tab.location, Location::Directory(_))) && !self.watchers.contains_key(&pane_id);
+        let loading =
+            self.state.tab_states.get(&pane_id).is_some_and(|state| {
+                matches!(state.load_state, atlas_model::tab::LoadState::Loading)
+                    || state.miller.columns.iter().any(|column| {
+                        matches!(column.load_state, atlas_model::tab::LoadState::Loading)
+                    })
+            }) || self.tree_loading.iter().any(|(pane, _)| *pane == pane_id);
+        let watcher_failed = self
+            .tab_data_for(pane_id)
+            .is_some_and(|tab| matches!(tab.location, Location::Directory(_)))
+            && !self.watchers.contains_key(&pane_id);
         let mut tools = h_flex().items_center().gap_1().flex_shrink_0();
         if loading {
-            tools = tools.child(crate::ui::loading_spinner::loading_spinner(muted,
-                !self.state.settings.disable_animations && !cx.reduce_motion()));
+            tools = tools.child(crate::ui::loading_spinner::loading_spinner(
+                muted,
+                !self.state.settings.disable_animations && !cx.reduce_motion(),
+            ));
         }
         if watcher_failed {
             let app = view.clone();
-            tools = tools.child(gpui_component::button::Button::new(
-                SharedString::from(format!("watcher-refresh-{}", pane_id.0)))
-                .ghost().small().icon(Icon::empty().path(AtlasIcon::ArrowClockwise.path()))
+            tools = tools.child(
+                gpui_component::button::Button::new(SharedString::from(format!(
+                    "watcher-refresh-{}",
+                    pane_id.0
+                )))
+                .ghost()
+                .small()
+                .icon(Icon::empty().path(AtlasIcon::ArrowClockwise.path()))
                 .tooltip(rust_i18n::t!("watcher_auto_refresh_disabled_help").into_owned())
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_click(move |_, _, cx| {
@@ -130,13 +138,19 @@ impl App {
                         this.notify_all_panes(cx);
                         cx.notify();
                     });
-                }));
+                }),
+            );
         }
         for (id, title, icon) in commands {
             let app = view.clone();
-            tools = tools.child(gpui_component::button::Button::new(
-                SharedString::from(format!("pinned-{}-{id}", pane_id.0)))
-                .ghost().small().icon(Icon::empty().path(icon.path()))
+            tools = tools.child(
+                gpui_component::button::Button::new(SharedString::from(format!(
+                    "pinned-{}-{id}",
+                    pane_id.0
+                )))
+                .ghost()
+                .small()
+                .icon(Icon::empty().path(icon.path()))
                 .tooltip(title)
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_click(move |_, _, cx| {
@@ -145,19 +159,30 @@ impl App {
                         this.notify_all_panes(cx);
                         cx.notify();
                     });
-                }));
+                }),
+            );
         }
-        h_flex().w_full().min_w(px(0.0)).items_center().bg(header_bg)
+        h_flex()
+            .w_full()
+            .min_w(px(0.0))
+            .items_center()
+            .bg(header_bg)
             .child(div().flex_1().min_w(px(0.0)).child(body))
-            .child(div().id(SharedString::from(format!("pane-tools-{}", pane_id.0)))
-                .max_w(gpui::relative(0.5)).min_w(px(0.0)).overflow_x_scroll().child(tools))
+            .child(
+                div()
+                    .id(SharedString::from(format!("pane-tools-{}", pane_id.0)))
+                    .max_w(gpui::relative(0.5))
+                    .min_w(px(0.0))
+                    .overflow_x_scroll()
+                    .child(tools),
+            )
             .into_any_element()
     }
 
     fn render_crumb_strip_body(
         &self,
         pane_id: TabId,
-        view: &Entity<App>,
+        view: &Entity<Self>,
         fg: Hsla,
         muted: Hsla,
         border: Hsla,
@@ -190,47 +215,50 @@ impl App {
         let is_branch_view = self.tab_data_for(pane_id).is_some_and(|t| t.is_branch_view);
         let button_hover = control_hover(fg);
 
-        if Self::EXPERIMENTAL_IMM_CHROME {
-            if let Some(Location::Directory(dir)) = pane_location.as_ref() {
-                let trail = self.tab_data_for(pane_id).and_then(|tab| tab.breadcrumb_trail.as_deref());
-                let segments = std::sync::Arc::new(crate::ui::chrome_imm::path_with_ghost_segments(dir, trail));
-                let is_bookmarked = if let Some(path) = self
-                    .tab_data_for(pane_id)
-                    .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
-                {
-                    self.state
-                        .profiles
-                        .active()
-                        .bookmarks
-                        .iter()
-                        .any(|b| b.path == path)
-                } else {
-                    false
-                };
-                let strip_bg = if is_glass {
-                    header_bg
-                } else {
-                    border.opacity(0.03)
-                };
-                return crate::ui::chrome_imm::ImmChromeElement::new(
-                    pane_id,
-                    view.downgrade(),
-                    segments,
-                    can_back,
-                    can_forward,
-                    up_location.is_some(),
-                    is_bookmarked,
-                    windows_theme,
-                    is_glass,
-                    fg,
-                    muted,
-                    strip_bg,
-                    border,
-                    button_hover,
-                    fg,
-                )
-                .into_any_element();
-            }
+        // Plain directories use the immediate-mode strip; archives and other
+        // locations keep the composed breadcrumb below.
+        if let Some(Location::Directory(dir)) = pane_location.as_ref() {
+            let trail = self
+                .tab_data_for(pane_id)
+                .and_then(|tab| tab.breadcrumb_trail.as_deref());
+            let segments =
+                std::sync::Arc::new(crate::ui::chrome_imm::path_with_ghost_segments(dir, trail));
+            let is_bookmarked = if let Some(path) = self
+                .tab_data_for(pane_id)
+                .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
+            {
+                self.state
+                    .profiles
+                    .active()
+                    .bookmarks
+                    .iter()
+                    .any(|b| b.path == path)
+            } else {
+                false
+            };
+            let strip_bg = if is_glass {
+                header_bg
+            } else {
+                border.opacity(0.03)
+            };
+            return crate::ui::chrome_imm::ImmChromeElement::new(
+                pane_id,
+                view.downgrade(),
+                segments,
+                can_back,
+                can_forward,
+                up_location.is_some(),
+                is_bookmarked,
+                windows_theme,
+                is_glass,
+                fg,
+                muted,
+                strip_bg,
+                border,
+                button_hover,
+                fg,
+            )
+            .into_any_element();
         }
 
         let crumbs: Option<AnyElement> = if let Some((archive, inner)) = pane_archive_inner.as_ref()
@@ -250,18 +278,24 @@ impl App {
             )
         } else {
             pane_location.as_ref().map(|location| match location {
-                Location::Directory(p) => {
-                    breadcrumb(view, pane_id, p, fg, muted, button_hover, windows_theme, is_branch_view)
-                        .into_any_element()
-                }
+                Location::Directory(p) => breadcrumb(
+                    view,
+                    pane_id,
+                    p,
+                    fg,
+                    muted,
+                    button_hover,
+                    windows_theme,
+                    is_branch_view,
+                )
+                .into_any_element(),
                 #[cfg(feature = "provider-host")]
                 Location::Remote { id, path } => {
                     let remote_label = self
                         .state
                         .cloud
                         .remote(id)
-                        .map(|r| r.name.clone())
-                        .unwrap_or_else(|| id.clone());
+                        .map_or_else(|| id.clone(), |r| r.name.clone());
                     remote_breadcrumb(
                         view,
                         pane_id,
@@ -305,8 +339,8 @@ impl App {
             .when(!is_glass, |s| {
                 s.border_b_1().border_color(border.opacity(0.45))
             })
-            .when(!windows_theme, |s| s.text_sm())
-            .when(windows_theme, |s| s.text_base())
+            .when(!windows_theme, gpui::Styled::text_sm)
+            .when(windows_theme, gpui::Styled::text_base)
             .text_color(muted)
             .cursor_pointer()
             .on_mouse_down(MouseButton::Left, move |_ev, _window, cx| {
@@ -356,7 +390,7 @@ impl App {
                 enabled: up_location.is_some(),
                 action: Action::NavigateUp(pane_id),
                 view: view.clone(),
-                recent: recent_locations.clone(),
+                recent: recent_locations,
                 icon_color: fg,
                 hover_bg: button_hover,
                 windows_theme,
@@ -364,7 +398,7 @@ impl App {
             .child(bookmark_button(
                 pane_id,
                 view.clone(),
-                bookmark_target.clone(),
+                bookmark_target,
                 fg,
                 button_hover,
                 windows_theme,
@@ -429,7 +463,7 @@ impl App {
     fn bookmark_target_for_pane(&self, pane_id: TabId) -> Option<BookmarkTarget> {
         let path = self
             .tab_data_for(pane_id)
-            .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))?;
+            .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))?;
         let name = path
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
@@ -463,10 +497,18 @@ impl App {
     ) -> (AnyElement, AnyElement) {
         // Mirror the per-tab toggles into the TabState so its cached filtering
         // (and the counts below) pick them up.
-        let (folder_order, show_files, show_folders, is_branch_view) = self
-            .tab_data_for(pane_id)
-            .map(|td| (td.folder_order, td.show_files, td.show_folders, td.is_branch_view))
-            .unwrap_or((atlas_model::pane::FolderOrder::default(), true, true, false));
+        let (folder_order, show_files, show_folders, is_branch_view) =
+            self.tab_data_for(pane_id).map_or(
+                (atlas_model::pane::FolderOrder::default(), true, true, false),
+                |td| {
+                    (
+                        td.folder_order,
+                        td.show_files,
+                        td.show_folders,
+                        td.is_branch_view,
+                    )
+                },
+            );
         if let Some(ts) = self.state.tab_states.get_mut(&pane_id) {
             ts.set_visibility(show_files, show_folders);
             ts.is_branch_view = is_branch_view;
@@ -528,10 +570,7 @@ impl App {
             .unwrap_or_default();
         let filtering = active && !value.trim().is_empty();
         let is_glass = self.state.profiles.active().theme.ends_with(" Glass");
-        let controls = control_colors(
-            cx.theme(),
-            is_glass,
-        );
+        let controls = control_colors(cx.theme(), is_glass);
         let pill_surface = if is_glass {
             controls.surface.opacity(0.55)
         } else {
@@ -567,7 +606,7 @@ impl App {
         let focused = self.state.focused_tile == pane_id;
         if !focused {
             let badge: AnyElement = if active {
-                let open_view = view.clone();
+                let open_view = view;
                 h_flex()
                     .id(SharedString::from(format!("filter-badge-{}", pane_id.0)))
                     .absolute()
@@ -669,9 +708,11 @@ impl App {
                     windows_theme,
                 ))
                 .child({
-                    let field = div()
-                        .overflow_hidden()
-                        .child(div().w(crate::ui::rem_px(180.)).child(crate::ui::text_input::flat(&input).xsmall()));
+                    let field = div().overflow_hidden().child(
+                        div()
+                            .w(crate::ui::rem_px(180.))
+                            .child(crate::ui::text_input::flat(&input).xsmall()),
+                    );
                     // The capsule grows out of the lone magnifier when it opens.
                     if self.state.settings.disable_animations {
                         field.w(crate::ui::rem_px(180.)).into_any_element()
@@ -771,7 +812,10 @@ impl App {
                 // 1. Search button
                 .child(
                     div()
-                        .id(SharedString::from(format!("filter-btn-search-{}", pane_id.0)))
+                        .id(SharedString::from(format!(
+                            "filter-btn-search-{}",
+                            pane_id.0
+                        )))
                         .p(crate::ui::rem_px(4.))
                         .rounded_md()
                         .cursor_pointer()
@@ -809,7 +853,10 @@ impl App {
                 // 3. Branch View button
                 .child(
                     div()
-                        .id(SharedString::from(format!("filter-btn-branch-{}", pane_id.0)))
+                        .id(SharedString::from(format!(
+                            "filter-btn-branch-{}",
+                            pane_id.0
+                        )))
                         .p(crate::ui::rem_px(4.))
                         .rounded_md()
                         .cursor_pointer()
@@ -820,12 +867,18 @@ impl App {
                         .child(theme_icon(
                             AtlasIcon::GitBranch,
                             14.0,
-                            if is_branch_view { accent_fg } else { controls.foreground },
+                            if is_branch_view {
+                                accent_fg
+                            } else {
+                                controls.foreground
+                            },
                             windows_theme,
                         ))
                         .tooltip(|window, cx| {
-                            gpui_component::tooltip::Tooltip::new("Branch View (Ctrl+B)".to_string())
-                                .build(window, cx)
+                            gpui_component::tooltip::Tooltip::new(
+                                "Branch View (Ctrl+B)".to_string(),
+                            )
+                            .build(window, cx)
                         })
                         .on_mouse_down(MouseButton::Left, move |_ev, _window, cx| {
                             cx.stop_propagation();
@@ -840,15 +893,29 @@ impl App {
         };
 
         // ── Right pill: visibility toggles + folders-first + view selector ──
-        let pane_mode = self.tab_data_for(pane_id).map(|tab| tab.view_mode.clone()).unwrap_or_default();
-        let (counts, listing_elapsed) = self.state.tab_states.get_mut(&pane_id).map(|tab| {
-            tab.refresh_miller_visibility();
-            let counts = if pane_mode == ViewMode::Miller {
-                tab.miller.columns.get(tab.miller.focused).map_or(Default::default(), |column|
-                    column.visible_counts(&tab.filter, tab.show_files, tab.show_folders))
-            } else { flat_counts };
-            (counts, tab.listing_elapsed)
-        }).unwrap_or_default();
+        let pane_mode = self
+            .tab_data_for(pane_id)
+            .map(|tab| tab.view_mode.clone())
+            .unwrap_or_default();
+        let (counts, listing_elapsed) = self
+            .state
+            .tab_states
+            .get_mut(&pane_id)
+            .map(|tab| {
+                tab.refresh_miller_visibility();
+                let counts = if pane_mode == ViewMode::Miller {
+                    tab.miller.columns.get(tab.miller.focused).map_or(
+                        atlas_model::tab::VisibleCounts::default(),
+                        |column| {
+                            column.visible_counts(&tab.filter, tab.show_files, tab.show_folders)
+                        },
+                    )
+                } else {
+                    flat_counts
+                };
+                (counts, tab.listing_elapsed)
+            })
+            .unwrap_or_default();
         let folder_label = counts.folders_shown.to_string();
         let file_label = counts.files_shown.to_string();
         let tbtn = |id: String,
@@ -857,10 +924,12 @@ impl App {
                     on_color: Hsla,
                     tip: String,
                     action: Action,
-                    view: Entity<App>| {
+                    view: Entity<Self>| {
             div()
                 .id(SharedString::from(id))
-                .flex().items_center().gap_1()
+                .flex()
+                .items_center()
+                .gap_1()
                 .p(crate::ui::rem_px(4.))
                 .rounded_md()
                 .cursor_pointer()
@@ -948,8 +1017,13 @@ impl App {
         )))
         .ghost()
         .xsmall()
-        .child(theme_icon(view_icon, 14.0, controls.foreground, windows_theme))
-        .tooltip(format!("{} - Ctrl+scroll", view_label))
+        .child(theme_icon(
+            view_icon,
+            14.0,
+            controls.foreground,
+            windows_theme,
+        ))
+        .tooltip(format!("{view_label} - Ctrl+scroll"))
         // Anchored to the bottom so the menu opens upward, above the icon.
         .dropdown_menu_with_anchor(
             gpui::Anchor::BottomRight,
@@ -967,10 +1041,13 @@ impl App {
                                    label: String,
                                    mode: ViewMode,
                                    active: bool,
-                                   view: Entity<App>,
+                                   view: Entity<Self>,
                                    slider: Entity<SliderState>| {
                             h_flex()
-                                .id(SharedString::from(format!("view-mode-row-{}-{mode:?}", pane_id.0)))
+                                .id(SharedString::from(format!(
+                                    "view-mode-row-{}-{mode:?}",
+                                    pane_id.0
+                                )))
                                 .gap_1()
                                 .items_center()
                                 .cursor_pointer()
@@ -1088,13 +1165,16 @@ impl App {
         let animate_order = !self.state.settings.disable_animations;
         let order_on = folder_order != atlas_model::pane::FolderOrder::default();
         let order_id = format!("folder-order-{}", pane_id.0);
-        let order_icon = div()
-            .child(theme_icon(
-                AtlasIcon::SortAscending,
-                14.0,
-                if order_on { accent } else { controls.foreground },
-                windows_theme,
-            ));
+        let order_icon = div().child(theme_icon(
+            AtlasIcon::SortAscending,
+            14.0,
+            if order_on {
+                accent
+            } else {
+                controls.foreground
+            },
+            windows_theme,
+        ));
         // Restarts on every state change (the animation id carries the order), so the
         // glyph slides in from below each time the cycle advances.
         let order_icon = if animate_order {
@@ -1108,11 +1188,16 @@ impl App {
         } else {
             order_icon.into_any_element()
         };
-        let order_tip = format!("{}
-{}", rust_i18n::t!("folder_order_choose"), rust_i18n::t!(folder_order.label_key()));
+        let order_tip = format!(
+            "{}
+{}",
+            rust_i18n::t!("folder_order_choose"),
+            rust_i18n::t!(folder_order.label_key())
+        );
         let order_button = div()
             .id(SharedString::from(order_id))
-            .flex().items_center()
+            .flex()
+            .items_center()
             .p(crate::ui::rem_px(4.))
             .rounded_md()
             .cursor_pointer()
@@ -1134,11 +1219,19 @@ impl App {
                     cx.notify();
                 });
             });
-        let mut summary = rust_i18n::t!("footer_total_size",
-            size = atlas_core::util::display::format_size(counts.bytes_shown.min(u128::from(u64::MAX)) as u64)).to_string();
+        let mut summary = rust_i18n::t!(
+            "footer_total_size",
+            size = atlas_core::util::display::format_size(
+                counts.bytes_shown.min(u128::from(u64::MAX)) as u64
+            )
+        )
+        .to_string();
         if let Some(elapsed) = listing_elapsed {
-            let elapsed = if elapsed.as_secs_f64() < 1.0 { format!("{} ms", elapsed.as_millis()) }
-                else { format!("{:.2} s", elapsed.as_secs_f64()) };
+            let elapsed = if elapsed.as_secs_f64() < 1.0 {
+                format!("{} ms", elapsed.as_millis())
+            } else {
+                format!("{:.2} s", elapsed.as_secs_f64())
+            };
             summary.push('\n');
             summary.push_str(&rust_i18n::t!("footer_listing_time", elapsed = elapsed));
         }
@@ -1165,29 +1258,67 @@ impl App {
                     this.activate_tab(pane_id);
                 });
             })
-            .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(summary.clone()).build(window, cx))
-            .child(tbtn(
-                format!("bb-folders-{}", pane_id.0),
-                AtlasIcon::Folder,
-                !show_folders,
-                accent,
-                format!("{}\n{}\n{}", rust_i18n::t!("footer_dirs", shown = counts.folders_shown, total = counts.folders_total),
-                    rust_i18n::t!(if show_folders { "footer_dirs_visible" } else { "footer_dirs_hidden" }),
-                    rust_i18n::t!(if self.state.settings.show_hidden { "footer_hidden_included" } else { "footer_hidden_excluded" })),
-                Action::ToggleShowFolders(pane_id),
-                view.clone(),
-            ).child(div().text_xs().child(folder_label)))
-            .child(tbtn(
-                format!("bb-files-{}", pane_id.0),
-                AtlasIcon::File,
-                !show_files,
-                accent,
-                format!("{}\n{}\n{}", rust_i18n::t!("footer_files", shown = counts.files_shown, total = counts.files_total),
-                    rust_i18n::t!(if show_files { "footer_files_visible" } else { "footer_files_hidden" }),
-                    rust_i18n::t!(if self.state.settings.show_hidden { "footer_hidden_included" } else { "footer_hidden_excluded" })),
-                Action::ToggleShowFiles(pane_id),
-                view.clone(),
-            ).child(div().text_xs().child(file_label)))
+            .tooltip(move |window, cx| {
+                gpui_component::tooltip::Tooltip::new(summary.clone()).build(window, cx)
+            })
+            .child(
+                tbtn(
+                    format!("bb-folders-{}", pane_id.0),
+                    AtlasIcon::Folder,
+                    !show_folders,
+                    accent,
+                    format!(
+                        "{}\n{}\n{}",
+                        rust_i18n::t!(
+                            "footer_dirs",
+                            shown = counts.folders_shown,
+                            total = counts.folders_total
+                        ),
+                        rust_i18n::t!(if show_folders {
+                            "footer_dirs_visible"
+                        } else {
+                            "footer_dirs_hidden"
+                        }),
+                        rust_i18n::t!(if self.state.settings.show_hidden {
+                            "footer_hidden_included"
+                        } else {
+                            "footer_hidden_excluded"
+                        })
+                    ),
+                    Action::ToggleShowFolders(pane_id),
+                    view.clone(),
+                )
+                .child(div().text_xs().child(folder_label)),
+            )
+            .child(
+                tbtn(
+                    format!("bb-files-{}", pane_id.0),
+                    AtlasIcon::File,
+                    !show_files,
+                    accent,
+                    format!(
+                        "{}\n{}\n{}",
+                        rust_i18n::t!(
+                            "footer_files",
+                            shown = counts.files_shown,
+                            total = counts.files_total
+                        ),
+                        rust_i18n::t!(if show_files {
+                            "footer_files_visible"
+                        } else {
+                            "footer_files_hidden"
+                        }),
+                        rust_i18n::t!(if self.state.settings.show_hidden {
+                            "footer_hidden_included"
+                        } else {
+                            "footer_hidden_excluded"
+                        })
+                    ),
+                    Action::ToggleShowFiles(pane_id),
+                    view,
+                )
+                .child(div().text_xs().child(file_label)),
+            )
             .child(order_button)
             .child(
                 div()
@@ -1477,10 +1608,20 @@ fn breadcrumb(
     for (i, comp) in path.components().enumerate() {
         let parent = cumulative.clone();
         cumulative.push(comp.as_os_str());
-        if private_root.as_ref().is_some_and(|root| !cumulative.starts_with(root)) { continue; }
+        if private_root
+            .as_ref()
+            .is_some_and(|root| !cumulative.starts_with(root))
+        {
+            continue;
+        }
         let raw = comp.as_os_str().to_string_lossy().into_owned();
-        let label = atlas_core::vault::live::display_name(&cumulative)
-            .unwrap_or_else(|| if raw.is_empty() { "/".to_string() } else { raw });
+        let label = atlas_core::vault::live::display_name(&cumulative).unwrap_or_else(|| {
+            if raw.is_empty() {
+                "/".to_string()
+            } else {
+                raw
+            }
+        });
         if visible_segments > 0 {
             row = row.child(breadcrumb_chevron(
                 view,
@@ -1621,8 +1762,10 @@ fn breadcrumb_segment(props: BreadcrumbSegmentProps) -> gpui::Stateful<gpui::Div
             cx.stop_propagation();
         });
 
-    let drop_command = props.drop_dest.map(DragHoverDropCommand::TransferTo)
-        .unwrap_or_else(|| crate::ui::drag_hover::location_drop_command(&props.location));
+    let drop_command = props.drop_dest.map_or_else(
+        || crate::ui::drag_hover::location_drop_command(&props.location),
+        DragHoverDropCommand::TransferTo,
+    );
     {
         let drop_v = props.view.clone();
         let drop_v_external = props.view.clone();
@@ -1639,11 +1782,7 @@ fn breadcrumb_segment(props: BreadcrumbSegmentProps) -> gpui::Stateful<gpui::Div
             .on_drop::<crate::ui::root::DraggedFiles>(move |d, _window, cx| {
                 let paths = d.paths.clone();
                 drop_v.update(cx, |this, cx| {
-                    this.execute_drag_hover_drop_command(
-                        drop_target.clone(),
-                        paths,
-                        true,
-                    );
+                    this.execute_drag_hover_drop_command(drop_target.clone(), paths, true);
                     cx.notify();
                 });
             })
@@ -1763,10 +1902,10 @@ fn archive_breadcrumb(
         view: view.clone(),
         tile,
         id: SharedString::from(format!("crumb-archive-{}", tile.0)),
-        label: archive
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_else(|| archive.display().to_string()),
+        label: archive.file_name().map_or_else(
+            || archive.display().to_string(),
+            |name| name.to_string_lossy().into_owned(),
+        ),
         location: Location::Archive {
             archive: archive_target,
             inner: PathBuf::new(),

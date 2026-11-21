@@ -1,4 +1,7 @@
 //! Native regression run for Miller wheel events and conversion/preview crashes.
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let directory = std::env::args_os()
         .nth(1)

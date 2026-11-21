@@ -1,3 +1,6 @@
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::Arc;
@@ -44,7 +47,9 @@ fn spawn_server(proto: &str, port: u16, user: &str, pass: &str) -> (ServerGuard,
         .arg("--pass")
         .arg(pass);
 
-    let child = cmd.spawn().expect(&format!("spawn rclone serve {proto}"));
+    let child = cmd
+        .spawn()
+        .unwrap_or_else(|_| panic!("spawn rclone serve {proto}"));
 
     // Give server a moment to start
     std::thread::sleep(Duration::from_millis(500));
@@ -57,7 +62,9 @@ async fn test_cloud_ftp_webdav_sftp_navigation_and_operations() {
     let home = dirs::home_dir().expect("resolve home directory on this platform");
     let ext_dir = home.join(".local/share/atlas/extensions/cloud");
     if !ext_dir.join("extension.toml").exists() {
-        eprintln!("Skipping test: cloud extension not installed in ~/.local/share/atlas/extensions/cloud");
+        eprintln!(
+            "Skipping test: cloud extension not installed in ~/.local/share/atlas/extensions/cloud"
+        );
         return;
     }
 
@@ -67,9 +74,8 @@ async fn test_cloud_ftp_webdav_sftp_navigation_and_operations() {
         "atlas-cloud-extension"
     };
 
-    let provider: Arc<dyn CloudProvider> = Arc::new(
-        SidecarProvider::spawn(&ext_dir, bin_name, &[]).expect("spawn sidecar provider"),
-    );
+    let provider: Arc<dyn CloudProvider> =
+        Arc::new(SidecarProvider::spawn(&ext_dir, bin_name, &[]).expect("spawn sidecar provider"));
 
     // 1. FTP Server & Remote
     println!("=== Testing FTP ===");
@@ -90,14 +96,27 @@ async fn test_cloud_ftp_webdav_sftp_navigation_and_operations() {
 
     // List FTP root
     let root_entries = provider.list(ftp_id, "").await.expect("list FTP root");
-    println!("FTP root entries: {:?}", root_entries.iter().map(|e| &e.name).collect::<Vec<_>>());
-    assert!(root_entries.iter().any(|e| e.name == "documents" && e.is_dir));
+    println!(
+        "FTP root entries: {:?}",
+        root_entries.iter().map(|e| &e.name).collect::<Vec<_>>()
+    );
+    assert!(root_entries
+        .iter()
+        .any(|e| e.name == "documents" && e.is_dir));
     assert!(root_entries.iter().any(|e| e.name == "photos" && e.is_dir));
 
     // Navigate into documents
-    let docs_entries = provider.list(ftp_id, "documents").await.expect("list FTP documents");
-    println!("FTP documents entries: {:?}", docs_entries.iter().map(|e| &e.name).collect::<Vec<_>>());
-    assert!(docs_entries.iter().any(|e| e.name == "readme.txt" && !e.is_dir));
+    let docs_entries = provider
+        .list(ftp_id, "documents")
+        .await
+        .expect("list FTP documents");
+    println!(
+        "FTP documents entries: {:?}",
+        docs_entries.iter().map(|e| &e.name).collect::<Vec<_>>()
+    );
+    assert!(docs_entries
+        .iter()
+        .any(|e| e.name == "readme.txt" && !e.is_dir));
 
     // Mkdir in FTP
     provider
@@ -105,7 +124,9 @@ async fn test_cloud_ftp_webdav_sftp_navigation_and_operations() {
         .await
         .expect("mkdir in FTP");
     let docs_after_mkdir = provider.list(ftp_id, "documents").await.unwrap();
-    assert!(docs_after_mkdir.iter().any(|e| e.name == "new_folder" && e.is_dir));
+    assert!(docs_after_mkdir
+        .iter()
+        .any(|e| e.name == "new_folder" && e.is_dir));
 
     // Ascend test
     let loc = Location::Remote {
@@ -136,7 +157,8 @@ async fn test_cloud_ftp_webdav_sftp_navigation_and_operations() {
     // 2. WebDAV Server & Remote
     println!("=== Testing WebDAV ===");
     let webdav_port = 8888;
-    let (_webdav_guard, _webdav_path) = spawn_server("webdav", webdav_port, "webdavuser", "davpass123");
+    let (_webdav_guard, _webdav_path) =
+        spawn_server("webdav", webdav_port, "webdavuser", "davpass123");
 
     let webdav_id = "test-webdav-remote";
     let webdav_params = json!({
@@ -151,14 +173,30 @@ async fn test_cloud_ftp_webdav_sftp_navigation_and_operations() {
         .expect("configure WebDAV");
 
     // List WebDAV root
-    let dav_root_entries = provider.list(webdav_id, "").await.expect("list WebDAV root");
-    println!("WebDAV root entries: {:?}", dav_root_entries.iter().map(|e| &e.name).collect::<Vec<_>>());
-    assert!(dav_root_entries.iter().any(|e| e.name == "documents" && e.is_dir));
+    let dav_root_entries = provider
+        .list(webdav_id, "")
+        .await
+        .expect("list WebDAV root");
+    println!(
+        "WebDAV root entries: {:?}",
+        dav_root_entries.iter().map(|e| &e.name).collect::<Vec<_>>()
+    );
+    assert!(dav_root_entries
+        .iter()
+        .any(|e| e.name == "documents" && e.is_dir));
 
     // Navigate into documents
-    let dav_docs_entries = provider.list(webdav_id, "documents").await.expect("list WebDAV documents");
-    println!("WebDAV documents entries: {:?}", dav_docs_entries.iter().map(|e| &e.name).collect::<Vec<_>>());
-    assert!(dav_docs_entries.iter().any(|e| e.name == "readme.txt" && !e.is_dir));
+    let dav_docs_entries = provider
+        .list(webdav_id, "documents")
+        .await
+        .expect("list WebDAV documents");
+    println!(
+        "WebDAV documents entries: {:?}",
+        dav_docs_entries.iter().map(|e| &e.name).collect::<Vec<_>>()
+    );
+    assert!(dav_docs_entries
+        .iter()
+        .any(|e| e.name == "readme.txt" && !e.is_dir));
 
     // Mkdir in WebDAV
     provider
@@ -166,7 +204,9 @@ async fn test_cloud_ftp_webdav_sftp_navigation_and_operations() {
         .await
         .expect("mkdir in WebDAV");
     let dav_docs_after = provider.list(webdav_id, "documents").await.unwrap();
-    assert!(dav_docs_after.iter().any(|e| e.name == "dav_folder" && e.is_dir));
+    assert!(dav_docs_after
+        .iter()
+        .any(|e| e.name == "dav_folder" && e.is_dir));
 
     provider.deconfigure(webdav_id).await.unwrap();
     println!("WebDAV test passed successfully!\n");
@@ -190,13 +230,32 @@ async fn test_cloud_ftp_webdav_sftp_navigation_and_operations() {
 
     // List SFTP root
     let sftp_root_entries = provider.list(sftp_id, "").await.expect("list SFTP root");
-    println!("SFTP root entries: {:?}", sftp_root_entries.iter().map(|e| &e.name).collect::<Vec<_>>());
-    assert!(sftp_root_entries.iter().any(|e| e.name == "documents" && e.is_dir));
+    println!(
+        "SFTP root entries: {:?}",
+        sftp_root_entries
+            .iter()
+            .map(|e| &e.name)
+            .collect::<Vec<_>>()
+    );
+    assert!(sftp_root_entries
+        .iter()
+        .any(|e| e.name == "documents" && e.is_dir));
 
     // Navigate into documents
-    let sftp_docs_entries = provider.list(sftp_id, "documents").await.expect("list SFTP documents");
-    println!("SFTP documents entries: {:?}", sftp_docs_entries.iter().map(|e| &e.name).collect::<Vec<_>>());
-    assert!(sftp_docs_entries.iter().any(|e| e.name == "readme.txt" && !e.is_dir));
+    let sftp_docs_entries = provider
+        .list(sftp_id, "documents")
+        .await
+        .expect("list SFTP documents");
+    println!(
+        "SFTP documents entries: {:?}",
+        sftp_docs_entries
+            .iter()
+            .map(|e| &e.name)
+            .collect::<Vec<_>>()
+    );
+    assert!(sftp_docs_entries
+        .iter()
+        .any(|e| e.name == "readme.txt" && !e.is_dir));
 
     // Mkdir in SFTP
     provider
@@ -204,7 +263,9 @@ async fn test_cloud_ftp_webdav_sftp_navigation_and_operations() {
         .await
         .expect("mkdir in SFTP");
     let sftp_docs_after = provider.list(sftp_id, "documents").await.unwrap();
-    assert!(sftp_docs_after.iter().any(|e| e.name == "sftp_folder" && e.is_dir));
+    assert!(sftp_docs_after
+        .iter()
+        .any(|e| e.name == "sftp_folder" && e.is_dir));
 
     provider.deconfigure(sftp_id).await.unwrap();
     println!("SFTP test passed successfully!\n");

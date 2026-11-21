@@ -1,3 +1,5 @@
+// reason: test-only module; panicking on fixture setup is intended.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 use super::*;
 use std::process::Command as Process;
 
@@ -65,7 +67,7 @@ fn windows_video_encodes_h264_with_optional_audio_and_resize_without_external_en
         let original = std::fs::read(&source).unwrap();
         for edge in [None, Some(80)] {
             let plan = Plan::build(
-                &[source.clone()],
+                std::slice::from_ref(&source),
                 "mp4",
                 Settings {
                     max_edge: edge,
@@ -227,7 +229,13 @@ fn windows_video_rejects_invalid_sources_and_cancelled_jobs_without_leaking_outp
     std::fs::write(&source, b"not an AVI").unwrap();
     let mut tools = Tools::default();
     tools.1.h264 = true;
-    let plan = Plan::build(&[source.clone()], "mp4", Settings::default(), tools).unwrap();
+    let plan = Plan::build(
+        std::slice::from_ref(&source),
+        "mp4",
+        Settings::default(),
+        tools,
+    )
+    .unwrap();
     let report = execute(&plan, &Arc::new(AtomicBool::new(false)), |_, _, _| {});
     assert_eq!(report.errors().len(), 1);
     assert!(report.outputs().is_empty());

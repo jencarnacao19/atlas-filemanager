@@ -56,11 +56,18 @@ impl LiquidGlassCache {
 
     #[inline]
     pub(crate) fn texture_for(&self, icon: FileTypeIcon) -> Arc<RenderImage> {
-        self.textures.get(&icon).cloned().unwrap_or_else(|| self.fallback.clone())
+        self.textures
+            .get(&icon)
+            .cloned()
+            .unwrap_or_else(|| self.fallback.clone())
     }
 
     #[inline]
-    pub(crate) fn texture_for_entry(&self, kind: &FileKind, extension: Option<&str>) -> Arc<RenderImage> {
+    pub(crate) fn texture_for_entry(
+        &self,
+        kind: &FileKind,
+        extension: Option<&str>,
+    ) -> Arc<RenderImage> {
         let icon_kind = file_type_icon_kind(kind, extension);
         self.texture_for(icon_kind)
     }
@@ -83,6 +90,10 @@ fn decode_png_to_render_image(bytes: &[u8]) -> Option<Arc<RenderImage>> {
 }
 
 fn create_dummy_texture() -> Arc<RenderImage> {
+    // reason: a 1x1 RGBA buffer always matches its dimensions.
+    #[allow(clippy::expect_used)]
+    // reason: a 1x1 RGBA buffer always matches its dimensions.
+    #[allow(clippy::expect_used)]
     let buf = image::RgbaImage::from_raw(1, 1, vec![128, 128, 128, 255]).expect("1x1 buffer");
     Arc::new(RenderImage::new(vec![image::Frame::new(buf)]))
 }
@@ -94,20 +105,32 @@ mod tests {
     #[test]
     fn loads_all_eleven_liquid_glass_icons() {
         let cache = LiquidGlassCache::new();
-        assert_eq!(cache.textures.len(), 11, "All 11 Liquid Glass PNGs must decode");
+        assert_eq!(
+            cache.textures.len(),
+            11,
+            "All 11 Liquid Glass PNGs must decode"
+        );
 
         for &kind in ALL_ICONS {
             let tex = cache.texture_for(kind);
             let sz = tex.size(0);
-            assert!(sz.width.0 > 0 && sz.height.0 > 0, "Icon {:?} has invalid dimensions", kind);
+            assert!(
+                sz.width.0 > 0 && sz.height.0 > 0,
+                "Icon {kind:?} has invalid dimensions"
+            );
         }
 
         // Test entry resolution
         let folder_tex = cache.texture_for_entry(&FileKind::Dir, None);
-        assert_eq!(folder_tex.size(0), cache.texture_for(FileTypeIcon::Folder).size(0));
+        assert_eq!(
+            folder_tex.size(0),
+            cache.texture_for(FileTypeIcon::Folder).size(0)
+        );
 
         let code_tex = cache.texture_for_entry(&FileKind::File, Some("rs"));
-        assert_eq!(code_tex.size(0), cache.texture_for(FileTypeIcon::Code).size(0));
+        assert_eq!(
+            code_tex.size(0),
+            cache.texture_for(FileTypeIcon::Code).size(0)
+        );
     }
 }
-

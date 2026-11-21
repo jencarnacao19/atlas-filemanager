@@ -1,3 +1,5 @@
+// reason: the scripted actions are only issued by the ui-lab harness.
+#[cfg_attr(not(feature = "ui-lab"), allow(dead_code))]
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum UiLabAction {
     SetDetails,
@@ -93,7 +95,7 @@ mod imp {
         let mut counters = COUNTERS
             .get_or_init(|| Mutex::new(HashMap::new()))
             .lock()
-            .unwrap();
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         *counters.entry(name).or_default() += amount;
     }
 
@@ -105,7 +107,7 @@ mod imp {
         let mut timings = TIMINGS_US
             .get_or_init(|| Mutex::new(HashMap::new()))
             .lock()
-            .unwrap();
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         *timings.entry(name).or_default() += us;
     }
 
@@ -151,15 +153,18 @@ mod imp {
             let mut previous = LAST_FRAME_DETAIL
                 .get_or_init(|| Mutex::new(None))
                 .lock()
-                .unwrap();
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             match previous.replace(detail()) {
                 Some(previous) => (frame.saturating_sub(1), previous),
-                None => (frame, previous.take().expect("current frame detail")),
+                None => (frame, previous.take().unwrap_or_default()),
             }
         };
         let now = Instant::now();
         let gap_ms = {
-            let mut last = LAST_FRAME.get_or_init(|| Mutex::new(now)).lock().unwrap();
+            let mut last = LAST_FRAME
+                .get_or_init(|| Mutex::new(now))
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             let gap = now.duration_since(*last).as_secs_f64() * 1000.0;
             *last = now;
             gap
@@ -167,13 +172,13 @@ mod imp {
         let counters = COUNTERS
             .get_or_init(|| Mutex::new(HashMap::new()))
             .lock()
-            .unwrap()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .drain()
             .collect::<Vec<_>>();
         let timings = TIMINGS_US
             .get_or_init(|| Mutex::new(HashMap::new()))
             .lock()
-            .unwrap()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .drain()
             .collect::<Vec<_>>();
         if counters.is_empty() && timings.is_empty() && frame > 1 {
@@ -244,10 +249,17 @@ mod imp {
         // the ordinary UI-lab sequence or its default timing.
         static SEQUENCE: OnceLock<(u64, u64)> = OnceLock::new();
         let &(action_interval_ms, splits) = SEQUENCE.get_or_init(|| {
-            let bounded = |key, default, min, max| std::env::var(key).ok()
-                .and_then(|v| v.parse::<u64>().ok()).unwrap_or(default).clamp(min, max);
-            (bounded("ATLAS_PERF_SPLIT_INTERVAL_MS", 420, 16, 2000),
-             bounded("ATLAS_PERF_SPLIT_COUNT", 12, 1, 64))
+            let bounded = |key, default, min, max| {
+                std::env::var(key)
+                    .ok()
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(default)
+                    .clamp(min, max)
+            };
+            (
+                bounded("ATLAS_PERF_SPLIT_INTERVAL_MS", 420, 16, 2000),
+                bounded("ATLAS_PERF_SPLIT_COUNT", 12, 1, 64),
+            )
         });
         let set_grid_stage = 1 + splits * 2;
         let quit_stage = set_grid_stage + 1;
@@ -264,7 +276,8 @@ mod imp {
         // Let the final close settle and the teardown timer drain before the
         // Grid/Quit stages, including when actions arrive faster than motion.
         if next == set_grid_stage
-            && elapsed_ms < START_DELAY_MS + set_grid_stage * action_interval_ms + 400 {
+            && elapsed_ms < START_DELAY_MS + set_grid_stage * action_interval_ms + 400
+        {
             return None;
         }
         if UI_LAB_NEXT_ACTION

@@ -31,7 +31,7 @@ impl Pcm {
         );
         let frame = u64::from(self.channels) * u64::from(self.bits / 8);
         ensure!(
-            self.bytes > 0 && self.bytes % frame == 0,
+            self.bytes > 0 && self.bytes.is_multiple_of(frame),
             "PCM data contains an incomplete or empty sample frame"
         );
         Ok(self)
@@ -282,7 +282,7 @@ fn header(file: &mut impl Write, pcm: Pcm, extension: &str) -> Result<()> {
             file.write_all(&pcm.channels.to_be_bytes())?;
             file.write_all(&(bytes / u32::from(frame)).to_be_bytes())?;
             file.write_all(&pcm.bits.to_be_bytes())?;
-            let highest_bit = 31 - pcm.rate.leading_zeros();
+            let highest_bit = pcm.rate.ilog2();
             file.write_all(&((16383 + highest_bit) as u16).to_be_bytes())?;
             file.write_all(&(u64::from(pcm.rate) << (63 - highest_bit)).to_be_bytes())?;
             file.write_all(b"SSND")?;

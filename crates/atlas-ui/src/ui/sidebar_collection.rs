@@ -3,8 +3,8 @@
 use crate::{
     app::App,
     ui::{
-        imm::motion::{PresenceMotion, RowMotion},
         icons::{theme_icon, AtlasIcon},
+        imm::motion::{PresenceMotion, RowMotion},
     },
 };
 use gpui::{
@@ -112,6 +112,8 @@ impl RenderOnce for ReferenceCollection {
             let amount = (extent + gap) * sample.opacity;
             let offset = presented - layout_offset;
             layout_offset += amount;
+            // reason: interactive samples always come from live references with content.
+            #[allow(clippy::expect_used)]
             let child = if sample.interactive {
                 content
                     .remove(&sample.value.path)
@@ -152,7 +154,7 @@ impl RenderOnce for ReferenceCollection {
             list = list.child(
                 gpui::canvas(
                     |_, _, _| {},
-                    |_, _, window, _| window.request_animation_frame(),
+                    |_, (), window, _| window.request_animation_frame(),
                 )
                 .size(px(0.0)),
             );

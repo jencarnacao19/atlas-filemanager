@@ -253,6 +253,16 @@ fn set_enabled_at(
     }
     Ok(())
 }
+/// Call on an initialized COM apartment after the startup shell work settles.
+pub fn free_unused_com_libraries() {
+    unsafe {
+        windows::Win32::System::Com::CoFreeUnusedLibraries();
+    }
+}
+
+pub fn double_click_interval_ms() -> u32 {
+    unsafe { windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime() }
+}
 
 #[cfg(test)]
 mod tests {
@@ -291,12 +301,3 @@ mod tests {
         assert_eq!(target.get("").unwrap(), Some(other));
     }
 }
-/// Call on an initialized COM apartment after the startup shell work settles.
-pub fn free_unused_com_libraries() {
-    unsafe { windows::Win32::System::Com::CoFreeUnusedLibraries(); }
-}
-
-pub fn double_click_interval_ms() -> u32 {
-    unsafe { windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime() }
-}
-

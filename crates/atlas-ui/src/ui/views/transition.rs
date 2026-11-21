@@ -208,7 +208,7 @@ impl Element for FileViewport {
         _: Option<&GlobalElementId>,
         _: Option<&InspectorElementId>,
         bounds: Bounds<Pixels>,
-        _: &mut (),
+        (): &mut (),
         window: &mut Window,
         cx: &mut GpuiApp,
     ) -> Sample {
@@ -244,7 +244,7 @@ impl Element for FileViewport {
         _: Option<&GlobalElementId>,
         _: Option<&InspectorElementId>,
         bounds: Bounds<Pixels>,
-        _: &mut (),
+        (): &mut (),
         sample: &mut Sample,
         window: &mut Window,
         cx: &mut GpuiApp,
@@ -256,7 +256,7 @@ impl Element for FileViewport {
             }),
             |window| {
                 window.with_element_opacity(Some(sample.opacity), |window| {
-                    self.child.paint(window, cx)
+                    self.child.paint(window, cx);
                 });
             },
         );

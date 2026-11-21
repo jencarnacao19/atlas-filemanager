@@ -5,6 +5,7 @@ use gpui::prelude::*;
 use gpui::ColorExt as _;
 use gpui::{div, hsla, px, relative, AnyElement, Context, MouseButton, SharedString, Window};
 use gpui_component::{h_flex, v_flex, ActiveTheme};
+use std::fmt::Write as _;
 
 const MAX_BUBBLES: usize = 72;
 
@@ -52,7 +53,7 @@ impl App {
         for (ix, item) in items.into_iter().enumerate() {
             let size_ratio = (item.size as f32 / max_size as f32).sqrt();
             let radius = 34.0 + size_ratio * 72.0;
-            let ring = (ix as f32 * 2.399963 + elapsed * 0.12) % std::f32::consts::TAU;
+            let ring = (ix as f32 * 2.399_963 + elapsed * 0.12) % std::f32::consts::TAU;
             let orbit = 0.18 + ((ix % 9) as f32 / 10.5);
             let wobble = (elapsed * 0.9 + ix as f32).sin() * 1.4;
             let left = 0.50 + ring.cos() * orbit * 0.72;
@@ -163,7 +164,7 @@ fn status_label(loading: bool, entries: u64, total_size: u64, errors: u64) -> St
     let state = if loading { "Scanning" } else { "Ready" };
     let mut text = format!("{state} - {entries} entries - {}", format_size(total_size));
     if errors > 0 {
-        text.push_str(&format!(" - {errors} errors"));
+        let _ = write!(text, " - {errors} errors");
     }
     text
 }

@@ -23,7 +23,7 @@ fn default_author() -> String {
 pub fn parse_manifest(dir: &Path) -> Result<ExtensionManifest> {
     let manifest_path = dir.join("extension.toml");
     let content = std::fs::read_to_string(&manifest_path)
-        .with_context(|| format!("Failed to read {:?}", manifest_path))?;
+        .with_context(|| format!("Failed to read {manifest_path:?}"))?;
 
     let manifest: ExtensionManifest =
         toml::from_str(&content).with_context(|| "Failed to parse extension.toml")?;
@@ -39,7 +39,7 @@ pub fn zip_extension(source_dir: &Path, output_path: &Path) -> Result<()> {
         .unix_permissions(0o755);
 
     let walker = WalkDir::new(source_dir).into_iter();
-    for entry in walker.filter_map(|e| e.ok()) {
+    for entry in walker.filter_map(std::result::Result::ok) {
         let path = entry.path();
 
         // Skip hidden files and the build artifact if it's inside
@@ -47,15 +47,17 @@ pub fn zip_extension(source_dir: &Path, output_path: &Path) -> Result<()> {
             continue;
         }
 
-        let name = path.strip_prefix(source_dir).unwrap();
+        let name = path
+            .strip_prefix(source_dir)
+            .context("walked path outside the source directory")?;
         if path.is_file() {
-            zip.start_file(name.to_string_lossy().replace("\\", "/"), options)?;
+            zip.start_file(name.to_string_lossy().replace('\\', "/"), options)?;
             let mut f = File::open(path)?;
             let mut buffer = Vec::new();
             f.read_to_end(&mut buffer)?;
             zip.write_all(&buffer)?;
         } else if !name.as_os_str().is_empty() {
-            zip.add_directory(name.to_string_lossy().replace("\\", "/"), options)?;
+            zip.add_directory(name.to_string_lossy().replace('\\', "/"), options)?;
         }
     }
 

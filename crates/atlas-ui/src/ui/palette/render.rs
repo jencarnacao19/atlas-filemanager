@@ -278,7 +278,7 @@ fn shortcut_badge(
                     badge_fg,
                 )
             };
-            let start_view = view.clone();
+            let start_view = view;
             let start_id = command_id.clone();
             Some(
                 div()
@@ -408,8 +408,7 @@ impl App {
             state.scroll_to_selected = true;
             // A fresh open or a new query always starts from the top; the shared
             // handle would otherwise keep the previous palette's offset.
-            self.palette_scroll
-                .set_offset(gpui::point(px(0.), px(0.)));
+            self.palette_scroll.set_offset(gpui::point(px(0.), px(0.)));
         }
         let colors = {
             let t = cx.theme();
@@ -607,14 +606,17 @@ impl App {
             .overflow_y_scroll()
             .track_scroll(&self.palette_scroll);
         let scroller = if empty {
-            scroller.p_1().pr(crate::ui::rem_px(SCROLLBAR_GUTTER)).child(
-                div()
-                    .px_3()
-                    .py_4()
-                    .text_sm()
-                    .text_color(muted)
-                    .child(spec.empty_text),
-            )
+            scroller
+                .p_1()
+                .pr(crate::ui::rem_px(SCROLLBAR_GUTTER))
+                .child(
+                    div()
+                        .px_3()
+                        .py_4()
+                        .text_sm()
+                        .text_color(muted)
+                        .child(spec.empty_text),
+                )
         } else {
             match PALETTE_LIST_RENDERER {
                 PaletteListRenderer::Legacy => scroller
@@ -630,16 +632,16 @@ impl App {
                             element,
                         })
                         .collect();
-                    scroller
-                        .pr(crate::ui::rem_px(SCROLLBAR_GUTTER))
-                        .child(super::PaletteListElement::new(
+                    scroller.pr(crate::ui::rem_px(SCROLLBAR_GUTTER)).child(
+                        super::PaletteListElement::new(
                             SharedString::from(format!("{}-imm-list", spec.id)),
                             self.palette_scroll.clone(),
                             list_rows,
                             PANEL_LIST_PADDING * 0.5 * zoom,
                             PANEL_ITEM_HEIGHT * zoom,
                             f32::from(window.bounds().size.height) * PANEL_MAX_VIEWPORT_RATIO,
-                        ))
+                        ),
+                    )
                 }
             }
         };
@@ -884,7 +886,7 @@ impl App {
             .text_xs()
             .font_weight(FontWeight::SEMIBOLD)
             .text_color(text_color)
-            .when(props.collapsible, |header| header.cursor_pointer())
+            .when(props.collapsible, gpui::Styled::cursor_pointer)
             .when(props.selected, |s| s.bg(props.colors.fg.opacity(0.08)))
             .when(!props.selected && props.collapsible, |s| {
                 s.hover(|h| h.bg(props.colors.fg.opacity(0.05)))
@@ -1266,20 +1268,23 @@ impl App {
                                 if is_create {
                                     actions_to_run.push(action.clone());
                                 }
-                                path.map(|p| Action::OpenDirInRightSplit { pane, path: p })
-                                    .unwrap_or_else(|| action.clone())
+                                path.map_or_else(
+                                    || action.clone(),
+                                    |p| Action::OpenDirInRightSplit { pane, path: p },
+                                )
                             } else if m.alt || ((m.control || m.platform) && m.shift) {
                                 if is_create {
                                     actions_to_run.push(action.clone());
                                 }
-                                path.map(|p| Action::OpenDirInBottomSplit { pane, path: p })
-                                    .unwrap_or_else(|| action.clone())
+                                path.map_or_else(
+                                    || action.clone(),
+                                    |p| Action::OpenDirInBottomSplit { pane, path: p },
+                                )
                             } else if m.shift && !m.control && !m.platform && !m.alt {
                                 if is_create {
                                     actions_to_run.push(action.clone());
                                 }
-                                path.map(Action::OpenPathInNewWindow)
-                                    .unwrap_or_else(|| action.clone())
+                                path.map_or_else(|| action.clone(), Action::OpenPathInNewWindow)
                             } else {
                                 action.clone()
                             }

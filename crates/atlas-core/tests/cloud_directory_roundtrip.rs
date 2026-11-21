@@ -1,4 +1,7 @@
 //! Real RC API contract test using two isolated local aliases, never user accounts.
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 #![cfg(feature = "cloud-backend")]
 
 use atlas_core::cloud::provider::{CloudProvider, ProgressSink};
@@ -230,7 +233,10 @@ async fn cloud_directories_round_trip_and_accounts_stay_isolated() -> anyhow::Re
     }
     provider.prepare_shutdown().await?;
     provider.deconfigure("account-one").await?;
-    assert!(!provider.list("account-two", "").await?.is_empty(), "removing one account affected the other");
+    assert!(
+        !provider.list("account-two", "").await?.is_empty(),
+        "removing one account affected the other"
+    );
     provider.deconfigure("account-two").await?;
     Ok(())
 }

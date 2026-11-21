@@ -159,7 +159,10 @@ impl LocalSearchBackend {
 
     /// Replaces the catalog progressively; every call immediately becomes searchable.
     pub fn extend(&self, entries: impl IntoIterator<Item = CatalogEntry>) {
-        let mut catalog = self.entries.write().unwrap_or_else(|e| e.into_inner());
+        let mut catalog = self
+            .entries
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let before = catalog.len();
         catalog.extend(entries);
         self.indexed
@@ -167,19 +170,27 @@ impl LocalSearchBackend {
     }
 
     pub fn finish(&self) {
-        *self.status.write().unwrap_or_else(|e| e.into_inner()) = SearchBackendStatus::Ready;
+        *self
+            .status
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = SearchBackendStatus::Ready;
     }
 
     pub fn set_status(&self, status: SearchBackendStatus) {
-        *self.status.write().unwrap_or_else(|e| e.into_inner()) = status;
+        *self
+            .status
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = status;
     }
 
     pub fn crawl(&self, root: &Path, max_entries: usize) {
         let entries = walkdir::WalkDir::new(root)
             .follow_links(false)
             .into_iter()
-            .filter_entry(|entry| !crate::fs::scan_policy::is_scan_excluded(entry.path())
-                && !crate::fs::preview::is_cloud_placeholder(entry.path()))
+            .filter_entry(|entry| {
+                !crate::fs::scan_policy::is_scan_excluded(entry.path())
+                    && !crate::fs::preview::is_cloud_placeholder(entry.path())
+            })
             .filter_map(Result::ok)
             .skip(1)
             .take(max_entries)
@@ -209,7 +220,10 @@ impl LocalSearchBackend {
             schema: u32,
             entries: &'a [CatalogEntry],
         }
-        let entries = self.entries.read().unwrap_or_else(|e| e.into_inner());
+        let entries = self
+            .entries
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let bytes = serde_json::to_vec(&Snapshot {
             schema: 1,
             entries: &entries,
@@ -248,14 +262,17 @@ impl SearchBackend for LocalSearchBackend {
             status: self
                 .status
                 .read()
-                .unwrap_or_else(|e| e.into_inner())
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .clone(),
             indexed: self.indexed.load(Ordering::Relaxed),
             total: None,
         }
     }
     fn search(&self, query: &SearchQuery) -> SearchBatch {
-        let catalog = self.entries.read().unwrap_or_else(|e| e.into_inner());
+        let catalog = self
+            .entries
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         SearchBatch {
             generation: query.generation,
             results: search_entries(&catalog, query),
@@ -302,7 +319,10 @@ fn search_entries(entries: &[CatalogEntry], query: &SearchQuery) -> Vec<SearchRe
     entries
         .iter()
         .filter(|entry| {
-            !crate::vault::is_private_path(&entry.path) && !crate::vault::live::is_private(&entry.path) && in_scope(&entry.path, &query.scope) && matches_filters(entry, &query.filters)
+            !crate::vault::is_private_path(&entry.path)
+                && !crate::vault::live::is_private(&entry.path)
+                && in_scope(&entry.path, &query.scope)
+                && matches_filters(entry, &query.filters)
         })
         .filter_map(|entry| {
             score_entry(entry, &query.text).map(|score| SearchResult {

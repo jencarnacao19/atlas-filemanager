@@ -4,10 +4,14 @@
 //! Windows OLE path) was copy-pasted into all four view renderers. It lives here
 //! once; each view calls [`file_drag_handler`].
 
-use std::path::{Path, PathBuf};
+#[cfg(any(not(windows), test))]
+use std::path::Path;
+use std::path::PathBuf;
 
 use gpui::prelude::*;
-use gpui::{point, px, AnyDrag, CursorStyle, Entity, ExternalDragPayload, FileDragPaths, InteractiveElement, Window};
+use gpui::{point, px, AnyDrag, CursorStyle, Entity, Window};
+#[cfg(any(not(windows), test))]
+use gpui::{ExternalDragPayload, FileDragPaths};
 
 use crate::app::App;
 #[cfg(windows)]
@@ -21,154 +25,10 @@ use atlas_model::pane::TabId;
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ActiveExternalDrag {
     pub(crate) paths: Vec<PathBuf>,
+    // reason: Windows hands archive items to OLE directly; only the gpui
+    // external-drag path on other platforms reads them back.
+    #[cfg_attr(windows, allow(dead_code))]
     pub(crate) archive_items: Option<Vec<(PathBuf, PathBuf)>>,
-}
-
-/// The view entity gpui renders as the drag ghost. On Windows the OLE path owns
-/// the cursor, so we hand gpui an invisible [`DragNoop`]; elsewhere gpui paints
-/// the [`DraggedFiles`] ghost itself.
-#[cfg(windows)]
-pub(crate) type DragView = DragNoop;
-#[cfg(not(windows))]
-pub(crate) type DragView = DraggedFiles;
-
-/// The drag *payload* gpui tracks for its native DnD. It must be [`DragView`] so
-/// that on Windows it's [`DragNoop`] — a type no `on_drop::<DraggedFiles>` handler
-/// matches. Otherwise gpui's synthetic mouse-up (injected after `DoDragDrop`)
-/// would fire a second, native drop and move the file even when OLE was cancelled.
-#[cfg(windows)]
-pub(crate) fn file_drag_value(_paths: Vec<PathBuf>) -> DragView {
-    DragNoop
-}
-#[cfg(not(windows))]
-pub(crate) fn file_drag_value(paths: Vec<PathBuf>) -> DragView {
-    DraggedFiles { paths }
-}
-
-pub(crate) fn file_drag_handler(
-    view: Entity<App>,
-    anchor: PathBuf,
-) -> impl Fn(&DragView, gpui::Point<gpui::Pixels>, &mut Window, &mut gpui::App) -> Entity<DragView>
-       + 'static {
-    build_file_drag_handler(view, None, anchor)
-}
-
-pub(crate) fn file_drag_handler_for_item(
-    view: Entity<App>,
-    pane: TabId,
-    idx: usize,
-    anchor: PathBuf,
-) -> impl Fn(&DragView, gpui::Point<gpui::Pixels>, &mut Window, &mut gpui::App) -> Entity<DragView>
-       + 'static {
-    build_file_drag_handler(view, Some((pane, idx)), anchor)
-}
-
-pub(crate) fn file_drag_handler_for_details_content(
-    view: Entity<App>,
-    pane: TabId,
-) -> impl Fn(&DragView, gpui::Point<gpui::Pixels>, &mut Window, &mut gpui::App) -> Entity<DragView>
-       + 'static {
-    move |_d, cursor_offset, window, cx| {
-        let item = {
-            let app = view.read(&*cx);
-            app.details_hit
-                .get(&pane)
-                .and_then(|model| model.hit_entry_at_content_offset(cursor_offset))
-                .and_then(|idx| {
-                    app.details_row_selected(pane, idx).then(|| {
-                        app.state
-                            .tab_states
-                            .get(&pane)
-                            .and_then(|ts| ts.entries.get(idx))
-                            .map(|entry| (idx, entry.path()))
-                    })?
-                })
-        };
-
-        let Some((idx, anchor)) = item else {
-            tracing::debug!("dnd details content drag ignored outside selected row");
-            return empty_drag_view(cx);
-        };
-
-        build_file_drag_start(&view, Some((pane, idx)), anchor, window, cx)
-    }
-}
-
-/// Drag source for the retained Grid surface.  The hit model is populated in
-/// `GridSurfaceElement::prepaint`, so the closure does no widget traversal.
-pub(crate) fn file_drag_handler_for_grid_content(
-    view: Entity<App>,
-    pane: TabId,
-) -> impl Fn(&DragView, gpui::Point<gpui::Pixels>, &mut Window, &mut gpui::App) -> Entity<DragView>
-       + 'static {
-    file_drag_handler_for_surface_content(view, pane, false)
-}
-
-pub(crate) fn file_drag_handler_for_list_content(
-    view: Entity<App>,
-    pane: TabId,
-) -> impl Fn(&DragView, gpui::Point<gpui::Pixels>, &mut Window, &mut gpui::App) -> Entity<DragView>
-       + 'static {
-    file_drag_handler_for_surface_content(view, pane, true)
-}
-
-fn file_drag_handler_for_surface_content(
-    view: Entity<App>,
-    pane: TabId,
-    list: bool,
-) -> impl Fn(&DragView, gpui::Point<gpui::Pixels>, &mut Window, &mut gpui::App) -> Entity<DragView>
-       + 'static {
-    move |_d, cursor_offset, window, cx| {
-        let item = {
-            let app = view.read(&*cx);
-            let hit_model = if list {
-                app.list_hit.get(&pane)
-            } else {
-                app.grid_hit.get(&pane)
-            };
-            hit_model
-                .and_then(|model| model.hit_entry_at_content_offset(cursor_offset))
-                .and_then(|idx| {
-                    app.details_row_selected(pane, idx).then(|| {
-                        app.state
-                            .tab_states
-                            .get(&pane)
-                            .and_then(|ts| ts.entries.get(idx))
-                            .map(|entry| (idx, entry.path()))
-                    })?
-                })
-        };
-
-        let Some((idx, anchor)) = item else {
-            tracing::debug!(
-                surface = if list { "list" } else { "grid" },
-                "dnd surface content drag ignored outside selected cell"
-            );
-            return empty_drag_view(cx);
-        };
-
-        build_file_drag_start(&view, Some((pane, idx)), anchor, window, cx)
-    }
-}
-
-fn build_file_drag_handler(
-    view: Entity<App>,
-    item: Option<(TabId, usize)>,
-    anchor: PathBuf,
-) -> impl Fn(&DragView, gpui::Point<gpui::Pixels>, &mut Window, &mut gpui::App) -> Entity<DragView>
-       + 'static {
-    move |_d, _pos, window, cx| build_file_drag_start(&view, item, anchor.clone(), window, cx)
-}
-
-pub(crate) fn empty_drag_view(cx: &mut gpui::App) -> Entity<DragView> {
-    #[cfg(windows)]
-    {
-        cx.new(|_| DragNoop)
-    }
-    #[cfg(not(windows))]
-    {
-        cx.new(|_| DraggedFiles { paths: Vec::new() })
-    }
 }
 
 pub(crate) fn empty_any_drag(cx: &mut gpui::App) -> AnyDrag {
@@ -203,7 +63,9 @@ pub(crate) fn build_file_any_drag(
             let app = view.read(&*cx);
             let pane = item.map_or(app.state.focused_tile, |(pane, _)| pane);
             match app.tab_data_for(pane).map(|tab| &tab.location) {
-                Some(atlas_model::location::Location::Remote { id, .. }) => Some((pane, id.clone())),
+                Some(atlas_model::location::Location::Remote { id, .. }) => {
+                    Some((pane, id.clone()))
+                }
                 _ => None,
             }
         };
@@ -211,18 +73,32 @@ pub(crate) fn build_file_any_drag(
             let payload = view.update(cx, |app, cx| {
                 app.pending_folder_click = None;
                 app.state.focused_tile = pane;
-                if let Some((_, index)) = item { app.ensure_drag_selection(pane, index); }
+                if let Some((_, index)) = item {
+                    app.ensure_drag_selection(pane, index);
+                }
                 let mut paths = app.selected_paths_for_pane(pane);
-                if paths.is_empty() || !paths.contains(&anchor) { paths = vec![anchor.clone()]; }
-                let account_label = app.state.cloud.remotes.iter().find(|remote| remote.id == account)
+                if paths.is_empty() || !paths.contains(&anchor) {
+                    paths = vec![anchor.clone()];
+                }
+                let account_label = app
+                    .state
+                    .cloud
+                    .remotes
+                    .iter()
+                    .find(|remote| remote.id == account)
                     .map_or_else(|| account.clone(), |remote| remote.name.clone());
                 app.begin_cloud_drag();
                 cx.notify();
-                crate::ui::root::DraggedCloudFiles { account, account_label, paths }
+                crate::ui::root::DraggedCloudFiles {
+                    account,
+                    account_label,
+                    paths,
+                }
             });
             let ghost = payload.clone();
             return AnyDrag::new(payload, cx.new(|_| ghost))
-                .offset(point(px(-12.), px(-12.))).cursor_style(cursor_style);
+                .offset(point(px(-12.), px(-12.)))
+                .cursor_style(cursor_style);
         }
     }
     // Recycle Bin rows carry mangled `$R` payload paths and remote rows carry
@@ -307,8 +183,7 @@ pub(crate) fn build_file_any_drag(
     #[cfg(windows)]
     {
         tracing::info!(paths = paths.len(), "dnd file drag source triggered");
-        view.read(&*cx)
-            .trigger_os_drag(paths.clone(), archive_items);
+        view.read(&*cx).trigger_os_drag(paths, archive_items);
         // Invisible zero-size placeholder; OLE provides cursor feedback and a
         // synthetic WM_LBUTTONUP clears gpui's active_drag without firing any
         // on_drop handler (DragNoop has no matching handlers).
@@ -325,7 +200,9 @@ pub(crate) fn build_file_any_drag(
                 archive_items,
             });
         });
-        let payload = DraggedFiles { paths: paths.clone() };
+        let payload = DraggedFiles {
+            paths: paths.clone(),
+        };
         let ghost_view = cx.new(|_| DraggedFiles { paths });
         AnyDrag::new(payload, ghost_view)
             .offset(point(px(-12.0), px(-12.0)))
@@ -336,37 +213,26 @@ pub(crate) fn build_file_any_drag(
     }
 }
 
-fn build_file_drag_start(
-    view: &Entity<App>,
-    item: Option<(TabId, usize)>,
-    anchor: PathBuf,
-    window: &mut Window,
-    cx: &mut gpui::App,
-) -> Entity<DragView> {
-    let any_drag = build_file_any_drag(view, item, anchor, None, window, cx);
-    #[cfg(windows)]
-    {
-        let _ = any_drag;
-        cx.new(|_| DragNoop)
-    }
-    #[cfg(not(windows))]
-    {
-        let paths = any_drag
-            .value
-            .downcast_ref::<DraggedFiles>()
-            .map(|d| d.paths.clone())
-            .unwrap_or_default();
-        cx.new(|_| DraggedFiles { paths })
-    }
-}
-
 /// Extension trait on interactive elements to cleanly attach Atlas file drag behavior.
 /// Ensures correct selection resolution from the dragging pane, compact mouse offset
 /// for the ghost badge, and proper internal payload propagation on Linux/macOS.
 pub trait FileDragSource: gpui::StatefulInteractiveElement {
-    fn on_file_drag_item(self, view: Entity<App>, pane: TabId, idx: usize, anchor: PathBuf) -> Self {
+    fn on_file_drag_item(
+        self,
+        view: Entity<App>,
+        pane: TabId,
+        idx: usize,
+        anchor: PathBuf,
+    ) -> Self {
         self.on_drag_alt(move |_cursor_offset, cursor_style, window, cx| {
-            build_file_any_drag(&view, Some((pane, idx)), anchor.clone(), cursor_style, window, cx)
+            build_file_any_drag(
+                &view,
+                Some((pane, idx)),
+                anchor.clone(),
+                cursor_style,
+                window,
+                cx,
+            )
         })
     }
 
@@ -462,28 +328,34 @@ impl<E: gpui::StatefulInteractiveElement> FileDragSource for E {}
 
 /// Staging directory for extracting virtual archive items for external OS DnD:
 /// `$XDG_CACHE_HOME/atlas/dnd_staging` (falling back to `~/.cache/atlas/dnd_staging` or `$TMP/atlas/dnd_staging`).
+#[cfg(any(not(windows), test))]
 pub(crate) fn dnd_staging_dir() -> PathBuf {
     let base = std::env::var_os("XDG_CACHE_HOME")
         .filter(|v| !v.is_empty())
-        .map(PathBuf::from)
-        .unwrap_or_else(|| dirs::cache_dir().unwrap_or_else(std::env::temp_dir));
+        .map_or_else(
+            || dirs::cache_dir().unwrap_or_else(std::env::temp_dir),
+            PathBuf::from,
+        );
     base.join("atlas").join("dnd_staging")
 }
 
 /// Extracts virtual archive entries into a local temporary staging directory
 /// so that external applications can read the real files on disk.
 /// Returns a list of `(dest_path, is_dir)`.
+#[cfg(any(not(windows), test))]
 pub(crate) fn extract_archive_items_to_staging(
     items: &[(PathBuf, PathBuf)],
 ) -> Vec<(PathBuf, bool)> {
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
+        .map_or(0, |d| d.as_millis());
     let session_dir = dnd_staging_dir().join(format!("drag_{}_{}", std::process::id(), timestamp));
     #[allow(clippy::disallowed_methods)]
     if let Err(e) = std::fs::create_dir_all(&session_dir) {
-        tracing::warn!("Failed to create dnd staging dir {}: {e}", session_dir.display());
+        tracing::warn!(
+            "Failed to create dnd staging dir {}: {e}",
+            session_dir.display()
+        );
         return Vec::new();
     }
 
@@ -531,16 +403,12 @@ pub(crate) fn extract_archive_items_to_staging(
 
 /// Resolves the [`ExternalDragPayload`] to hand to the platform (Wayland / macOS)
 /// when an Atlas drag leaves the window.
+#[cfg(not(windows))]
 pub(crate) fn resolve_external_drag_payload(
     view: &Entity<App>,
-    drag_view: &DragView,
+    drag_view: &DraggedFiles,
     cx: &mut gpui::App,
 ) -> Option<ExternalDragPayload> {
-    #[cfg(windows)]
-    {
-        let _ = (view, drag_view, cx);
-        None
-    }
     #[cfg(not(windows))]
     {
         let (paths, archive_items) = {
@@ -588,19 +456,16 @@ pub(crate) fn resolve_external_drag_payload(
             return None;
         }
 
-        tracing::info!(count = entries.len(), "dnd external drag payload resolved for OS drag");
+        tracing::info!(
+            count = entries.len(),
+            "dnd external drag payload resolved for OS drag"
+        );
         Some(ExternalDragPayload::Files(FileDragPaths::new(entries)))
     }
 }
 
-/// Constructs the external drag payload resolver callback for [`gpui::InteractiveElement::external_drag_payload`].
-pub(crate) fn file_external_drag_payload(
-    view: Entity<App>,
-) -> impl Fn(&DragView, &mut Window, &mut gpui::App) -> Option<ExternalDragPayload> + 'static {
-    move |drag_view, _window, cx| resolve_external_drag_payload(&view, drag_view, cx)
-}
-
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)] // reason: test fixtures touch the disk directly.
 mod tests {
     use super::*;
 

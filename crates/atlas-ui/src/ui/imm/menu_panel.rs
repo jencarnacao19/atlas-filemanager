@@ -1,7 +1,7 @@
 //! Arithmetic popover chrome, IMM text input and scrollbar. Rows are one IMM leaf.
 use crate::app::App as AtlasApp;
-use crate::ui::imm::{menu::MenuCanvas, ImmTextInputState};
 use crate::ui::icons::AtlasIcon;
+use crate::ui::imm::{menu::MenuCanvas, ImmTextInputState};
 use crate::ui::surface::{paint_fill, paint_rounded, paint_theme_icon, shape_text, Slot};
 use gpui::{
     point, px, size, AnyElement, App, AvailableSpace, Bounds, BoxShadow, ColorExt, ContentMask,
@@ -181,7 +181,7 @@ impl Element for MenuPanel {
         window.with_content_mask(
             Some(ContentMask {
                 bounds: viewport,
-                fade_out: Default::default(),
+                fade_out: gpui::Edges::default(),
             }),
             |window| {
                 self.rows.prepaint_as_root(
@@ -237,7 +237,7 @@ impl Element for MenuPanel {
             colors.background,
             gpui::Edges::all(px(zoom)),
             colors.border,
-            Default::default(),
+            gpui::BorderStyle::default(),
         ));
         paint_fill(
             window,
@@ -263,7 +263,7 @@ impl Element for MenuPanel {
         window.with_content_mask(
             Some(ContentMask {
                 bounds: ink.search,
-                fade_out: Default::default(),
+                fade_out: gpui::Edges::default(),
             }),
             |window| {
                 let x = ink.search.left() - px(ink.scroll_x);
@@ -310,7 +310,8 @@ impl Element for MenuPanel {
                         colors.foreground,
                     );
                 }
-                if !self.recording && (self.input.blink_epoch.elapsed().as_millis() / 530) % 2 == 0
+                if !self.recording
+                    && (self.input.blink_epoch.elapsed().as_millis() / 530).is_multiple_of(2)
                 {
                     paint_fill(
                         window,
@@ -329,7 +330,7 @@ impl Element for MenuPanel {
         window.with_content_mask(
             Some(ContentMask {
                 bounds: ink.viewport,
-                fade_out: Default::default(),
+                fade_out: gpui::Edges::default(),
             }),
             |window| self.rows.paint(window, cx),
         );

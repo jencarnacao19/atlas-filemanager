@@ -143,10 +143,10 @@ async fn load(
         .await;
     if result
         .as_ref()
-        .is_err_and(|error| error.is::<OutcomeUnknown>())
+        .is_err_and(anyhow::Error::is::<OutcomeUnknown>)
     {
         let _ = root.keep();
-        return result.map(|_| unreachable!());
+        return result.map(|()| unreachable!());
     }
     result?;
     anyhow::ensure!(

@@ -149,7 +149,7 @@ mod tests {
 
     #[tokio::test]
     async fn docx_inside_zip_uses_document_preview() {
-        let inner = docx(br#"<document><p><t>Inside ZIP</t></p></document>"#);
+        let inner = docx(br"<document><p><t>Inside ZIP</t></p></document>");
         let file = tempfile::Builder::new().suffix(".zip").tempfile().unwrap();
         let mut writer = zip::ZipWriter::new(std::fs::File::create(file.path()).unwrap());
         writer

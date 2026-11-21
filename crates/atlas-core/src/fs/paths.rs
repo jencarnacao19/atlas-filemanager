@@ -1,8 +1,11 @@
 use std::path::{Component, Path, PathBuf};
+#[cfg(windows)]
 use std::time::{Duration, Instant};
 
 const WSL_LOCALHOST: &str = r"\\wsl.localhost\";
+#[cfg(windows)]
 const WSL_CACHE_TTL: Duration = Duration::from_secs(5);
+#[cfg(windows)]
 const WSL_READY_TTL: Duration = Duration::from_secs(30);
 
 fn wsl_tail(path: &Path) -> Option<&str> {
@@ -64,12 +67,15 @@ pub fn wsl_distro_name(path: &Path) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
+#[cfg(any(windows, test))]
 fn is_user_wsl_distro(name: &str) -> bool {
     !name.to_ascii_lowercase().starts_with("docker-desktop")
 }
 
+#[cfg(windows)]
 use std::sync::{Arc, Mutex, OnceLock};
 
+#[cfg(windows)]
 static WSL_ROOT_CACHE: OnceLock<Arc<Mutex<Option<(Instant, Vec<PathBuf>, bool)>>>> =
     OnceLock::new();
 
@@ -78,7 +84,9 @@ pub fn list_wsl_roots() -> Vec<PathBuf> {
     let cache_arc = WSL_ROOT_CACHE
         .get_or_init(|| Arc::new(Mutex::new(None)))
         .clone();
-    let mut cache = cache_arc.lock().unwrap();
+    let mut cache = cache_arc
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
 
     if let Some((last_update, roots, is_updating)) = &mut *cache {
         if last_update.elapsed() < WSL_CACHE_TTL {
@@ -197,6 +205,7 @@ pub fn ensure_wsl_ready(_path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(any(windows, test))]
 fn parse_wsl_list_output(bytes: &[u8]) -> Vec<String> {
     let text = if bytes.len() >= 2 && bytes[1] == 0 {
         let words = bytes
@@ -253,8 +262,14 @@ pub fn same_volume(a: &Path, b: &Path) -> bool {
     }
     let s_a = a.to_string_lossy();
     let s_b = b.to_string_lossy();
-    let da = s_a.get(..2).filter(|s| s.as_bytes()[0].is_ascii_alphabetic() && s.as_bytes()[1] == b':').map(|s| s.to_ascii_uppercase());
-    let db = s_b.get(..2).filter(|s| s.as_bytes()[0].is_ascii_alphabetic() && s.as_bytes()[1] == b':').map(|s| s.to_ascii_uppercase());
+    let da = s_a
+        .get(..2)
+        .filter(|s| s.as_bytes()[0].is_ascii_alphabetic() && s.as_bytes()[1] == b':')
+        .map(str::to_ascii_uppercase);
+    let db = s_b
+        .get(..2)
+        .filter(|s| s.as_bytes()[0].is_ascii_alphabetic() && s.as_bytes()[1] == b':')
+        .map(str::to_ascii_uppercase);
     if let (Some(da), Some(db)) = (da, db) {
         if da != db {
             return false;

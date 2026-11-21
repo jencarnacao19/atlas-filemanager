@@ -22,6 +22,13 @@ concurrency:
   group: atlas-release-${{ github.ref }}
   cancel-in-progress: false
 
+# Public build-time settings, from repository variables (Settings > Variables).
+# Unset variables are empty, and the app then keeps its built-in defaults.
+env:
+  ATLAS_REGISTRY_PUBLIC_KEY: ${{ vars.ATLAS_REGISTRY_PUBLIC_KEY }}
+  ATLAS_REGISTRY_BASE: ${{ vars.ATLAS_REGISTRY_BASE }}
+  ATLAS_UPDATE_MANIFEST_URL: ${{ vars.ATLAS_UPDATE_MANIFEST_URL }}
+
 jobs:
   metadata:
     runs-on: ubuntu-24.04

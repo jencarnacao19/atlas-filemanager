@@ -1,4 +1,7 @@
 //! Native regression checks for archive activation and optional DOCX providers.
+// reason: a feature-gated diagnostic harness, not shipped app code: it panics on
+// setup failure and writes its evidence to disk on purpose.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use super::{select_named, stored_zip};
 use crate::{
     app::{ext::ExtAction, App},
@@ -186,6 +189,6 @@ pub(super) fn install(
         }
         drop(view);
         let _ = handle.update(cx, |_, window, _| window.remove_window());
-        let _ = cx.update(|cx| cx.quit());
+        let () = cx.update(|cx| cx.quit());
     }).detach();
 }

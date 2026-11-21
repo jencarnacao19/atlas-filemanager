@@ -4,7 +4,12 @@ use crate::ui::{
     icons::AtlasIcon,
     surface::{chrome_ui_font, paint_theme_icon, shape_text_truncated, Slot},
 };
-use gpui::*;
+use gpui::{
+    point, px, quad, relative, size, transparent_black, App, Bounds, ColorExt, ContentMask,
+    Corners, DispatchPhase, Edges, Element, ElementId, FontWeight, GlobalElementId, Hitbox,
+    HitboxBehavior, Hsla, InspectorElementId, IntoElement, LayoutId, MouseButton, MouseDownEvent,
+    MouseMoveEvent, Pixels, Point, ShapedLine, Style, TextAlign, WeakEntity, Window,
+};
 use std::{cell::RefCell, path::PathBuf, rc::Rc, sync::Arc};
 
 #[derive(Clone, PartialEq, Eq)]
@@ -121,7 +126,7 @@ impl Element for BubbleMapElement {
         _: Option<&GlobalElementId>,
         _: Option<&InspectorElementId>,
         bounds: Bounds<Pixels>,
-        _: &mut (),
+        (): &mut (),
         window: &mut Window,
         _: &mut App,
     ) -> MapPrepaint {
@@ -192,7 +197,7 @@ impl Element for BubbleMapElement {
         _: Option<&GlobalElementId>,
         _: Option<&InspectorElementId>,
         bounds: Bounds<Pixels>,
-        _: &mut (),
+        (): &mut (),
         prepaint: &mut MapPrepaint,
         window: &mut Window,
         cx: &mut App,
@@ -215,7 +220,7 @@ impl Element for BubbleMapElement {
         window.with_content_mask(
             Some(ContentMask {
                 bounds,
-                fade_out: Default::default(),
+                fade_out: Edges::default(),
             }),
             |window| {
                 for (i, circle) in cache.circles.iter().enumerate() {
@@ -263,7 +268,7 @@ impl Element for BubbleMapElement {
                             (1. + 0.5 * h) * zoom
                         })),
                         color.opacity(fade * if selected { 0.9 } else { 0.35 + 0.55 * h }),
-                        Default::default(),
+                        gpui::BorderStyle::default(),
                     ));
                     if selected {
                         window.paint_quad(quad(
@@ -272,7 +277,7 @@ impl Element for BubbleMapElement {
                             transparent_black(),
                             Edges::all(px(1.)),
                             color.opacity(0.22),
-                            Default::default(),
+                            gpui::BorderStyle::default(),
                         ));
                     }
                     if circle.radius >= 23. * zoom && t > 0.7 {
@@ -287,7 +292,7 @@ impl Element for BubbleMapElement {
                             .get(circle.index)
                             .and_then(|i| i.as_ref())
                             .and_then(|icon| {
-                                icon.texture_for_size(icon_size * f32::from(window.scale_factor()))
+                                icon.texture_for_size(icon_size * window.scale_factor())
                             });
                         if let Some(texture) = texture {
                             let natural = texture.size(0);
@@ -309,7 +314,7 @@ impl Element for BubbleMapElement {
                                     self.fg.opacity(0.55),
                                     Edges::default(),
                                     transparent_black(),
-                                    Default::default(),
+                                    gpui::BorderStyle::default(),
                                 ));
                             }
                             let _ = window.paint_image(

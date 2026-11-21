@@ -1,4 +1,7 @@
 //! Isolated native pointer, keyboard, marquee and fast-scroll verification.
+// reason: a feature-gated diagnostic harness, not shipped app code: it panics on
+// setup failure and writes its evidence to disk on purpose.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use crate::{
     app::{App, RubberTarget},
     input::action::Action,
@@ -82,7 +85,7 @@ fn move_drag(position: Point<Pixels>, window: &mut Window, cx: &mut gpui::App) {
         gpui::PlatformInput::MouseMove(gpui::MouseMoveEvent {
             position,
             pressed_button: Some(gpui::MouseButton::Left),
-            modifiers: Default::default(),
+            modifiers: gpui::Modifiers::default(),
         }),
         cx,
     );
@@ -219,7 +222,7 @@ fn pointer_policy(
     let [(a, ab), (b, bb), (_, _), (d, db), ..] = targets.as_slice() else {
         unreachable!()
     };
-    click(ab.center(), Default::default(), window, cx);
+    click(ab.center(), gpui::Modifiers::default(), window, cx);
     ensure!(
         selection(app.read(cx), pane).selected == HashSet::from([*a]),
         "plain click selects exactly one row; target={a} bounds={ab:?} selected={:?} cursor={:?} rubber={} view_menu={}", selection(app.read(cx), pane).selected, selection(app.read(cx), pane).keyboard_cursor, app.read(cx).rubber.is_some(), app.read(cx).open_view_selectors.contains(&pane)
@@ -237,7 +240,7 @@ fn pointer_policy(
         selection(app.read(cx), pane).selected == HashSet::from([*a, *b]),
         "Ctrl click must add exactly one row"
     );
-    pointer(ab.center(), Default::default(), true, window, cx);
+    pointer(ab.center(), gpui::Modifiers::default(), true, window, cx);
     ensure!(
         selection(app.read(cx), pane).selected == HashSet::from([*a, *b]),
         "selected row mousedown must preserve the group for file dragging"
@@ -250,14 +253,14 @@ fn pointer_policy(
             && app.read(cx).rubber.is_none(),
         "file drag preparation must consume only the click marker and preserve selection"
     );
-    pointer(ab.center(), Default::default(), false, window, cx);
+    pointer(ab.center(), gpui::Modifiers::default(), false, window, cx);
     ensure!(
         selection(app.read(cx), pane).selected == HashSet::from([*a, *b]),
         "release after preparing a file drag collapsed its group"
     );
     // A separate stationary click must still collapse the selected group.
-    pointer(ab.center(), Default::default(), true, window, cx);
-    pointer(ab.center(), Default::default(), false, window, cx);
+    pointer(ab.center(), gpui::Modifiers::default(), true, window, cx);
+    pointer(ab.center(), gpui::Modifiers::default(), false, window, cx);
     ensure!(
         selection(app.read(cx), pane).selected == HashSet::from([*a]),
         "plain release on a selected row must collapse the group"
@@ -390,7 +393,7 @@ fn blank_and_escape(
         !original.selected.is_empty(),
         "blank test needs a selected directory"
     );
-    pointer(blank, Default::default(), true, window, cx);
+    pointer(blank, gpui::Modifiers::default(), true, window, cx);
     ensure!(
         selection(app.read(cx), pane).selected.is_empty(),
         "blank mousedown must immediately clear selection; pane={bounds:?} probe={blank:?} selected={:?} cursor={:?} rubber={} view_menu={}", selection(app.read(cx), pane).selected, selection(app.read(cx), pane).keyboard_cursor, app.read(cx).rubber.is_some(), app.read(cx).open_view_selectors.contains(&pane)
@@ -417,8 +420,8 @@ fn blank_and_escape(
         "Escape did not restore selection"
     );
     ensure!(app.read(cx).rubber.is_none(), "Escape left rubber active");
-    pointer(blank, Default::default(), false, window, cx);
-    click(blank, Default::default(), window, cx);
+    pointer(blank, gpui::Modifiers::default(), false, window, cx);
+    click(blank, gpui::Modifiers::default(), window, cx);
     ensure!(
         selection(app.read(cx), pane).selected.is_empty(),
         "blank release reselected an item"
@@ -553,7 +556,7 @@ fn scroll_check(
                 .selection
                 .clear();
         });
-        pointer(start, Default::default(), true, window, cx);
+        pointer(start, gpui::Modifiers::default(), true, window, cx);
         move_drag(end, window, cx);
         let count = selection(app.read(cx), pane).selected.len();
         ensure!(count > 1, "marquee did not select multiple items; start={start:?} end={end:?} selected={:?} rubber={} view_menu={}", selection(app.read(cx), pane).selected, app.read(cx).rubber.is_some(), app.read(cx).open_view_selectors.contains(&pane));
@@ -581,7 +584,7 @@ fn scroll_check(
                 .contains(&painted[0].0),
             "scroll discarded offscreen marquee origin"
         );
-        pointer(end, Default::default(), false, window, cx);
+        pointer(end, gpui::Modifiers::default(), false, window, cx);
     }
     Ok(())
 }
@@ -700,7 +703,7 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
             *result.borrow_mut() = checked;
             drop(app);
             let _ = window.update(cx, |_, window, _| window.remove_window());
-            let _ = cx.update(|cx| cx.quit());
+            let () = cx.update(|cx| cx.quit());
         }).detach();
     });
     let outcome = std::mem::replace(&mut *final_result.borrow_mut(), Ok(()));

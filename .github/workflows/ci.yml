@@ -4,25 +4,70 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
+# A newer push to the same ref makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # No debug info in CI builds: smaller caches and faster links.
+  CARGO_PROFILE_DEV_DEBUG: "0"
+
 jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
+          components: rustfmt
+      - run: cargo fmt --check
+
   check:
-    name: ${{ matrix.os }}
+    name: ${{ matrix.name }}
+    needs: fmt
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest]
-
+        include:
+          - name: Windows
+            os: windows-latest
+          - name: Linux
+            os: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
+      # Same pin as rust-toolchain.toml and the release workflows.
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
+          components: clippy
 
-      - name: Format
-        run: cargo fmt --check
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Check
-        run: cargo check --workspace
+      - name: System dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang g++ pkg-config \
+            libasound2-dev libfontconfig-dev libssl-dev libvulkan1 libxcb1-dev \
+            libwayland-dev libx11-xcb-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libbz2-dev liblzma-dev
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      # The optional lab and diagnostic features compile extra modules.
+      - name: Clippy (all features)
+        if: runner.os == 'Linux'
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
       - name: Test
-        run: cargo test --workspace
+        run: cargo test --workspace --locked

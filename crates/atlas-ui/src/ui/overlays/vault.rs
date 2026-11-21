@@ -116,7 +116,7 @@ impl App {
                     .primary()
                     .large()
                     .rounded_full()
-                    .bg(gpui::rgb(0xf25c35))
+                    .bg(gpui::rgb(0x00f2_5c35))
                     .text_color(gpui::white())
                     .label(rust_i18n::t!("vault_unlock_action").to_string())
                     .on_click(cx.listener(move |this, _, _, cx| {
@@ -143,7 +143,7 @@ impl App {
             if e == rust_i18n::t!("vault_password_mismatch").as_ref() {
                 Some(if d.phase == Phase::Manage { 2 } else { 1 })
             } else if e == rust_i18n::t!("vault_password_length").as_ref() {
-                Some(if d.phase == Phase::Manage { 1 } else { 0 })
+                Some(i32::from(d.phase == Phase::Manage))
             } else {
                 None
             }
@@ -152,8 +152,7 @@ impl App {
         let name = d
             .session
             .as_ref()
-            .map(|s| s.name().to_owned())
-            .unwrap_or_else(|| d.name.clone());
+            .map_or_else(|| d.name.clone(), |s| s.name().to_owned());
         let progress = d.control.completed.load(Ordering::Relaxed);
         let total = d.control.total.load(Ordering::Relaxed);
         let (surface, fg, muted, border, danger) = {
@@ -320,7 +319,7 @@ impl App {
                                 .text_size(s(27.))
                                 .font_weight(gpui::FontWeight::SEMIBOLD)
                                 .child(if phase == Phase::Browse {
-                                    name.clone()
+                                    name
                                 } else {
                                     rust_i18n::t!(title_key).to_string()
                                 }),
@@ -375,6 +374,8 @@ impl App {
         }
         let mut actions = h_flex().gap(s(8.));
         if phase == Phase::Browse && !busy {
+            // reason: only called from `render_vault`, which returns early when `self.vault` is None.
+            #[allow(clippy::unwrap_used)]
             let d = self.vault.as_ref().unwrap();
             let selected = d.selected.as_ref();
             let directory = selected
@@ -434,7 +435,7 @@ impl App {
                     .primary()
                     .large()
                     .rounded_full()
-                    .bg(gpui::rgb(0xf25c35))
+                    .bg(gpui::rgb(0x00f2_5c35))
                     .text_color(gpui::white())
                     .disabled(busy)
                     .label(
@@ -455,16 +456,18 @@ impl App {
 
     #[inline(never)]
     fn render_vault_browser(&mut self, mut body: gpui::Div, cx: &mut Context<Self>) -> gpui::Div {
+        // reason: only called from `render_vault`, which returns early when `self.vault` is None.
+        #[allow(clippy::unwrap_used)]
         let d = self.vault.as_ref().unwrap();
         let preview = d.preview.as_ref().and_then(|preview| match preview {
             PrivatePreview::Text(text) => Some(SharedString::from(
                 text.chars().take(20_000).collect::<String>(),
             )),
-            _ => None,
+            PrivatePreview::Image(_) => None,
         });
         let preview_image = d.preview.as_ref().and_then(|preview| match preview {
             PrivatePreview::Image(image) => Some(image.clone()),
-            _ => None,
+            PrivatePreview::Text(_) => None,
         });
         let has_preview = d.preview.is_some();
         let has_parent = !d.parents.is_empty();
@@ -477,7 +480,7 @@ impl App {
             d.selected
                 .as_ref()
                 .and_then(|id| d.session.as_ref()?.entry(id))
-                .map_or(name.clone(), |entry| entry.name.clone())
+                .map_or(name, |entry| entry.name.clone())
         } else {
             d.parents
                 .last()
@@ -501,14 +504,18 @@ impl App {
                 || error.starts_with("WinFsp: ")
         }) {
             body = body.child(
-                div().text_size(s(12.)).text_color(muted)
+                div()
+                    .text_size(s(12.))
+                    .text_color(muted)
                     .child(rust_i18n::t!("vault_driver_external_instructions").to_string()),
             );
             body = body.child(
                 Button::new("vault-winfsp-license")
                     .ghost()
                     .label("WinFsp — license and source")
-                    .on_click(cx.listener(|_this, _, _, cx| cx.open_url("https://github.com/winfsp/winfsp/blob/v2.1/License.txt"))),
+                    .on_click(cx.listener(|_this, _, _, cx| {
+                        cx.open_url("https://github.com/winfsp/winfsp/blob/v2.1/License.txt");
+                    })),
             );
             body = body.child(
                 Button::new("vault-install-driver")
@@ -703,6 +710,8 @@ impl App {
 
     #[inline(never)]
     fn render_vault_form(&mut self, mut body: gpui::Div, cx: &mut Context<Self>) -> gpui::Div {
+        // reason: only called from `render_vault`, which returns early when `self.vault` is None.
+        #[allow(clippy::unwrap_used)]
         let d = self.vault.as_ref().unwrap();
         let phase = d.phase;
         let inputs = d.inputs.clone();
@@ -714,7 +723,7 @@ impl App {
             if e == rust_i18n::t!("vault_password_mismatch").as_ref() {
                 Some(if phase == Phase::Manage { 2 } else { 1 })
             } else if e == rust_i18n::t!("vault_password_length").as_ref() {
-                Some(if phase == Phase::Manage { 1 } else { 0 })
+                Some(usize::from(phase == Phase::Manage))
             } else {
                 None
             }
@@ -766,7 +775,7 @@ impl App {
                                                         d.reveal = !d.reveal;
                                                         for input in &d.inputs {
                                                             input.update(cx, |i, cx| {
-                                                                i.set_masked(!d.reveal, window, cx)
+                                                                i.set_masked(!d.reveal, window, cx);
                                                             });
                                                         }
                                                     }
@@ -781,14 +790,14 @@ impl App {
                                                     .w(s(40.))
                                                     .h(s(40.))
                                                     .rounded_full()
-                                                    .bg(gpui::rgb(0xf25c35))
+                                                    .bg(gpui::rgb(0x00f2_5c35))
                                                     .text_color(gpui::white())
                                                     .tooltip(
                                                         rust_i18n::t!("vault_unlock_action")
                                                             .to_string(),
                                                     )
                                                     .on_click(cx.listener(|this, _, w, cx| {
-                                                        this.submit_vault(w, cx)
+                                                        this.submit_vault(w, cx);
                                                     })),
                                             )
                                         }),

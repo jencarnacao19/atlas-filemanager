@@ -46,6 +46,8 @@ impl App {
             return div().into_any_element();
         };
         let title = pending.cmd.command.title.clone();
+        // reason: the collected list ends the borrow of `self` before the builder below.
+        #[allow(clippy::needless_collect)]
         let fields: Vec<(String, gpui::Entity<gpui_component::input::InputState>)> = pending
             .answers
             .iter()

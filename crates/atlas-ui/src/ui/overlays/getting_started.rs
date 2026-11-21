@@ -54,9 +54,9 @@ impl App {
         let focus = self.overlay_focus(cx);
         let step = self.state.overlay.getting_started_step.min(2);
         let loading = loading_since.is_some();
-        let reveal = loading_since
-            .map(|started| (started.elapsed().as_millis() as f32 / LOAD_MS as f32).clamp(0.0, 1.0))
-            .unwrap_or(0.0);
+        let reveal = loading_since.map_or(0.0, |started| {
+            (started.elapsed().as_millis() as f32 / LOAD_MS as f32).clamp(0.0, 1.0)
+        });
         let (fg, muted, border) = (setup_fg(), setup_muted(), setup_border());
 
         let content = match step {
@@ -598,7 +598,11 @@ impl App {
         setup_page(
             "getting_started_theme_title",
             "getting_started_theme_desc",
-            v_flex().gap_4().child(theme_list).child(icons).into_any_element(),
+            v_flex()
+                .gap_4()
+                .child(theme_list)
+                .child(icons)
+                .into_any_element(),
             muted,
         )
     }
@@ -611,11 +615,12 @@ impl App {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let view = cx.entity();
-        let view_mode = self
-            .state
-            .active_tab_data()
-            .map(|tab| tab.view_mode.clone())
-            .unwrap_or_else(|| self.state.settings.view_mode.clone());
+        let view_mode = self.state.active_tab_data().map_or_else(
+            || self.state.settings.view_mode.clone(),
+            |tab| tab.view_mode.clone(),
+        );
+        // reason: the collected tiles end the borrow of `self` before the builder below.
+        #[allow(clippy::needless_collect)]
         let mode_tiles = [
             (
                 ViewMode::Details,
@@ -649,7 +654,7 @@ impl App {
         let hidden_on = self.state.settings.show_hidden;
         let sidebar_view = view.clone();
         let inspector_view = view.clone();
-        let hidden_view = view.clone();
+        let hidden_view = view;
         let sidebar = option_tile(
             "getting_started_show_sidebar",
             AtlasIcon::SidebarSimple,

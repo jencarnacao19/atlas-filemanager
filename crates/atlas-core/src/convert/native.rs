@@ -142,9 +142,9 @@ pub(super) fn extracted_document(text: &str, extension: &str, output: &Path) -> 
                 } else {
                     " style=\"break-before:page\""
                 };
-                write!(
+                writeln!(
                     file,
-                    "<section{style}><pre>{}</pre></section>\n",
+                    "<section{style}><pre>{}</pre></section>",
                     escape(page)
                 )?;
             }
@@ -221,7 +221,7 @@ pub(super) fn document_text(source: &Path) -> Result<String> {
                         .attributes()
                         .any(|a| a.name() == "type" && a.value() == "page") =>
                     {
-                        result.push('\u{c}')
+                        result.push('\u{c}');
                     }
                     "lastRenderedPageBreak" => result.push('\u{c}'),
                     "br" | "cr" => result.push('\n'),
@@ -297,9 +297,7 @@ pub(super) fn data(command: &Command, output: &Path) -> Result<()> {
     write_value(&value, command.target.extension, output)
 }
 
-fn as_tabular_rows<'a>(
-    value: &'a serde_json::Value,
-) -> Option<std::borrow::Cow<'a, [serde_json::Value]>> {
+fn as_tabular_rows(value: &serde_json::Value) -> Option<std::borrow::Cow<'_, [serde_json::Value]>> {
     if let Some(arr) = value.as_array() {
         return Some(std::borrow::Cow::Borrowed(arr));
     }
@@ -309,7 +307,7 @@ fn as_tabular_rows<'a>(
         }
         for val in obj.values() {
             if let Some(arr) = val.as_array() {
-                if !arr.is_empty() && arr.iter().all(|x| x.is_object()) {
+                if !arr.is_empty() && arr.iter().all(serde_json::Value::is_object) {
                     return Some(std::borrow::Cow::Borrowed(arr));
                 }
             }
@@ -518,10 +516,8 @@ pub(super) fn markdown_text(text: &str) -> String {
                 | pulldown_cmark::TagEnd::CodeBlock
                 | pulldown_cmark::TagEnd::Item
                 | pulldown_cmark::TagEnd::TableRow,
-            ) => {
-                if !result.ends_with('\n') {
-                    result.push('\n');
-                }
+            ) if !result.ends_with('\n') => {
+                result.push('\n');
             }
             _ => {}
         }
@@ -529,6 +525,8 @@ pub(super) fn markdown_text(text: &str) -> String {
     result
 }
 
+// reason: one short-lived writer per conversion; boxing buys nothing.
+#[allow(clippy::large_enum_variant)]
 enum ArchiveWriter {
     Zip(zip::ZipWriter<File>),
     Tar(tar::Builder<File>),

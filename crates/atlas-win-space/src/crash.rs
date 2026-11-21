@@ -59,62 +59,6 @@ fn install_at(directory: PathBuf) -> io::Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn native_fault_child() {
-        let Some(directory) = std::env::var_os("ATLAS_CRASH_TEST_DIR") else {
-            return;
-        };
-        install_at(directory.into()).unwrap();
-        unsafe {
-            windows_sys::Win32::System::Diagnostics::Debug::SetErrorMode(
-                windows_sys::Win32::System::Diagnostics::Debug::SEM_NOGPFAULTERRORBOX,
-            );
-            windows_sys::Win32::System::Diagnostics::Debug::RaiseException(
-                0xc0000005,
-                1,
-                0,
-                std::ptr::null(),
-            );
-        }
-    }
-    #[test]
-    fn child_native_fault_writes_minidump_and_stack_without_opening_ui() {
-        let directory =
-            std::env::temp_dir().join(format!("atlas-crash-test-{}", std::process::id()));
-        std::fs::create_dir_all(&directory).unwrap();
-        struct Cleanup(PathBuf);
-        impl Drop for Cleanup {
-            fn drop(&mut self) {
-                let _ = std::fs::remove_dir_all(&self.0);
-            }
-        }
-        let _cleanup = Cleanup(directory.clone());
-        let output = std::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "crash::tests::native_fault_child", "--nocapture"])
-            .env("ATLAS_CRASH_TEST_DIR", &directory)
-            .output()
-            .unwrap();
-        assert!(!output.status.success());
-        let files: Vec<_> = std::fs::read_dir(&directory)
-            .unwrap()
-            .map(|entry| entry.unwrap().path())
-            .collect();
-        let dump = files
-            .iter()
-            .find(|path| path.extension().is_some_and(|extension| extension == "dmp"))
-            .expect("minidump file");
-        assert_eq!(&std::fs::read(dump).unwrap()[..4], b"MDMP");
-        let stack = files
-            .iter()
-            .find(|path| path.to_string_lossy().ends_with("stack.txt"))
-            .expect("stack file");
-        assert!(std::fs::read_to_string(stack).unwrap().starts_with("0x"));
-    }
-}
-
 unsafe extern "system" fn unhandled_exception(exception: *const EXCEPTION_POINTERS) -> i32 {
     unsafe {
         write_report(exception);
@@ -172,5 +116,61 @@ unsafe fn write_report(exception: *const EXCEPTION_POINTERS) {
                 CloseHandle(file);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn native_fault_child() {
+        let Some(directory) = std::env::var_os("ATLAS_CRASH_TEST_DIR") else {
+            return;
+        };
+        install_at(directory.into()).unwrap();
+        unsafe {
+            windows_sys::Win32::System::Diagnostics::Debug::SetErrorMode(
+                windows_sys::Win32::System::Diagnostics::Debug::SEM_NOGPFAULTERRORBOX,
+            );
+            windows_sys::Win32::System::Diagnostics::Debug::RaiseException(
+                0xc0000005,
+                1,
+                0,
+                std::ptr::null(),
+            );
+        }
+    }
+    #[test]
+    fn child_native_fault_writes_minidump_and_stack_without_opening_ui() {
+        let directory =
+            std::env::temp_dir().join(format!("atlas-crash-test-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        struct Cleanup(PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(directory.clone());
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "crash::tests::native_fault_child", "--nocapture"])
+            .env("ATLAS_CRASH_TEST_DIR", &directory)
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let files: Vec<_> = std::fs::read_dir(&directory)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect();
+        let dump = files
+            .iter()
+            .find(|path| path.extension().is_some_and(|extension| extension == "dmp"))
+            .expect("minidump file");
+        assert_eq!(&std::fs::read(dump).unwrap()[..4], b"MDMP");
+        let stack = files
+            .iter()
+            .find(|path| path.to_string_lossy().ends_with("stack.txt"))
+            .expect("stack file");
+        assert!(std::fs::read_to_string(stack).unwrap().starts_with("0x"));
     }
 }

@@ -2,7 +2,7 @@ use crate::app::App;
 use atlas_model::pane::TabId;
 use gpui::prelude::*;
 use gpui::{div, px, AnyElement, Entity, Hsla, MouseButton, Pixels, SharedString, TextRun, Window};
-use gpui_component::{input::InputState, ActiveTheme, Colorize};
+use gpui_component::{input::InputState, ActiveTheme};
 use std::path::Path;
 
 pub(super) fn active_input(
@@ -38,35 +38,28 @@ pub(super) fn active_input_for_path(
 pub(super) const DIM_OPACITY: f32 = 0.45;
 
 pub(super) fn cut_path_opacity(app: &gpui::WeakEntity<App>, path: &Path, cx: &gpui::App) -> f32 {
-    if app.upgrade().is_some_and(|entity| entity.read(cx).state.system_cut_paths.contains(path)) {
+    if app
+        .upgrade()
+        .is_some_and(|entity| entity.read(cx).state.system_cut_paths.contains(path))
+    {
         0.5
-    } else { 1.0 }
-}
-
-pub(super) fn cut_entry_opacity(app: &gpui::WeakEntity<App>, pane: TabId, index: usize, cx: &gpui::App) -> f32 {
-    app.upgrade().map_or(1.0, |entity| {
-        let app = entity.read(cx);
-        app.state.tab_states.get(&pane).and_then(|tab| tab.entries.get(index))
-            .map_or(1.0, |entry| if app.state.system_cut_paths.contains(&entry.path()) { 0.5 } else { 1.0 })
-    })
+    } else {
+        1.0
+    }
 }
 
 pub(super) fn dim_other_entry(app: &App, pane_id: TabId, entry_idx: usize) -> bool {
-    app.rename_edit
-        .as_ref()
-        .is_some_and(|edit| {
-            edit.pane == pane_id
-                && app.state.batch_rename.is_none()
-                && active_input(app, pane_id, entry_idx).is_none()
-        })
+    app.rename_edit.as_ref().is_some_and(|edit| {
+        edit.pane == pane_id
+            && app.state.batch_rename.is_none()
+            && active_input(app, pane_id, entry_idx).is_none()
+    })
 }
 
 pub(super) fn dim_other_path(app: &App, pane_id: TabId, path: &Path) -> bool {
-    app.rename_edit
-        .as_ref()
-        .is_some_and(|edit| {
-            edit.pane == pane_id && app.state.batch_rename.is_none() && edit.path != path
-        })
+    app.rename_edit.as_ref().is_some_and(|edit| {
+        edit.pane == pane_id && app.state.batch_rename.is_none() && edit.path != path
+    })
 }
 
 /// `max_px` and the return value are real pixels — callers pass an already
@@ -176,7 +169,7 @@ fn input_element_aligned(
                 .selection_color(selection)
                 .text_size(font_size)
                 .line_height(height)
-                .when(centered, |input| input.text_center()),
+                .when(centered, gpui::Styled::text_center),
         )
         .capture_action(window.listener_for(view, App::rename_next_action))
         .capture_action(window.listener_for(view, App::rename_previous_action))
@@ -185,7 +178,11 @@ fn input_element_aligned(
                 && !ev.keystroke.modifiers.control
                 && !ev.keystroke.modifiers.platform
                 && {
-                    let key = if ev.keystroke.key_char.as_deref() == Some("#") { "#" } else { key };
+                    let key = if ev.keystroke.key_char.as_deref() == Some("#") {
+                        "#"
+                    } else {
+                        key
+                    };
                     commit_view.update(cx, |this, cx| {
                         this.batch_rename_key(
                             key,
@@ -206,7 +203,7 @@ fn input_element_aligned(
             "tab" => {
                 let forward = !ev.keystroke.modifiers.shift;
                 commit_view.update(cx, |this, cx| {
-                    this.commit_rename_and_move(forward, window, cx)
+                    this.commit_rename_and_move(forward, window, cx);
                 });
                 cx.stop_propagation();
             }

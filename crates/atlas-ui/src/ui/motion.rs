@@ -185,6 +185,24 @@ pub fn pane_intro(this: Div, openness: f32, offset: Pixels, vertical: bool) -> D
     }
 }
 
+pub trait MotionFeedbackExt: gpui::InteractiveElement + gpui::Styled + Sized {
+    #[track_caller]
+    fn motion_feedback(mut self) -> Self {
+        // An absent background is transparent. GPUI's default Fill is opaque
+        // black, so author the transparent endpoint before asking it to animate.
+        if self.style().background.is_none() {
+            self.style().background = Some(gpui::transparent_black().into());
+        }
+        self.transitions(|t| {
+            t.bg(gpui::millis(120))
+                .text_color(gpui::millis(120))
+                .opacity(gpui::millis(120))
+        })
+    }
+}
+
+impl<T: gpui::InteractiveElement + gpui::Styled + Sized> MotionFeedbackExt for T {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,21 +297,3 @@ mod tests {
         );
     }
 }
-
-pub trait MotionFeedbackExt: gpui::InteractiveElement + gpui::Styled + Sized {
-    #[track_caller]
-    fn motion_feedback(mut self) -> Self {
-        // An absent background is transparent. GPUI's default Fill is opaque
-        // black, so author the transparent endpoint before asking it to animate.
-        if self.style().background.is_none() {
-            self.style().background = Some(gpui::transparent_black().into());
-        }
-        self.transitions(|t| {
-            t.bg(gpui::millis(120))
-                .text_color(gpui::millis(120))
-                .opacity(gpui::millis(120))
-        })
-    }
-}
-
-impl<T: gpui::InteractiveElement + gpui::Styled + Sized> MotionFeedbackExt for T {}

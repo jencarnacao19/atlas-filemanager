@@ -5,6 +5,10 @@
 //!
 // reason: gpui's actions! macro derives PartialEq (not Eq) on every action struct.
 #![allow(clippy::derive_partial_eq_without_eq)]
+// reason: rust-i18n generates its translation table as one large initializer,
+// which is the frame this lint reports. `warm_up_translations` runs it on a
+// thread with a 32 MiB stack. Attributes on the macro call do not reach it.
+#![allow(clippy::large_stack_frames)]
 
 rust_i18n::i18n!("locales", fallback = "en");
 
@@ -16,14 +20,14 @@ pub mod assets;
 pub(crate) mod dnd;
 pub(crate) mod icon_theme;
 pub(crate) mod perf;
+#[cfg(windows)]
+pub(crate) mod shell_file_operation;
 /// Windows shell context-menu integration (IContextMenu enumeration + invoke).
 #[cfg(target_os = "windows")]
 pub(crate) mod shell_menu;
 /// Windows Shell thumbnail cache access via IShellItemImageFactory.
 #[cfg(target_os = "windows")]
 pub(crate) mod shell_thumb;
-#[cfg(windows)]
-pub(crate) mod shell_file_operation;
 pub mod ui;
 pub(crate) mod ui_wake;
 
@@ -175,9 +179,27 @@ pub struct SidebarRemoveBookmark {
     pub index: usize,
 }
 
-
 /// Launch the gpui application. The caller owns the tokio runtime and passes its
 /// handle in; gpui drives the UI on the calling (main) thread.
+/// Builds rust-i18n's lazily initialized translation table off the main thread.
+///
+/// The generated initializer holds one statement per translation key, and an
+/// unoptimized build needs a few MiB of stack to run it: more than the 1 MiB
+/// main thread Windows gives by default. Running it on a thread with a large
+/// stack keeps debug builds safe, and it overlaps with the rest of startup.
+/// A `t!()` that arrives first waits on the same one-time initialization.
+fn warm_up_translations() {
+    let spawned = std::thread::Builder::new()
+        .name("atlas-i18n-init".into())
+        .stack_size(32 << 20)
+        .spawn(|| {
+            let _ = rust_i18n::available_locales!();
+        });
+    if let Err(error) = spawned {
+        tracing::warn!(%error, "could not pre-initialize translations");
+    }
+}
+
 pub fn run(
     handle: tokio::runtime::Handle,
     app_started: Instant,
@@ -185,6 +207,7 @@ pub fn run(
     initial_paths: Vec<std::path::PathBuf>,
 ) {
     let run_started = Instant::now();
+    warm_up_translations();
     #[cfg(feature = "ui-lab")]
     let initial_paths = crate::ui::preview_lab::prepare(initial_paths);
     let settings = atlas_core::util::config::load_settings();
@@ -233,12 +256,22 @@ pub fn run(
         // for custom user themes are deferred to the background so they do not block startup.
         let themes_dir = atlas_core::util::config::themes_dir();
         cx.spawn(async move |cx| {
-            if let Err(err) = std::fs::create_dir_all(&themes_dir)
-                .and_then(|()| std::fs::write(themes_dir.join("atlas-themes.json"), json))
-            {
+            // `cx.spawn` runs on the main thread, so the file write itself goes to
+            // the background executor and the watcher is installed once it lands.
+            let dir = themes_dir.clone();
+            let persisted = cx
+                .background_executor()
+                .spawn(async move {
+                    // reason: runs on the background executor, not the UI thread.
+                    #[allow(clippy::disallowed_methods)]
+                    std::fs::create_dir_all(&dir)
+                        .and_then(|()| std::fs::write(dir.join("atlas-themes.json"), json))
+                })
+                .await;
+            if let Err(err) = persisted {
                 tracing::error!(?err, "failed to persist bundled themes to themes_dir");
             }
-            _ = cx.update(|cx| {
+            () = cx.update(|cx| {
                 if let Err(err) = ThemeRegistry::watch_dir(themes_dir, cx, |cx| {
                     cx.refresh_windows();
                 }) {
@@ -329,17 +362,23 @@ pub fn run(
             let weak_app = view.downgrade();
             let closing_app = view.downgrade();
             window.on_window_should_close(cx, move |_, cx| {
-                closing_app.update(cx, |app, cx| {
-                    let allowed = app.close_native_vault(false);
-                    cx.notify();
-                    allowed
-                }).unwrap_or(true)
+                closing_app
+                    .update(cx, |app, cx| {
+                        let allowed = app.close_native_vault(false);
+                        cx.notify();
+                        allowed
+                    })
+                    .unwrap_or(true)
             });
             cx.on_app_quit(move |cx| {
                 #[cfg(feature = "conversion-lab")]
-                if std::env::var_os("ATLAS_CONVERSION_LAB").is_some() { return std::future::ready(()); }
+                if std::env::var_os("ATLAS_CONVERSION_LAB").is_some() {
+                    return std::future::ready(());
+                }
                 #[cfg(feature = "ui-lab")]
-                if std::env::var_os("ATLAS_PREVIEW_LAB").is_some() { return std::future::ready(()); }
+                if std::env::var_os("ATLAS_PREVIEW_LAB").is_some() {
+                    return std::future::ready(());
+                }
                 weak_app.update(cx, |app, _cx| app.save_on_quit()).ok();
                 std::future::ready(())
             })
@@ -374,4 +413,3 @@ pub fn run(
 pub fn run_vault_diagnostic(directory: std::path::PathBuf) -> anyhow::Result<()> {
     app::vault::diagnostic::run(directory)
 }
-

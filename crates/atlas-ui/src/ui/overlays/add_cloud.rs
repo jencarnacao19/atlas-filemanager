@@ -62,6 +62,8 @@ impl App {
                 ),
             });
         }
+        // reason: `cloud_add_inputs` is created at the top of this function.
+        #[allow(clippy::unwrap_used)]
         self.cloud_add_inputs.as_ref().unwrap().name.clone()
     }
 
@@ -113,6 +115,8 @@ impl App {
         let focus = self.overlay_focus(cx);
 
         let name_input = self.cloud_add_name_input(window, cx);
+        // reason: `cloud_add_name_input` above creates the inputs.
+        #[allow(clippy::expect_used)]
         let inputs = self
             .cloud_add_inputs
             .as_ref()
@@ -308,7 +312,9 @@ impl App {
         };
 
         // ── Access mode toggle (only for non-OAuth) ────────────────────────────
-        let access_toggle: Option<AnyElement> = if !is_oauth {
+        let access_toggle: Option<AnyElement> = if is_oauth {
+            None
+        } else {
             let view_br = view.clone();
             let view_mt = view.clone();
             let browse_sel = access == AccessKind::Access;
@@ -377,8 +383,6 @@ impl App {
                     )
                     .into_any_element(),
             )
-        } else {
-            None
         };
 
         // ── Buttons ────────────────────────────────────────────────────────────
@@ -478,7 +482,7 @@ impl App {
         self.overlay_scrim_custom(
             "scrim-add-cloud",
             view,
-            |this| this.close_add_cloud(),
+            Self::close_add_cloud,
             focus,
             panel.into_any_element(),
             cx,

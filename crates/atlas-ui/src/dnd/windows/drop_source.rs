@@ -2,6 +2,9 @@
 //!
 //! Drives a `DoDragDrop` loop: continues while LMB is held and Escape is not
 //! pressed; uses default OS drag cursors (no custom feedback).
+// reason: COM glue: these lints fire inside the windows-rs `#[implement]` expansion,
+// and `new` returns the COM interface rather than `Self` by design.
+#![allow(clippy::ref_as_ptr, clippy::inline_always, clippy::new_ret_no_self)]
 #![allow(unsafe_code)]
 // reason: COM interface implementation requires unsafe.
 
@@ -21,10 +24,10 @@ impl IDropSource_Impl for AtlasDropSource_Impl {
         if fescapepressed.as_bool() {
             return DRAGDROP_S_CANCEL;
         }
-        if !grfkeystate.contains(MK_LBUTTON) {
-            DRAGDROP_S_DROP
-        } else {
+        if grfkeystate.contains(MK_LBUTTON) {
             S_OK
+        } else {
+            DRAGDROP_S_DROP
         }
     }
 

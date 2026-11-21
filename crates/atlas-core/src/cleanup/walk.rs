@@ -16,7 +16,7 @@ use std::{
 };
 
 const MAX_DEPTH: usize = 128;
-const UNSAFE_ATTRIBUTES: u32 = 0x400 | 0x1000 | 0x40000 | 0x400000;
+const UNSAFE_ATTRIBUTES: u32 = 0x400 | 0x1000 | 0x40000 | 0x0040_0000;
 
 pub(super) struct Control {
     pub cancel: Arc<AtomicBool>,
@@ -69,12 +69,22 @@ fn read_dir(path: &Path, mut emit: impl FnMut(&str, bool, u32, u64)) -> std::io:
     Ok(())
 }
 
-fn visit<'s>(shared: &'s Shared<'s>, scope: &rayon::Scope<'s>, path: PathBuf, id: u32, depth: usize) {
+fn visit<'s>(
+    shared: &'s Shared<'s>,
+    scope: &rayon::Scope<'s>,
+    path: PathBuf,
+    id: u32,
+    depth: usize,
+) {
     if !shared.proceed() {
         return;
     }
     if depth >= MAX_DEPTH || path.as_os_str().len() > 16_384 {
-        shared.builder.lock().unwrap().limited = true;
+        shared
+            .builder
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .limited = true;
         return;
     }
     let mut dirs: Vec<(String, PathBuf)> = Vec::new();
@@ -108,7 +118,10 @@ fn visit<'s>(shared: &'s Shared<'s>, scope: &rayon::Scope<'s>, path: PathBuf, id
     shared.control.files.fetch_add(files, Ordering::Relaxed);
     shared.control.bytes.fetch_add(bytes, Ordering::Relaxed);
     let children: Vec<u32> = {
-        let mut builder = shared.builder.lock().unwrap();
+        let mut builder = shared
+            .builder
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         builder.skipped += skipped;
         if result.is_err() {
             builder.errors += 1;
@@ -117,7 +130,9 @@ fn visit<'s>(shared: &'s Shared<'s>, scope: &rayon::Scope<'s>, path: PathBuf, id
         for (name, size) in &kept {
             builder.add_file(id, name, *size);
         }
-        dirs.iter().map(|(name, _)| builder.add_dir(id, name)).collect()
+        dirs.iter()
+            .map(|(name, _)| builder.add_dir(id, name))
+            .collect()
     };
     for ((_, child), cid) in dirs.into_iter().zip(children) {
         scope.spawn(move |s| visit(shared, s, child, cid, depth + 1));
@@ -125,7 +140,7 @@ fn visit<'s>(shared: &'s Shared<'s>, scope: &rayon::Scope<'s>, path: PathBuf, id
 }
 
 fn thread_count() -> usize {
-    let cpus = std::thread::available_parallelism().map_or(8, |n| n.get());
+    let cpus = std::thread::available_parallelism().map_or(8, std::num::NonZero::get);
     // Enumeration blocks on the filesystem, so oversubscribe the cores.
     (cpus * 2).clamp(8, 32)
 }
@@ -148,7 +163,7 @@ pub(super) fn walk(
     };
     std::thread::scope(|s| {
         let job = s.spawn(|| {
-            pool.install(|| rayon::scope(|scope| visit(&shared, scope, root.to_owned(), 0, 0)))
+            pool.install(|| rayon::scope(|scope| visit(&shared, scope, root.to_owned(), 0, 0)));
         });
         while !job.is_finished() {
             std::thread::sleep(Duration::from_millis(100));
@@ -159,7 +174,10 @@ pub(super) fn walk(
         }
         let _ = job.join();
     });
-    let builder = shared.builder.into_inner().unwrap();
+    let builder = shared
+        .builder
+        .into_inner()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     Ok(builder.finish(root.to_owned(), ScanBackend::NativeDirectory))
 }
 

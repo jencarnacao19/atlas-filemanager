@@ -22,12 +22,25 @@ use super::{NativeItemKind, NativeMenuItem, RawIcon};
 /// Verbs that Atlas already provides in its own section; the native duplicates
 /// are dropped so the menu shows each action once.
 const DEDUPE_VERBS: &[&str] = &[
-    "pintohome", "windows.share", "newfolder", "delete", "rename", "cut", "copy",
-    "paste", "pastelink", "refresh", "open",
+    "pintohome",
+    "windows.share",
+    "newfolder",
+    "delete",
+    "rename",
+    "cut",
+    "copy",
+    "paste",
+    "pastelink",
+    "refresh",
+    "open",
 ];
 
 fn redundant_verb(verb: Option<&str>) -> bool {
-    verb.is_some_and(|verb| DEDUPE_VERBS.iter().any(|candidate| verb.eq_ignore_ascii_case(candidate)))
+    verb.is_some_and(|verb| {
+        DEDUPE_VERBS
+            .iter()
+            .any(|candidate| verb.eq_ignore_ascii_case(candidate))
+    })
 }
 
 fn trim_separators(items: &mut Vec<NativeMenuItem>) {
@@ -38,7 +51,10 @@ fn trim_separators(items: &mut Vec<NativeMenuItem>) {
         previous_separator = separator;
         retain
     });
-    if items.last().is_some_and(|item| matches!(item.kind, NativeItemKind::Separator)) {
+    if items
+        .last()
+        .is_some_and(|item| matches!(item.kind, NativeItemKind::Separator))
+    {
         items.pop();
     }
 }
@@ -58,7 +74,7 @@ pub(crate) fn walk_menu(hmenu: HMENU, icm: &IContextMenu, id_first: u32) -> Vec<
                 fMask: MIIM_STRING | MIIM_ID | MIIM_FTYPE | MIIM_SUBMENU | MIIM_BITMAP | MIIM_STATE,
                 ..Default::default()
             };
-            if GetMenuItemInfoW(hmenu, i as u32, true, &mut info).is_err() {
+            if GetMenuItemInfoW(hmenu, i as u32, true, &raw mut info).is_err() {
                 continue;
             }
 
@@ -86,7 +102,7 @@ pub(crate) fn walk_menu(hmenu: HMENU, icm: &IContextMenu, id_first: u32) -> Vec<
                     cch: buf.len() as u32,
                     ..Default::default()
                 };
-                if GetMenuItemInfoW(hmenu, i as u32, true, &mut info2).is_ok() {
+                if GetMenuItemInfoW(hmenu, i as u32, true, &raw mut info2).is_ok() {
                     let len = info2.cch as usize;
                     title = String::from_utf16_lossy(&buf[..len.min(buf.len())]);
                 }
@@ -115,10 +131,10 @@ pub(crate) fn walk_menu(hmenu: HMENU, icm: &IContextMenu, id_first: u32) -> Vec<
 
             let icon = bitmap_to_rgba(info.hbmpItem);
 
-            let kind = if !info.hSubMenu.is_invalid() {
-                NativeItemKind::Submenu { children: None }
-            } else {
+            let kind = if info.hSubMenu.is_invalid() {
                 NativeItemKind::Normal
+            } else {
+                NativeItemKind::Submenu { children: None }
             };
 
             out.push(NativeMenuItem {
@@ -136,37 +152,6 @@ pub(crate) fn walk_menu(hmenu: HMENU, icm: &IContextMenu, id_first: u32) -> Vec<
     out
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn native_duplicates_are_filtered_by_canonical_verb_only() {
-        for verb in ["pintohome", "windows.share", "newfolder", "delete", "rename",
-            "cut", "copy", "paste", "pastelink", "refresh", "DELETE"] {
-            assert!(redundant_verb(Some(verb)), "{verb}");
-        }
-        for verb in ["openwith", "runas", "properties", "7zip", "VSCode", "git_shell", "VLC.AddToPlaylist"] {
-            assert!(!redundant_verb(Some(verb)), "{verb}");
-        }
-        assert!(!redundant_verb(None));
-    }
-
-    #[test]
-    fn filtering_does_not_leave_empty_sections() {
-        let item = |kind| NativeMenuItem { id: 42, title: "Third party".into(),
-            verb: None, icon: None, kind, disabled: false, is_default: false };
-        let mut items = vec![item(NativeItemKind::Separator), item(NativeItemKind::Normal),
-            item(NativeItemKind::Separator), item(NativeItemKind::Separator),
-            item(NativeItemKind::Normal), item(NativeItemKind::Separator)];
-        trim_separators(&mut items);
-        assert_eq!(items.len(), 3);
-        assert!(matches!(items[0].kind, NativeItemKind::Normal));
-        assert!(matches!(items[1].kind, NativeItemKind::Separator));
-        assert!(matches!(items[2].kind, NativeItemKind::Normal));
-    }
-}
-
 /// Populate a submenu via the `WM_INITMENUPOPUP` its dynamic handler (Open with,
 /// Send to, 7-Zip) expects, then enumerate it. Used by the lazy `ExpandSubmenu`
 /// path. `pos` is informational for most handlers (they key off `wParam = hsub`).
@@ -182,7 +167,7 @@ pub(crate) fn walk_submenu(
         let lparam = windows::Win32::Foundation::LPARAM(0);
         if let Some(icm3) = icm3 {
             let mut res = windows::Win32::Foundation::LRESULT(0);
-            let _ = icm3.HandleMenuMsg2(WM_INITMENUPOPUP, wparam, lparam, Some(&mut res));
+            let _ = icm3.HandleMenuMsg2(WM_INITMENUPOPUP, wparam, lparam, Some(&raw mut res));
         } else if let Some(icm2) = icm2 {
             let _ = icm2.HandleMenuMsg(WM_INITMENUPOPUP, wparam, lparam);
         }
@@ -197,7 +182,7 @@ unsafe fn command_verb(icm: &IContextMenu, item_id: u32) -> Option<String> {
         item_id as usize,
         GCS_VERBW,
         None,
-        windows::core::PSTR(buf.as_mut_ptr() as *mut u8),
+        windows::core::PSTR(buf.as_mut_ptr().cast::<u8>()),
         buf.len() as u32,
     );
     if r.is_err() {
@@ -223,7 +208,7 @@ unsafe fn bitmap_to_rgba(hbm: HBITMAP) -> Option<RawIcon> {
     let got = GetObjectW(
         hbm.into(),
         std::mem::size_of::<BITMAP>() as i32,
-        Some(&mut bm as *mut _ as *mut c_void),
+        Some(std::ptr::from_mut(&mut bm).cast::<c_void>()),
     );
     if got == 0 || bm.bmWidth <= 0 || bm.bmHeight <= 0 {
         return None;
@@ -254,8 +239,8 @@ unsafe fn bitmap_to_rgba(hbm: HBITMAP) -> Option<RawIcon> {
         hbm,
         0,
         h,
-        Some(bgra.as_mut_ptr() as *mut c_void),
-        &mut bi,
+        Some(bgra.as_mut_ptr().cast::<c_void>()),
+        &raw mut bi,
         DIB_RGB_COLORS,
     );
     ReleaseDC(None, hdc);
@@ -274,7 +259,7 @@ unsafe fn bitmap_to_rgba(hbm: HBITMAP) -> Option<RawIcon> {
         let a = if any_alpha { bgra[px * 4 + 3] } else { 255 };
         let (r, g, b) = if any_alpha && a != 0 {
             // un-premultiply
-            let un = |c: u8| ((c as u32 * 255) / a as u32).min(255) as u8;
+            let un = |c: u8| ((u32::from(c) * 255) / u32::from(a)).min(255) as u8;
             (un(r), un(g), un(b))
         } else {
             (r, g, b)
@@ -286,4 +271,66 @@ unsafe fn bitmap_to_rgba(hbm: HBITMAP) -> Option<RawIcon> {
     }
 
     Some(RawIcon { w, h, rgba })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_duplicates_are_filtered_by_canonical_verb_only() {
+        for verb in [
+            "pintohome",
+            "windows.share",
+            "newfolder",
+            "delete",
+            "rename",
+            "cut",
+            "copy",
+            "paste",
+            "pastelink",
+            "refresh",
+            "DELETE",
+        ] {
+            assert!(redundant_verb(Some(verb)), "{verb}");
+        }
+        for verb in [
+            "openwith",
+            "runas",
+            "properties",
+            "7zip",
+            "VSCode",
+            "git_shell",
+            "VLC.AddToPlaylist",
+        ] {
+            assert!(!redundant_verb(Some(verb)), "{verb}");
+        }
+        assert!(!redundant_verb(None));
+    }
+
+    #[test]
+    fn filtering_does_not_leave_empty_sections() {
+        let item = |kind| NativeMenuItem {
+            id: 42,
+            title: "Third party".into(),
+            verb: None,
+            icon: None,
+            kind,
+            disabled: false,
+            is_default: false,
+        };
+        let mut items = vec![
+            item(NativeItemKind::Separator),
+            item(NativeItemKind::Normal),
+            item(NativeItemKind::Separator),
+            item(NativeItemKind::Separator),
+            item(NativeItemKind::Normal),
+            item(NativeItemKind::Separator),
+        ];
+        trim_separators(&mut items);
+        assert_eq!(items.len(), 3);
+        assert!(matches!(items[0].kind, NativeItemKind::Normal));
+        assert!(matches!(items[1].kind, NativeItemKind::Separator));
+        assert!(matches!(items[2].kind, NativeItemKind::Normal));
+    }
 }

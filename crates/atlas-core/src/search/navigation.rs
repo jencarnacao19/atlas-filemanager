@@ -164,18 +164,16 @@ pub fn component_noise(name: &str, query: &str) -> u8 {
     }
     if name.starts_with('.') && name != "." && name != ".." {
         2
-    } else if matches!(
-        name.as_str(),
-        "appdata"
-            | "node_modules"
-            | "target"
-            | "__pycache__"
-            | "$recycle.bin"
-            | "system volume information"
-    ) {
-        1
     } else {
-        0
+        u8::from(matches!(
+            name.as_str(),
+            "appdata"
+                | "node_modules"
+                | "target"
+                | "__pycache__"
+                | "$recycle.bin"
+                | "system volume information"
+        ))
     }
 }
 
@@ -195,7 +193,10 @@ mod tests {
         for name in ["My Project", "my-project", "my_project"] {
             assert_eq!(filename_match_quality(name, "my-project"), 4);
         }
-        assert_eq!(filename_match_quality("My Project heartbeats", "my-project"), 3);
+        assert_eq!(
+            filename_match_quality("My Project heartbeats", "my-project"),
+            3
+        );
         assert_eq!(filename_match_quality("Cargo.toml", "Cargotoml"), 1);
     }
 
@@ -218,7 +219,10 @@ mod tests {
 
     #[test]
     fn hidden_ancestors_and_dependency_trees_are_deprioritized() {
-        assert_eq!(path_noise(Path::new("home/projects/My Project"), "my-project"), 0);
+        assert_eq!(
+            path_noise(Path::new("home/projects/My Project"), "my-project"),
+            0
+        );
         assert_eq!(
             path_noise(Path::new("home/.claude/projects/my-project"), "my-project"),
             2
@@ -228,7 +232,10 @@ mod tests {
             1
         );
         assert_eq!(
-            path_noise(Path::new("home/project/node_modules/my-project"), "my-project"),
+            path_noise(
+                Path::new("home/project/node_modules/my-project"),
+                "my-project"
+            ),
             1
         );
         assert_eq!(path_noise(Path::new("home/.claude/projects"), ".claude"), 0);

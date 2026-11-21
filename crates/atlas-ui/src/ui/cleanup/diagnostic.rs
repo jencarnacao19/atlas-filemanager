@@ -1,11 +1,17 @@
 //! Real GPUI and hidden GPU captures with an isolated profile. Map captures use
 //! synthetic data. With windows-cleanup enabled, execution tests touch only the
 //! files this harness creates in a unique directory under the trusted user Temp.
-use super::*;
+// reason: a feature-gated diagnostic harness, not shipped app code: it panics on
+// setup failure and writes its evidence to disk on purpose.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
+use super::{Arc, CleanupPanel, CleanupPlan, DiskSnapshot, PathBuf, Rc, RefCell, Tab};
 use crate::app::App as AtlasApp;
 use anyhow::ensure;
 use atlas_model::cleanup::{DiskEntry, ScanStatus};
-use gpui::*;
+use gpui::{
+    point, px, size, AnyWindowHandle, AppContext, Keystroke, MouseButton, MouseDownEvent,
+    PlatformInput, Window, WindowBounds, WindowOptions,
+};
 use gpui_component::{Root, ThemeRegistry, TitleBar};
 use std::{
     path::Path,
@@ -174,7 +180,7 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                         benchmarks.push(serde_json::json!({"name":format!("{label}: cached fixture redraw (debug, CPU wall time)"),
                             "metrics":{"median_ms":frames[10],"p95_ms":frames[18]}}));
                         window.dispatch_event(PlatformInput::MouseDown(MouseDownEvent {position:point(bounds.origin.x+px(circle.x),bounds.origin.y+px(circle.y)),
-                            button:MouseButton::Left,modifiers:Default::default(),click_count:1,first_mouse:false}),cx);
+                            button:MouseButton::Left,modifiers:gpui::Modifiers::default(),click_count:1,first_mouse:false}),cx);
                         draw(window,cx);
                         ensure!(panel.read(cx).selected.is_some(),"Circular hit testing did not select an entry");
                         window.dispatch_keystroke(Keystroke::parse("down")?,cx);draw(window,cx);
@@ -340,7 +346,7 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                 Ok(())
             }.await;
             if let Err(error)=&checked {let _=std::fs::write(directory.join("failed.txt"),format!("{error:#}"));}
-            *outcome.borrow_mut()=checked;let _=cx.update(|cx|cx.quit());
+            *outcome.borrow_mut()=checked;let ()=cx.update(|cx|cx.quit());
         }).detach();
     });
     let result = std::mem::replace(&mut *final_outcome.borrow_mut(), Ok(()));

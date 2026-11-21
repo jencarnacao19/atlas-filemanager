@@ -1,4 +1,7 @@
 //! Uses the real App, event dispatch and workers in a hidden native window.
+// reason: a feature-gated diagnostic harness, not shipped app code: it panics on
+// setup failure and writes its evidence to disk on purpose.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use super::Phase;
 use crate::{app::App, input::action::Action};
 use anyhow::{ensure, Context as _};
@@ -145,6 +148,6 @@ pub(crate) fn install(
         }
         drop(view);
         let _ = handle.update(cx, |_, window, _| window.remove_window());
-        let _ = cx.update(|cx| cx.quit());
+        let () = cx.update(|cx| cx.quit());
     }).detach();
 }

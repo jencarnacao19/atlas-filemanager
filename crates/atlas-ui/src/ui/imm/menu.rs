@@ -380,7 +380,7 @@ impl Element for MenuCanvas {
                                 },
                                 gpui::Edges::all(px(zoom)),
                                 border,
-                                Default::default(),
+                                gpui::BorderStyle::default(),
                             ));
                             let _ = shortcut.paint(
                                 point(chip.left() + px(6.0 * zoom), chip.top()),

@@ -15,8 +15,14 @@ pub(crate) use office::delimited_bytes;
 /// Native document readers are also the fallback when optional providers are disabled.
 pub(crate) fn native_document_preview(path: &Path) -> atlas_model::preview_cache::PreviewResult {
     let mut tools = HashMap::new();
-    if path.extension().and_then(|ext| ext.to_str()).is_some_and(|ext| ext.eq_ignore_ascii_case("psd") || ext.eq_ignore_ascii_case("psb")) {
-        if let Some(magick) = super::registry::binary_path("magick") { tools.insert("magick".into(), magick); }
+    if path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("psd") || ext.eq_ignore_ascii_case("psb"))
+    {
+        if let Some(magick) = super::registry::binary_path("magick") {
+            tools.insert("magick".into(), magick);
+        }
     }
     office::builtin_document_preview(path, &tools)
 }
@@ -170,14 +176,20 @@ fn run_sidecar_command(
                 .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("sidecar extension has no process configuration"))?;
             if cmd.ext_id == "icon-manager"
-                && sidecar.command == if cfg!(windows) { "atlas-icon-extension.exe" } else { "atlas-icon-extension" }
+                && sidecar.command
+                    == if cfg!(windows) {
+                        "atlas-icon-extension.exe"
+                    } else {
+                        "atlas-icon-extension"
+                    }
             {
                 super::install::ensure_packaged_icon_provider(&cmd.ext_dir)?;
             }
             let program =
                 super::provider_sidecar::confined_program(&cmd.ext_dir, &sidecar.command)?;
             let mut proc_cmd = std::process::Command::new(program);
-            proc_cmd.args(&sidecar.args)
+            proc_cmd
+                .args(&sidecar.args)
                 .current_dir(&cmd.ext_dir)
                 .stdin(std::process::Stdio::piped())
                 .stdout(std::process::Stdio::piped())

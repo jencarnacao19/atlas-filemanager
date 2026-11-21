@@ -1,4 +1,7 @@
 //! Read-only: lists what each cleanup category would offer. Never prepares or deletes.
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use atlas_core::cleanup::{categories, ScanJob, ScanMode};
 use std::time::{Duration, Instant};
 fn main() {
@@ -7,7 +10,7 @@ fn main() {
             let start = Instant::now();
             let job = ScanJob::start(root.clone(), 1, ScanMode::Category);
             let snap = loop {
-                let s = job.receiver.recv_timeout(Duration::from_secs(120)).unwrap();
+                let s = job.receiver.recv_timeout(Duration::from_mins(2)).unwrap();
                 if s.status.terminal() {
                     break s;
                 }

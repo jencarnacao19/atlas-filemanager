@@ -4,6 +4,8 @@
 use super::Envelope;
 
 #[cfg(windows)]
+// reason: serializing two strings and a list of strings cannot fail.
+#[allow(clippy::expect_used)]
 fn context(envelope: &Envelope) -> Vec<u8> {
     // Bind the label to both this container and its exact authorized profiles.
     serde_json::to_vec(&(

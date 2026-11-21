@@ -26,8 +26,7 @@ pub const DOCUMENT_PREVIEWS_ICON: &[u8] =
 /// Bundled icon-manager extension (Open VSX VSCode icon themes).
 pub const ICON_MANAGER_MANIFEST: &str =
     include_str!("../../../../extensions/icon-manager/extension.toml");
-pub const ICON_MANAGER_ICON: &[u8] =
-    include_bytes!("../../../../extensions/icon-manager/icon.svg");
+pub const ICON_MANAGER_ICON: &[u8] = include_bytes!("../../../../extensions/icon-manager/icon.svg");
 
 /// Hidden shared tool-provider extension (portable binaries by OS/arch).
 pub const RUNTIME_TOOLS_MANIFEST: &str =
@@ -40,8 +39,7 @@ pub const CONVERSION_OPUS_MANIFEST: &str =
     include_str!("../../../../extensions/conversion-opus/extension.toml");
 
 /// Bundled cloud virtual drives extension.
-pub const CLOUD_MANIFEST: &str =
-    include_str!("../../../../extensions/cloud/extension.toml");
+pub const CLOUD_MANIFEST: &str = include_str!("../../../../extensions/cloud/extension.toml");
 pub const CLOUD_ICON: &[u8] = include_bytes!("../../../../extensions/cloud/icon.svg");
 
 /// UI-level extension actions.
@@ -165,6 +163,8 @@ impl App {
                         atlas_core::ext::install::install_zip(&zip_path)
                             .map_err(|e| e.to_string())?;
                         // Clean up temp zip.
+                        // reason: runs inside the tokio task that installed the package.
+                        #[allow(clippy::disallowed_methods)]
                         let _ = std::fs::remove_file(&zip_path);
                         Ok::<(), String>(())
                     }
@@ -183,17 +183,26 @@ impl App {
         self.rt.spawn(async move {
             let result = tokio::task::spawn_blocking(move || {
                 let (reply, done) = std::sync::mpsc::channel();
-                cloud.send(atlas_core::cloud::CloudCmd::StopProvider { reply }).map_err(|error| error.to_string())?;
-                done.recv_timeout(std::time::Duration::from_secs(330)).map_err(|error| error.to_string())?
-            }).await.map_err(|error| error.to_string()).and_then(|result| result);
-            let _ = tx.send(atlas_model::app_state::BgResult::CloudProviderStopped { uninstall, result });
+                cloud
+                    .send(atlas_core::cloud::CloudCmd::StopProvider { reply })
+                    .map_err(|error| error.to_string())?;
+                done.recv_timeout(std::time::Duration::from_secs(330))
+                    .map_err(|error| error.to_string())?
+            })
+            .await
+            .map_err(|error| error.to_string())
+            .and_then(|result| result);
+            let _ = tx
+                .send(atlas_model::app_state::BgResult::CloudProviderStopped { uninstall, result });
         });
     }
 
     #[cfg(feature = "provider-host")]
     pub(crate) fn complete_cloud_shutdown(&mut self, uninstall: bool, result: Result<(), String>) {
         if let Err(error) = result {
-            self.state.ext.last_error = Some(format!("Cloud shutdown could not be confirmed; the extension was kept: {error}"));
+            self.state.ext.last_error = Some(format!(
+                "Cloud shutdown could not be confirmed; the extension was kept: {error}"
+            ));
             return;
         }
         self.state.cloud.ready = false;
@@ -340,7 +349,8 @@ impl App {
             // Reset to default Liquid Glass icons.
             self.persist_icon_selection(std::collections::HashMap::new());
             icons_changed = true;
-            self.state.ext.feedback = Some("Restablecido a iconos por defecto (Liquid Glass)".to_string());
+            self.state.ext.feedback =
+                Some("Restablecido a iconos por defecto (Liquid Glass)".to_string());
         } else if mappings_path.exists() {
             #[allow(clippy::disallowed_methods)] // reason: small JSON read on command completion
             let contents = std::fs::read_to_string(&mappings_path);
@@ -366,7 +376,7 @@ impl App {
                 td.location
                     .fs_dir()
                     .filter(|p| icons_changed || dirs.iter().any(|d| d.as_path() == *p))
-                    .map(|p| p.to_path_buf())
+                    .map(std::path::Path::to_path_buf)
                     .map(|path| (tile, path, td.sort_col.clone(), td.sort_dir.clone()))
             })
             .collect();

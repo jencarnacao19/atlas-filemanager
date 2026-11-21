@@ -15,11 +15,11 @@ const TEXT_EXTS: &[&str] = &[
     "txt", "md", "markdown", "toml", "json", "yaml", "yml", "css", "html", "xml",
 ];
 const CODE_EXTS: &[&str] = &[
-    "rs", "js", "jsx", "ts", "tsx", "mjs", "cjs", "mts", "cts", "py", "pyw", "go",
-    "java", "c", "cc", "cpp", "cxx", "h", "hpp", "cs", "csx", "php", "rb", "swift",
-    "kt", "kts", "sh", "bash", "zsh", "fish", "ps1", "bat", "cmd", "lua", "dart",
-    "zig", "html", "htm", "css", "scss", "sass", "less", "json", "jsonc", "vue",
-    "svelte", "astro", "xml", "yaml", "yml", "toml", "sql", "graphql", "gql",
+    "rs", "js", "jsx", "ts", "tsx", "mjs", "cjs", "mts", "cts", "py", "pyw", "go", "java", "c",
+    "cc", "cpp", "cxx", "h", "hpp", "cs", "csx", "php", "rb", "swift", "kt", "kts", "sh", "bash",
+    "zsh", "fish", "ps1", "bat", "cmd", "lua", "dart", "zig", "html", "htm", "css", "scss", "sass",
+    "less", "json", "jsonc", "vue", "svelte", "astro", "xml", "yaml", "yml", "toml", "sql",
+    "graphql", "gql",
 ];
 const ARCHIVE_EXTS: &[&str] = &["zip", "rar", "7z", "tar", "gz", "bz2", "xz", "tgz"];
 const PRESENTATION_EXTS: &[&str] = &["ppt", "pptx", "odp", "key"];
@@ -331,9 +331,13 @@ pub(crate) fn atlas_logo(size: f32) -> AnyElement {
 /// Cache the white artwork for dark surfaces and solid black ink for light ones.
 fn atlas_logo_image(dark: bool) -> std::sync::Arc<gpui::RenderImage> {
     use std::sync::{Arc, LazyLock};
+    // reason: the logo is embedded at compile time and always decodes.
+    #[allow(clippy::expect_used)]
     fn decode(dark: bool) -> Arc<gpui::RenderImage> {
-        let mut pixels = image::load_from_memory(include_bytes!("../../assets/icons/atlas-logo.png"))
-            .expect("embedded Atlas logo must decode").into_rgba8();
+        let mut pixels =
+            image::load_from_memory(include_bytes!("../../assets/icons/atlas-logo.png"))
+                .expect("embedded Atlas logo must decode")
+                .into_rgba8();
         for pixel in pixels.pixels_mut() {
             if !dark {
                 // The white source has watermark opacity (48/255 in its body).
@@ -347,12 +351,18 @@ fn atlas_logo_image(dark: bool) -> std::sync::Arc<gpui::RenderImage> {
     }
     static WHITE: LazyLock<Arc<gpui::RenderImage>> = LazyLock::new(|| decode(true));
     static BLACK: LazyLock<Arc<gpui::RenderImage>> = LazyLock::new(|| decode(false));
-    if dark { WHITE.clone() } else { BLACK.clone() }
+    if dark {
+        WHITE.clone()
+    } else {
+        BLACK.clone()
+    }
 }
 
 pub(crate) fn themed_atlas_logo(size: f32, dark: bool) -> AnyElement {
     img(atlas_logo_image(dark))
-        .size(crate::ui::rem_px(size)).flex_none().into_any_element()
+        .size(crate::ui::rem_px(size))
+        .flex_none()
+        .into_any_element()
 }
 
 /// Fallback file-type icon (built-in liquid-glass PNG set), used when the active

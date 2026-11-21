@@ -1,4 +1,7 @@
 //! Exercise the last-chance handler in an isolated child process.
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 #![cfg(windows)]
 #![allow(unsafe_code)]
 
@@ -62,8 +65,14 @@ fn native_exception_produces_a_minidump_in_isolated_app_data() {
     assert!(stack.starts_with("0x"));
     assert!(stack.contains("module=0x"));
     if cfg!(debug_assertions) {
-        assert!(stack.contains("crash_child"), "local PDB must resolve the faulting test: {stack}");
-        assert!(stack.contains("crash_dump.rs:"), "source filename and line must be resolved: {stack}");
+        assert!(
+            stack.contains("crash_child"),
+            "local PDB must resolve the faulting test: {stack}"
+        );
+        assert!(
+            stack.contains("crash_dump.rs:"),
+            "source filename and line must be resolved: {stack}"
+        );
     }
     assert_eq!(files.len(), 2);
     for file in files {

@@ -151,7 +151,7 @@ impl App {
                 .unwrap_or(&ts.entries)
                 .iter()
                 .filter(|entry| candidates.contains(&entry.path()))
-                .map(|entry| entry.path())
+                .map(atlas_model::file_entry::FileEntry::path)
                 .collect();
             let types = self.type_filters.get(&pane);
             let shown: HashSet<_> = ts
@@ -167,7 +167,7 @@ impl App {
                         })
                 })
                 .filter(|entry| known.contains(&entry.path()))
-                .map(|entry| entry.path())
+                .map(atlas_model::file_entry::FileEntry::path)
                 .collect();
             let hidden: Vec<_> = known.difference(&shown).cloned().collect();
             self.operation_feedback
@@ -350,7 +350,8 @@ pub(crate) fn paint_file_feedback(
         let mut color = color;
         color.alpha = alpha;
         window.paint_quad(
-            gpui::outline(bounds, color, Default::default()).corner_radii(Corners::all(px(radius))),
+            gpui::outline(bounds, color, gpui::BorderStyle::default())
+                .corner_radii(Corners::all(px(radius))),
         );
     }
     if active {

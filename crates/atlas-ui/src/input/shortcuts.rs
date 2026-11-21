@@ -19,7 +19,7 @@ impl CommandShortcutPrefs {
     fn shortcut_string(&self, command_id: &str) -> Option<String> {
         match self.bindings.get(command_id) {
             Some(Some(keys)) if Keystroke::parse(keys).is_ok() => Some(keys.clone()),
-            Some(Some(_)) | Some(None) => None,
+            Some(Some(_) | None) => None,
             None => default_command_shortcut(command_id).map(str::to_string),
         }
     }
@@ -97,7 +97,7 @@ impl App {
         }
         if let Some(panel) = self.cleanup_panel.clone() {
             if ev.keystroke.key == "escape" {
-                if panel.update(cx, |p, cx| p.escape(cx)) {
+                if panel.update(cx, super::super::ui::cleanup::CleanupPanel::escape) {
                     self.cleanup_panel = None;
                     window.focus(&self.focus_handle, cx);
                 }
@@ -167,8 +167,10 @@ impl App {
             return true;
         }
 
-        if self.state.settings.character_key_action != atlas_model::settings::CharacterKeyAction::TriggerHotkey
-            && crate::ui::interactions::search_seed_from_key(ev).is_some() {
+        if self.state.settings.character_key_action
+            != atlas_model::settings::CharacterKeyAction::TriggerHotkey
+            && crate::ui::interactions::search_seed_from_key(ev).is_some()
+        {
             return false;
         }
 
@@ -246,7 +248,7 @@ impl App {
                 self.process_actions(vec![Action::NavigateUp(self.state.focused_tile)]);
                 true
             }
-            ("l", false) | ("enter", false) => {
+            ("l" | "enter", false) => {
                 self.process_actions(vec![Action::OpenCursor]);
                 true
             }
@@ -273,7 +275,7 @@ impl App {
                 }]);
                 true
             }
-            ("/", _) | ("slash", _) => {
+            ("/" | "slash", _) => {
                 self.process_actions(vec![Action::OpenSearchInPlace]);
                 if let Some(input) = self.search_inputs.get(&self.state.focused_tile).cloned() {
                     let focus = input.read(cx).focus_handle(cx);
@@ -320,11 +322,15 @@ impl App {
             return;
         }
 
-        let Ok(proposed) = Keystroke::parse(&keystroke) else { return; };
+        let Ok(proposed) = Keystroke::parse(&keystroke) else {
+            return;
+        };
         let proposed = KeybindingKeystroke::from_keystroke(proposed);
         for other in COMMANDS.iter().filter(|command| command.remappable) {
             if other.id != command_id
-                && self.command_shortcut_keystroke(other.id).is_some_and(|keys| keys.should_match(&proposed))
+                && self
+                    .command_shortcut_keystroke(other.id)
+                    .is_some_and(|keys| keys.should_match(&proposed))
             {
                 self.command_shortcut_conflict = Some(other.id.to_string());
                 return;
@@ -619,7 +625,11 @@ impl App {
                 (!paths.is_empty()).then_some(Action::CopyPathsToClipboard(paths))
             }
             #[cfg(windows)]
-            "files.paste-shortcut" if active_location.is_some_and(|location| location.fs_dir().is_some()) => Some(Action::PasteShortcutFocused),
+            "files.paste-shortcut"
+                if active_location.is_some_and(|location| location.fs_dir().is_some()) =>
+            {
+                Some(Action::PasteShortcutFocused)
+            }
             "files.properties" if !archive_focused => Some(Action::OpenPropertiesFocused),
             "files.trash" if !archive_focused => {
                 let paths = self.selected_paths();

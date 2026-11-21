@@ -232,48 +232,6 @@ fn hit_test(targets: &[(Slot, HeaderHit)], x: f32, y: f32) -> Option<HeaderHit> 
     hit_first(targets, x, y)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn controls_and_resize_grips_win_over_sorting_at_every_zoom() {
-        for zoom in [0.75, 1.0, 1.5, 2.0] {
-            let layout = DetailsRowLayout {
-                name_x: 34.0 * zoom,
-                name_col_w: 155.0 * zoom,
-                name_right: 200.0 * zoom,
-                columns: vec![crate::ui::views::details::DetailsColumnLayout {
-                    column: DetailsColumn::Type,
-                    x: 200.0 * zoom,
-                    w: 120.0 * zoom,
-                }],
-            };
-            let targets = header_targets(&layout, 340.0 * zoom, 24.0 * zoom, zoom);
-            assert_eq!(
-                hit_test(&targets, 16.0 * zoom, 12.0 * zoom),
-                Some(HeaderHit::SelectAll)
-            );
-            assert_eq!(
-                hit_test(&targets, 200.0 * zoom, 12.0 * zoom),
-                Some(HeaderHit::ResizeName)
-            );
-            assert_eq!(
-                hit_test(&targets, 318.0 * zoom, 12.0 * zoom),
-                Some(HeaderHit::SortMeta(DetailsColumn::Type))
-            );
-            assert_eq!(
-                hit_test(&targets, 300.0 * zoom, 12.0 * zoom),
-                Some(HeaderHit::FilterType)
-            );
-            assert_eq!(
-                hit_test(&targets, 245.0 * zoom, 12.0 * zoom),
-                Some(HeaderHit::SortMeta(DetailsColumn::Type))
-            );
-            assert_eq!(hit_test(&targets, 300.0 * zoom, 26.0 * zoom), None);
-        }
-    }
-}
-
 impl Element for DetailsHeaderElement {
     type RequestLayoutState = Style;
     type PrepaintState = DetailsHeaderPrepaint;
@@ -541,7 +499,7 @@ impl Element for DetailsHeaderElement {
                     window.with_content_mask(
                         Some(ContentMask {
                             bounds: name_clip.intersect(&bounds),
-                            fade_out: Default::default(),
+                            fade_out: gpui::Edges::default(),
                         }),
                         |window| {
                             if let Some(line) = &prepaint.name_line {
@@ -597,7 +555,7 @@ impl Element for DetailsHeaderElement {
                     window.with_content_mask(
                         Some(ContentMask {
                             bounds: clip.intersect(&bounds),
-                            fade_out: Default::default(),
+                            fade_out: gpui::Edges::default(),
                         }),
                         |window| {
                             let _ = line.paint(
@@ -728,8 +686,7 @@ impl Element for DetailsHeaderElement {
                             .columns
                             .iter()
                             .find(|col| col.column == column)
-                            .map(|col| col.w)
-                            .unwrap_or(0.0);
+                            .map_or(0.0, |col| col.w);
                         down_view.update(cx, move |this, _| {
                             this.col_resize = Some(ColResizeState {
                                 col: column.key(),
@@ -883,5 +840,47 @@ impl Element for DetailsHeaderElement {
                 cx.stop_propagation();
             });
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn controls_and_resize_grips_win_over_sorting_at_every_zoom() {
+        for zoom in [0.75, 1.0, 1.5, 2.0] {
+            let layout = DetailsRowLayout {
+                name_x: 34.0 * zoom,
+                name_col_w: 155.0 * zoom,
+                name_right: 200.0 * zoom,
+                columns: vec![crate::ui::views::details::DetailsColumnLayout {
+                    column: DetailsColumn::Type,
+                    x: 200.0 * zoom,
+                    w: 120.0 * zoom,
+                }],
+            };
+            let targets = header_targets(&layout, 340.0 * zoom, 24.0 * zoom, zoom);
+            assert_eq!(
+                hit_test(&targets, 16.0 * zoom, 12.0 * zoom),
+                Some(HeaderHit::SelectAll)
+            );
+            assert_eq!(
+                hit_test(&targets, 200.0 * zoom, 12.0 * zoom),
+                Some(HeaderHit::ResizeName)
+            );
+            assert_eq!(
+                hit_test(&targets, 318.0 * zoom, 12.0 * zoom),
+                Some(HeaderHit::SortMeta(DetailsColumn::Type))
+            );
+            assert_eq!(
+                hit_test(&targets, 300.0 * zoom, 12.0 * zoom),
+                Some(HeaderHit::FilterType)
+            );
+            assert_eq!(
+                hit_test(&targets, 245.0 * zoom, 12.0 * zoom),
+                Some(HeaderHit::SortMeta(DetailsColumn::Type))
+            );
+            assert_eq!(hit_test(&targets, 300.0 * zoom, 26.0 * zoom), None);
+        }
     }
 }

@@ -97,7 +97,7 @@ pub(crate) fn run(
             lpszClassName: class_name,
             ..Default::default()
         };
-        RegisterClassW(&wc);
+        RegisterClassW(&raw const wc);
 
         let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE(0),
@@ -135,9 +135,9 @@ pub(crate) fn run(
 
         // Perpetual pump: keeps invoked property sheets alive on this thread.
         let mut msg = MSG::default();
-        while GetMessageW(&mut msg, None, 0, 0).as_bool() {
-            let _ = TranslateMessage(&msg);
-            DispatchMessageW(&msg);
+        while GetMessageW(&raw mut msg, None, 0, 0).as_bool() {
+            let _ = TranslateMessage(&raw const msg);
+            DispatchMessageW(&raw const msg);
         }
     }
 }
@@ -157,7 +157,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                 if let Some(icm3) = &am.icm3 {
                     let mut res = LRESULT(0);
                     if icm3
-                        .HandleMenuMsg2(msg, wparam, lparam, Some(&mut res))
+                        .HandleMenuMsg2(msg, wparam, lparam, Some(&raw mut res))
                         .is_ok()
                     {
                         return Some(res);
@@ -184,18 +184,16 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
 unsafe fn drain_requests(hwnd: HWND) {
     loop {
         let req = WORKER.with(|w| {
-            w.borrow()
-                .as_ref()
-                .and_then(|ws| {
-                    ws.requests.lock().ok().and_then(|mut q| {
-                        // Real requests jump ahead of background prewarming.
-                        let pos = q
-                            .iter()
-                            .position(|r| !matches!(r, ShellMenuRequest::Prewarm { .. }))
-                            .unwrap_or(0);
-                        q.remove(pos)
-                    })
+            w.borrow().as_ref().and_then(|ws| {
+                ws.requests.lock().ok().and_then(|mut q| {
+                    // Real requests jump ahead of background prewarming.
+                    let pos = q
+                        .iter()
+                        .position(|r| !matches!(r, ShellMenuRequest::Prewarm { .. }))
+                        .unwrap_or(0);
+                    q.remove(pos)
                 })
+            })
         });
         let Some(req) = req else { break };
         process(hwnd, req);
@@ -309,7 +307,7 @@ unsafe fn acquire_context_menu(
     SHParseDisplayName(
         PCWSTR(parent_wide.as_ptr()),
         None,
-        &mut parent_pidl,
+        &raw mut parent_pidl,
         0,
         None,
     )?;
@@ -330,7 +328,7 @@ unsafe fn acquire_context_menu(
             None,
             PCWSTR(name_wide.as_ptr()),
             None,
-            &mut child,
+            &raw mut child,
             std::ptr::null_mut(),
         );
         if r.is_ok() && !child.is_null() {
@@ -341,10 +339,7 @@ unsafe fn acquire_context_menu(
         return Err(windows::core::Error::from_win32());
     }
 
-    let apidl: Vec<*const ITEMIDLIST> = child_pidls
-        .iter()
-        .map(|p| *p as *const ITEMIDLIST)
-        .collect();
+    let apidl: Vec<*const ITEMIDLIST> = child_pidls.iter().map(|p| (*p).cast_const()).collect();
     let icm: windows::core::Result<IContextMenu> = folder.GetUIObjectOf(hwnd, &apidl, None);
     for c in child_pidls {
         CoTaskMemFree(Some(c as *const c_void));
@@ -389,7 +384,7 @@ unsafe fn find_submenu(hmenu: HMENU, target_id: u32) -> Option<HMENU> {
             fMask: MIIM_ID | MIIM_SUBMENU,
             ..Default::default()
         };
-        if GetMenuItemInfoW(hmenu, i as u32, true, &mut info).is_err() {
+        if GetMenuItemInfoW(hmenu, i as u32, true, &raw mut info).is_err() {
             continue;
         }
         if !info.hSubMenu.is_invalid() {
@@ -435,8 +430,8 @@ unsafe fn invoke(_hwnd: HWND, id: u64, item_id: u32, screen_pt: (i32, i32)) -> R
         ..Default::default()
     };
     let _ = id_first; // item_id is already the 0-based offset into id_first..
-    icm.InvokeCommand(&mut info as *mut _ as *const _)
-        .map_err(|e| e.message().to_string())
+    icm.InvokeCommand(&raw mut info as *const _)
+        .map_err(|e| e.message())
 }
 
 /// `MAKEINTRESOURCE(id)`: the low word of a pointer is the command offset.

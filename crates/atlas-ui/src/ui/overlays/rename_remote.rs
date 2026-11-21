@@ -165,7 +165,7 @@ impl App {
         self.overlay_scrim_custom(
             "scrim-rename-remote",
             view,
-            |this| this.close_rename_remote(),
+            Self::close_rename_remote,
             focus,
             panel.into_any_element(),
             cx,

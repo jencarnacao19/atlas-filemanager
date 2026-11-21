@@ -1,9 +1,14 @@
+// reason: a command-line tool with no UI thread; blocking `std::fs` is fine.
+#![allow(clippy::disallowed_methods)]
+
 mod packager;
 mod s3_client;
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use chrono::Utc;
 use clap::{Parser, Subcommand};
+use ring::rand::SystemRandom;
+use ring::signature::{Ed25519KeyPair, KeyPair as _};
 use s3_client::{R2Client, RegistryExtension};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -29,6 +34,15 @@ enum Commands {
         /// The public URL mapping for the bucket
         #[arg(long, env = "R2_PUBLIC_URL")]
         public_url: String,
+        /// Hex PKCS#8 Ed25519 key from `keygen`; also writes registry.signed.json
+        #[arg(long, env = "ATLAS_REGISTRY_SIGNING_KEY", hide_env_values = true)]
+        signing_key: Option<String>,
+    },
+    /// Generate the Ed25519 key pair that signs registry.json
+    Keygen {
+        /// Where to write the private key (hex PKCS#8); must not exist yet
+        #[arg(long)]
+        out: PathBuf,
     },
     /// Publish a Windows installer and update app/windows/latest.json
     PublishApp {
@@ -70,12 +84,14 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
+        Commands::Keygen { out } => keygen(out)?,
         Commands::Publish {
             path,
             bucket,
             public_url,
+            signing_key,
         } => {
-            println!("Publishing extension from: {:?}", path);
+            println!("Publishing extension from: {path:?}");
 
             // 1. Parse manifest
             let manifest = packager::parse_manifest(path)?;
@@ -84,7 +100,7 @@ async fn main() -> Result<()> {
             // 2. Zip extension
             let temp_zip_path =
                 std::env::temp_dir().join(format!("{}-{}.zip", manifest.id, manifest.version));
-            println!("Packaging extension to: {:?}", temp_zip_path);
+            println!("Packaging extension to: {temp_zip_path:?}");
             packager::zip_extension(path, &temp_zip_path)?;
             let zip_sha256 = sha256_file(&temp_zip_path)?;
 
@@ -96,7 +112,7 @@ async fn main() -> Result<()> {
                 "extensions/{}/versions/{}.zip",
                 manifest.id, manifest.version
             );
-            println!("Uploading zip to R2: {}", zip_key);
+            println!("Uploading zip to R2: {zip_key}");
             client
                 .upload_file(
                     &temp_zip_path,
@@ -123,7 +139,7 @@ async fn main() -> Result<()> {
                     "extensions/{}/versions/{}/icon.{extension}",
                     manifest.id, manifest.version
                 );
-                println!("Uploading icon to R2: {}", icon_key);
+                println!("Uploading icon to R2: {icon_key}");
                 client
                     .upload_file(
                         &icon_path,
@@ -154,6 +170,23 @@ async fn main() -> Result<()> {
             registry.extensions.insert(manifest.id.clone(), ext_entry);
 
             let registry_json = serde_json::to_vec_pretty(&registry)?;
+            // The signed copy goes first: builds that verify signatures read
+            // only it, older builds read only registry.json.
+            if let Some(key) = signing_key.as_deref().filter(|key| !key.trim().is_empty()) {
+                client
+                    .upload_bytes(
+                        sign_registry(&registry_json, key)?,
+                        "registry.signed.json",
+                        "application/json",
+                        "no-cache",
+                    )
+                    .await?;
+            } else {
+                eprintln!(
+                    "warning: no ATLAS_REGISTRY_SIGNING_KEY; registry.signed.json was not \
+                     updated, so builds that verify signatures will not see this release"
+                );
+            }
             client
                 .upload_bytes(
                     registry_json,
@@ -230,6 +263,46 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+/// `registry.signed.json`; mirrors `atlas_core::ext::signing::SignedDocument`.
+#[derive(Serialize)]
+struct SignedRegistry {
+    payload: String,
+    signature: String,
+}
+
+fn sign_registry(registry_json: &[u8], signing_key_hex: &str) -> Result<Vec<u8>> {
+    let pkcs8 = hex::decode(signing_key_hex.trim()).context("signing key is not hex")?;
+    let keys = Ed25519KeyPair::from_pkcs8(&pkcs8)
+        .map_err(|error| anyhow::anyhow!("invalid signing key: {error}"))?;
+    let payload = String::from_utf8(registry_json.to_vec()).context("registry is not UTF-8")?;
+    let signature = hex::encode(keys.sign(payload.as_bytes()));
+    Ok(serde_json::to_vec_pretty(&SignedRegistry {
+        payload,
+        signature,
+    })?)
+}
+
+fn keygen(out: &Path) -> Result<()> {
+    anyhow::ensure!(!out.exists(), "{} already exists", out.display());
+    let pkcs8 = Ed25519KeyPair::generate_pkcs8(&SystemRandom::new())
+        .map_err(|_| anyhow::anyhow!("could not generate a key"))?;
+    let keys = Ed25519KeyPair::from_pkcs8(pkcs8.as_ref())
+        .map_err(|error| anyhow::anyhow!("generated key rejected: {error}"))?;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    std::io::Write::write_all(
+        &mut options.open(out)?,
+        hex::encode(pkcs8.as_ref()).as_bytes(),
+    )?;
+    println!("Private key written to {}", out.display());
+    println!("Keep it secret; set it as ATLAS_REGISTRY_SIGNING_KEY when publishing.");
+    println!("Public key (set as ATLAS_REGISTRY_PUBLIC_KEY for release builds):");
+    println!("{}", hex::encode(keys.public_key()));
+    Ok(())
+}
+
 fn sha256_file(path: &Path) -> Result<String> {
     let mut file = std::fs::File::open(path)?;
     let mut hasher = Sha256::new();
@@ -256,4 +329,26 @@ fn ensure_png(path: &Path) -> Result<()> {
         path.display()
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ring::signature::{UnparsedPublicKey, ED25519};
+
+    #[test]
+    fn signed_registry_verifies_against_the_public_key() {
+        let pkcs8 = Ed25519KeyPair::generate_pkcs8(&SystemRandom::new()).unwrap();
+        let keys = Ed25519KeyPair::from_pkcs8(pkcs8.as_ref()).unwrap();
+        let registry = br#"{"last_updated":"now","extensions":{}}"#;
+        let doc: serde_json::Value =
+            serde_json::from_slice(&sign_registry(registry, &hex::encode(pkcs8.as_ref())).unwrap())
+                .unwrap();
+        assert_eq!(doc["payload"].as_str().unwrap().as_bytes(), registry);
+        let signature = hex::decode(doc["signature"].as_str().unwrap()).unwrap();
+        assert!(UnparsedPublicKey::new(&ED25519, keys.public_key())
+            .verify(registry, &signature)
+            .is_ok());
+        assert!(sign_registry(registry, "not hex").is_err());
+    }
 }

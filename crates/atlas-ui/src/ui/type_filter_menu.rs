@@ -97,7 +97,7 @@ impl App {
                     .or_insert_with(|| TypeFilterItem {
                         label,
                         count: 0,
-                        kind: entry.kind().clone(),
+                        kind: entry.kind(),
                         ext: entry.extension().as_ref().map(ToString::to_string),
                     });
                 item.count += 1;
@@ -224,7 +224,7 @@ impl App {
 
             rows.push(
                 type_filter_row(
-                    SharedString::from(format!("tf-{}", lc)),
+                    SharedString::from(format!("tf-{lc}")),
                     icon_el,
                     &label,
                     item.count,
@@ -316,7 +316,7 @@ impl App {
                     });
                 })
                 .on_mouse_down(MouseButton::Right, {
-                    let v = view.clone();
+                    let v = view;
                     move |_, _, cx| {
                         v.update(cx, |this, cx| {
                             this.close_type_filter_menu(cx);
@@ -384,7 +384,7 @@ fn type_filter_row(
                     )
                 }),
         )
-        .when_some(icon, |el, icon| el.child(icon))
+        .when_some(icon, gpui::ParentElement::child)
         .child(
             div()
                 .flex_1()

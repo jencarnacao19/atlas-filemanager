@@ -41,7 +41,9 @@ impl Location {
             Self::Tag(id) => PathBuf::from(format!("tag:{}", id.0)),
             Self::RecycleBin => PathBuf::from("Recycle Bin"),
             #[cfg(feature = "provider-host")]
-            Self::Remote { id, path } => PathBuf::from(format!("{id}:{}", crate::remote_path::display(path))),
+            Self::Remote { id, path } => {
+                PathBuf::from(format!("{id}:{}", crate::remote_path::display(path)))
+            }
         }
     }
 
@@ -63,7 +65,7 @@ impl Location {
 
     /// Navigate one level up, returning the parent `Location`.
     /// Returns `None` at filesystem roots and for tags/remotes.
-    pub fn ascend(&self) -> Option<Location> {
+    pub fn ascend(&self) -> Option<Self> {
         match self {
             Self::Directory(p) => {
                 let parent = p.parent()?;

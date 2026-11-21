@@ -1,12 +1,12 @@
 //! One upstream session, disposable wheel nodes, immutable worker commands.
+#[cfg(feature = "ui-lab")]
+pub(crate) mod crash_lab;
 mod geometry;
 #[cfg(feature = "conversion-lab")]
 pub(crate) mod lab;
 mod render;
 mod wheel;
 mod wheel_view;
-#[cfg(feature = "ui-lab")]
-pub(crate) mod crash_lab;
 
 use crate::app::App;
 use atlas_core::convert::{self, Outcome, Plan, Report, Settings, Tool, Tools};
@@ -130,7 +130,10 @@ impl App {
     }
 
     pub(crate) fn open_converter_for(&mut self, sources: Vec<PathBuf>) {
-        if sources.iter().any(|path| atlas_core::vault::live::is_private(path)) {
+        if sources
+            .iter()
+            .any(|path| atlas_core::vault::live::is_private(path))
+        {
             self.toast_error(rust_i18n::t!("vault_conversion_unavailable").to_string());
             return;
         }
@@ -165,7 +168,7 @@ impl App {
             package_error: None,
             #[cfg(feature = "conversion-lab")]
             wheel_bounds: None,
-            tx: tx.clone(),
+            tx,
             rx,
         });
         self.refresh_conversion_tools();
@@ -307,11 +310,10 @@ impl App {
                         let cancelled = report.cancelled();
                         if errors.is_empty() && cancelled == 0 {
                             let msg = if outputs.len() == 1 {
-                                let name = outputs[0]
-                                    .file_name()
-                                    .unwrap_or_default()
-                                    .to_string_lossy();
-                                rust_i18n::t!("convert_toast_finished_single", name = name).into_owned()
+                                let name =
+                                    outputs[0].file_name().unwrap_or_default().to_string_lossy();
+                                rust_i18n::t!("convert_toast_finished_single", name = name)
+                                    .into_owned()
                             } else {
                                 rust_i18n::t!("convert_toast_finished_multi", count = outputs.len())
                                     .into_owned()
@@ -320,7 +322,7 @@ impl App {
                             finished_ok = true;
                             break;
                         } else if !errors.is_empty() {
-                            let err_str = errors[0].to_string();
+                            let err_str = errors[0].clone();
                             toast = Some((
                                 atlas_model::overlay::ToastKind::Error,
                                 rust_i18n::t!("convert_toast_failed", error = err_str).into_owned(),
@@ -421,7 +423,10 @@ impl App {
     }
 
     fn start_conversion(&mut self) {
-        let count = self.converter.as_ref().map_or(0, |session| session.sources.len());
+        let count = self
+            .converter
+            .as_ref()
+            .map_or(0, |session| session.sources.len());
         if !self.allow_conversion_action(count) {
             return;
         }
@@ -452,13 +457,20 @@ impl App {
 
         let count = sources.len();
         let msg = if count == 1 {
-            let name = sources[0]
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy();
-            rust_i18n::t!("convert_toast_starting_single", name = name, ext = extension).into_owned()
+            let name = sources[0].file_name().unwrap_or_default().to_string_lossy();
+            rust_i18n::t!(
+                "convert_toast_starting_single",
+                name = name,
+                ext = extension
+            )
+            .into_owned()
         } else {
-            rust_i18n::t!("convert_toast_starting_multi", count = count, ext = extension).into_owned()
+            rust_i18n::t!(
+                "convert_toast_starting_multi",
+                count = count,
+                ext = extension
+            )
+            .into_owned()
         };
         self.toast_info(msg);
         self.rt.spawn_blocking(move || {

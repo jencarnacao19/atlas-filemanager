@@ -1,4 +1,7 @@
 //! End-to-end host -> sidecar -> rclone cancellation, without user remotes.
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 #![cfg(feature = "cloud-backend")]
 use atlas_core::cloud::{
     control::{TransferCancelled, TransferControl},
@@ -12,7 +15,7 @@ fn size_on_disk(path: &Path) -> u64 {
         .into_iter()
         .filter_map(Result::ok)
         .filter_map(|entry| entry.metadata().ok())
-        .filter(|metadata| metadata.is_file())
+        .filter(std::fs::Metadata::is_file)
         .map(|metadata| metadata.len())
         .sum()
 }

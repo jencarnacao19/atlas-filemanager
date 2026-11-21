@@ -3,8 +3,8 @@ use super::super::converter::{Phase, Session};
 use crate::app::App;
 use gpui::prelude::*;
 use gpui::{
-    canvas, point, px, Bounds, DispatchPhase, WeakEntity, Hsla, MouseButton, MouseDownEvent,
-    MouseMoveEvent, PathBuilder, Pixels, Point, Window,
+    canvas, point, px, Bounds, DispatchPhase, Hsla, MouseButton, MouseDownEvent, MouseMoveEvent,
+    PathBuilder, Pixels, Point, WeakEntity, Window,
 };
 use std::f32::consts::TAU;
 
@@ -33,8 +33,14 @@ fn sector(
     step: f32,
 ) -> Option<gpui::Path<Pixels>> {
     let half = step * 0.5;
-    let (os, oe) = (mid - half + GAP * 0.5 / outer, mid + half - GAP * 0.5 / outer);
-    let (is, ie) = (mid - half + GAP * 0.5 / inner, mid + half - GAP * 0.5 / inner);
+    let (os, oe) = (
+        mid - half + GAP * 0.5 / outer,
+        mid + half - GAP * 0.5 / outer,
+    );
+    let (is, ie) = (
+        mid - half + GAP * 0.5 / inner,
+        mid + half - GAP * 0.5 / inner,
+    );
     let corner = ((outer - inner) * 0.22).min(inner * (ie - is).max(0.0) * 0.3);
     let (oa, ob) = (os + corner / outer, oe - corner / outer);
     let (ia, ib) = (is + corner / inner, ie - corner / inner);
@@ -62,9 +68,19 @@ fn sector(
         true,
         polar(center, outer, ob),
     );
-    curve(&mut path, polar(center, outer, ob), o_end, toward(o_end, i_end, corner));
+    curve(
+        &mut path,
+        polar(center, outer, ob),
+        o_end,
+        toward(o_end, i_end, corner),
+    );
     path.line_to(toward(i_end, o_end, corner));
-    curve(&mut path, toward(i_end, o_end, corner), i_end, polar(center, inner, ib));
+    curve(
+        &mut path,
+        toward(i_end, o_end, corner),
+        i_end,
+        polar(center, inner, ib),
+    );
     path.arc_to(
         point(px(inner), px(inner)),
         px(0.),
@@ -72,9 +88,19 @@ fn sector(
         false,
         polar(center, inner, ia),
     );
-    curve(&mut path, polar(center, inner, ia), i_start, toward(i_start, o_start, corner));
+    curve(
+        &mut path,
+        polar(center, inner, ia),
+        i_start,
+        toward(i_start, o_start, corner),
+    );
     path.line_to(toward(o_start, i_start, corner));
-    curve(&mut path, toward(o_start, i_start, corner), o_start, polar(center, outer, oa));
+    curve(
+        &mut path,
+        toward(o_start, i_start, corner),
+        o_start,
+        polar(center, outer, oa),
+    );
     path.close();
     path.build().ok()
 }
@@ -84,7 +110,7 @@ pub(super) fn paint_wheel(
     scale: f32,
     rings: Vec<Ring>,
     selected: usize,
-    hovered: Option<usize>,
+    _hovered: Option<usize>,
     available: Vec<bool>,
     colors: (Hsla, Hsla, Hsla, Hsla),
     reveal: f32,
@@ -97,14 +123,15 @@ pub(super) fn paint_wheel(
     canvas(
         move |bounds, _, cx| {
             #[cfg(feature = "conversion-lab")]
-            geometry_view.update(cx, |app, _| {
+            // The view may already be gone while the wheel closes; nothing to record then.
+            let _ = geometry_view.update(cx, |app, _| {
                 if let Some(session) = app.converter.as_mut() {
                     session.wheel_bounds = Some(bounds);
                 }
             });
             let _ = (bounds, cx);
         },
-        move |bounds: Bounds<Pixels>, _, window: &mut Window, _cx| {
+        move |bounds: Bounds<Pixels>, (), window: &mut Window, _cx| {
             let center = bounds.center();
             let count = available.len().max(1);
             for ring in &rings {
@@ -168,7 +195,7 @@ pub(super) fn paint_wheel(
                 } else {
                     None
                 };
-                hover_view.update(cx, |app, cx| {
+                let _ = hover_view.update(cx, |app, cx| {
                     if let Some(session) = app
                         .converter
                         .as_mut()
@@ -182,7 +209,7 @@ pub(super) fn paint_wheel(
                 });
             });
             // Click pins a format; a double click converts straight away.
-            let click_view = view.clone();
+            let click_view = view;
             window.on_mouse_event::<MouseDownEvent>(move |ev, phase, _window, cx| {
                 if phase != DispatchPhase::Bubble
                     || ev.button != MouseButton::Left
@@ -193,7 +220,7 @@ pub(super) fn paint_wheel(
                 let Some(index) = locate(ev.position) else {
                     return;
                 };
-                click_view.update(cx, |app, cx| {
+                let _ = click_view.update(cx, |app, cx| {
                     if let Some(Session {
                         phase: Phase::Choosing,
                         selected,

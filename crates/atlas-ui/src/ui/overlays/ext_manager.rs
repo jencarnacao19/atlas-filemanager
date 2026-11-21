@@ -55,6 +55,8 @@ impl App {
                     "",
                 ));
             }
+            // reason: `ext_manager_input` is created at the top of this function.
+            #[allow(clippy::unwrap_used)]
             self.ext_manager_input.clone().unwrap()
         };
         let query: String = input_entity.read(cx).value().to_string();
@@ -65,7 +67,7 @@ impl App {
         // ── Tab switcher ───────────────────────────────────────────────────────
         let tab_btn = move |label: &str,
                             tab: ExtManagerTab,
-                            view: gpui::Entity<App>,
+                            view: gpui::Entity<Self>,
                             accent: gpui::Hsla,
                             muted: gpui::Hsla,
                             fg: gpui::Hsla| {
@@ -217,37 +219,41 @@ impl App {
                                     })
                                     .when(enabled && !ext.manifest.commands.is_empty(), |r| {
                                         let id_for_cmds = id.clone();
-                                        r.child(
-                                            h_flex()
-                                                .flex_wrap()
-                                                .gap_1()
-                                                .mt_1()
-                                                .children(ext.manifest.commands.iter().map(|cmd| {
-                                                    let cmd_id = cmd.id.clone();
-                                                    let cmd_title = cmd.title.clone();
-                                                    let ext_id_clone = id_for_cmds.clone();
-                                                    let view_cmd = view.clone();
-                                                    div()
-                                                        .id(SharedString::from(format!("ext-cmd-{cmd_id}")))
-                                                        .px_2()
-                                                        .py_0p5()
-                                                        .rounded(px(crate::ui::RADIUS))
-                                                        .bg(accent.opacity(0.12))
-                                                        .text_color(accent)
-                                                        .text_xs()
-                                                        .cursor_pointer()
-                                                        .hover(|h| h.bg(accent.opacity(0.24)))
-                                                        .child(cmd_title)
-                                                        .on_mouse_down(MouseButton::Left, move |_ev, _w, cx| {
+                                        r.child(h_flex().flex_wrap().gap_1().mt_1().children(
+                                            ext.manifest.commands.iter().map(|cmd| {
+                                                let cmd_id = cmd.id.clone();
+                                                let cmd_title = cmd.title.clone();
+                                                let ext_id_clone = id_for_cmds.clone();
+                                                let view_cmd = view.clone();
+                                                div()
+                                                    .id(SharedString::from(format!(
+                                                        "ext-cmd-{cmd_id}"
+                                                    )))
+                                                    .px_2()
+                                                    .py_0p5()
+                                                    .rounded(px(crate::ui::RADIUS))
+                                                    .bg(accent.opacity(0.12))
+                                                    .text_color(accent)
+                                                    .text_xs()
+                                                    .cursor_pointer()
+                                                    .hover(|h| h.bg(accent.opacity(0.24)))
+                                                    .child(cmd_title)
+                                                    .on_mouse_down(
+                                                        MouseButton::Left,
+                                                        move |_ev, _w, cx| {
                                                             view_cmd.update(cx, |this, _cx| {
-                                                                this.handle_ext_action(ExtAction::Run {
-                                                                    ext_id: ext_id_clone.clone(),
-                                                                    cmd_id: cmd_id.clone(),
-                                                                });
+                                                                this.handle_ext_action(
+                                                                    ExtAction::Run {
+                                                                        ext_id: ext_id_clone
+                                                                            .clone(),
+                                                                        cmd_id: cmd_id.clone(),
+                                                                    },
+                                                                );
                                                             });
-                                                        })
-                                                })),
-                                        )
+                                                        },
+                                                    )
+                                            }),
+                                        ))
                                     }),
                             )
                             // Right: toggle + trash icon
@@ -407,7 +413,7 @@ impl App {
                                 let author = remote.author.clone();
                                 let icon_url = remote.icon_url.clone();
                                 let download_url = remote.download_url.clone();
-                                let sha256 = remote.sha256.clone();
+                                let sha256 = remote.sha256;
                                 let installed_version = installed_versions.get(&id);
                                 let is_installed = installed_version.is_some();
                                 let has_update =
@@ -433,7 +439,7 @@ impl App {
                                     .border_color(border)
                                     .items_center()
                                     // Icon
-                                    .child(if let Some(url) = icon_url.clone() {
+                                    .child(if let Some(url) = icon_url {
                                         extension_icon(std::path::PathBuf::from(url), 36., fg)
                                     } else {
                                         div().size(px(36.)).flex_none().into_any_element()
@@ -674,7 +680,7 @@ impl App {
 
         // ── Full panel (header + tabs + search + content + footer) ─────────────
         let view_inst = view.clone();
-        let view_mkt = view.clone();
+        let view_mkt = view;
 
         let panel = v_flex()
             .id("ext-mgr-panel")
@@ -697,7 +703,15 @@ impl App {
                     .border_color(border)
                     .pb_1()
                     .child(tab_btn(
-                        &format!("{} ({})", rust_i18n::t!("ext_tab_installed"), self.ext_registry.extensions.iter().filter(|e| !e.manifest.hidden).count()),
+                        &format!(
+                            "{} ({})",
+                            rust_i18n::t!("ext_tab_installed"),
+                            self.ext_registry
+                                .extensions
+                                .iter()
+                                .filter(|e| !e.manifest.hidden)
+                                .count()
+                        ),
                         ExtManagerTab::Installed,
                         view_inst,
                         accent,
@@ -707,7 +721,9 @@ impl App {
                     .child(tab_btn(
                         &self.state.ext.remote.as_ref().map_or_else(
                             || rust_i18n::t!("ext_tab_marketplace").to_string(),
-                            |list| format!("{} ({})", rust_i18n::t!("ext_tab_marketplace"), list.len()),
+                            |list| {
+                                format!("{} ({})", rust_i18n::t!("ext_tab_marketplace"), list.len())
+                            },
                         ),
                         ExtManagerTab::Marketplace,
                         view_mkt,

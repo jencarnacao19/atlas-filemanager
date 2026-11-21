@@ -159,7 +159,10 @@ pub(super) fn normalize(command: &Command, output: &Path, cancel: &AtomicBool) -
         if name == "[Content_Types].xml" {
             target.start_file(name, options)?;
             target.write_all(types.as_bytes())?;
-        } else if name.ends_with(".rels") {
+        } else if Path::new(&name)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("rels"))
+        {
             drop(part);
             let text = xml_part(&mut source, &name)?;
             let document = roxmltree::Document::parse(&text)?;

@@ -367,7 +367,7 @@ impl App {
                                     )
                                     .disabled(!dirty || state.saving)
                                     .on_click(cx.listener(|this, _, _, cx| {
-                                        this.apply_property_permissions(cx)
+                                        this.apply_property_permissions(cx);
                                     })),
                             ),
                     )
@@ -379,7 +379,7 @@ impl App {
         self.overlay_scrim_custom(
             "scrim-properties",
             view,
-            |this| this.close_properties(),
+            Self::close_properties,
             focus,
             panel.into_any_element(),
             cx,
@@ -407,19 +407,10 @@ fn single_row(row: &PropertyRow, fg: gpui::Hsla, muted: gpui::Hsla) -> AnyElemen
         FileKind::Symlink => rust_i18n::t!("properties_kind_symlink").to_string(),
         FileKind::File => rust_i18n::t!("properties_kind_file").to_string(),
     };
-    let size_label = row.size.map(format_size).unwrap_or_else(|| "—".to_string());
-    let created_label = row
-        .created
-        .map(format_date)
-        .unwrap_or_else(|| "—".to_string());
-    let modified_label = row
-        .modified
-        .map(format_date)
-        .unwrap_or_else(|| "—".to_string());
-    let accessed_label = row
-        .accessed
-        .map(format_date)
-        .unwrap_or_else(|| "—".to_string());
+    let size_label = row.size.map_or_else(|| "—".to_string(), format_size);
+    let created_label = row.created.map_or_else(|| "—".to_string(), format_date);
+    let modified_label = row.modified.map_or_else(|| "—".to_string(), format_date);
+    let accessed_label = row.accessed.map_or_else(|| "—".to_string(), format_date);
     let attrs = {
         let mut parts = Vec::new();
         if row.readonly {

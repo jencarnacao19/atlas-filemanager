@@ -319,13 +319,11 @@ pub fn route(source: &Path, target: &Format, tools: &Tools) -> Option<Backend> {
     }
     if ["mobi", "azw", "azw3", "fb2", "epub"].contains(&src)
         && ["mobi", "azw3", "fb2", "epub", "pdf", "docx", "txt"].contains(&dst)
-    {
-        if tools.has(Tool::Calibre)
+        && (tools.has(Tool::Calibre)
             || !["epub", "fb2"].contains(&src)
-            || ["mobi", "azw3", "pdf"].contains(&dst)
-        {
-            return external(Tool::Calibre);
-        }
+            || ["mobi", "azw3", "pdf"].contains(&dst))
+    {
+        return external(Tool::Calibre);
     }
     if documents.contains(&src)
         && ["pdf", "docx", "odt", "rtf", "txt", "html", "md", "epub"].contains(&dst)

@@ -12,7 +12,7 @@ use std::{
 };
 
 const MASK: u64 = (1 << 48) - 1;
-const UNSAFE_ATTRIBUTES: u32 = 0x400 | 0x1000 | 0x40000 | 0x400000;
+const UNSAFE_ATTRIBUTES: u32 = 0x400 | 0x1000 | 0x40000 | 0x0040_0000;
 
 fn interrupted() -> io::Error {
     io::Error::new(io::ErrorKind::Interrupted, "Cancelled")
@@ -25,7 +25,10 @@ pub(super) fn scan(
     mut progress: impl FnMut(u64, u64),
 ) -> io::Result<SpaceTree> {
     if !policy::is_drive_root(root) {
-        return Err(io::Error::new(io::ErrorKind::Unsupported, "No volume index"));
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "No volume index",
+        ));
     }
     let index = if elevated {
         atlas_win_space::mft_space::helper::scan(root, &mut control, &mut progress)?
@@ -82,7 +85,7 @@ fn build(
     let mut visited = 0u32;
     while let Some((record, id, path)) = queue.pop() {
         visited += 1;
-        if visited % 4096 == 0 && !control() {
+        if visited.is_multiple_of(4096) && !control() {
             return Err(interrupted());
         }
         let (s, e) = (starts[record as usize], starts[record as usize + 1]);

@@ -164,36 +164,34 @@ impl App {
                     .w_full()
                     .justify_between()
                     .items_center()
-                    .child(
-                        h_flex().when(editing, |row| {
-                            let delete_view = view.clone();
-                            let tag_id = self.state.profile_ui.editing_tag;
-                            row.child(
-                                div()
-                                    .id("create-tag-delete")
-                                    .px_3()
-                                    .py_1()
-                                    .rounded_md()
-                                    .border_1()
-                                    .border_color(danger.opacity(0.4))
-                                    .text_color(danger)
-                                    .cursor_pointer()
-                                    .hover(move |h| h.bg(danger.opacity(0.12)))
-                                    .child(rust_i18n::t!("tag_delete").to_string())
-                                    .on_mouse_down(MouseButton::Left, move |_ev, _w, cx| {
-                                        if let Some(tag) = tag_id {
-                                            delete_view.update(cx, |this, cx| {
-                                                this.process_actions(vec![
-                                                    Action::DeleteTag(tag),
-                                                    Action::CloseCreateTagOverlay,
-                                                ]);
-                                                cx.notify();
-                                            });
-                                        }
-                                    }),
-                            )
-                        }),
-                    )
+                    .child(h_flex().when(editing, |row| {
+                        let delete_view = view.clone();
+                        let tag_id = self.state.profile_ui.editing_tag;
+                        row.child(
+                            div()
+                                .id("create-tag-delete")
+                                .px_3()
+                                .py_1()
+                                .rounded_md()
+                                .border_1()
+                                .border_color(danger.opacity(0.4))
+                                .text_color(danger)
+                                .cursor_pointer()
+                                .hover(move |h| h.bg(danger.opacity(0.12)))
+                                .child(rust_i18n::t!("tag_delete").to_string())
+                                .on_mouse_down(MouseButton::Left, move |_ev, _w, cx| {
+                                    if let Some(tag) = tag_id {
+                                        delete_view.update(cx, |this, cx| {
+                                            this.process_actions(vec![
+                                                Action::DeleteTag(tag),
+                                                Action::CloseCreateTagOverlay,
+                                            ]);
+                                            cx.notify();
+                                        });
+                                    }
+                                }),
+                        )
+                    }))
                     .child(
                         h_flex()
                             .gap_2()
@@ -210,7 +208,9 @@ impl App {
                                     .child(rust_i18n::t!("tag_cancel").to_string())
                                     .on_mouse_down(MouseButton::Left, move |_ev, _w, cx| {
                                         cancel_view.update(cx, |this, cx| {
-                                            this.process_actions(vec![Action::CloseCreateTagOverlay]);
+                                            this.process_actions(vec![
+                                                Action::CloseCreateTagOverlay,
+                                            ]);
                                             cx.notify();
                                         });
                                     }),
@@ -266,11 +266,10 @@ impl App {
     }
 
     fn submit_create_tag(&mut self, cx: &mut Context<Self>) {
-        let name = self
-            .create_tag_input
-            .as_ref()
-            .map(|input| input.read(cx).value().trim().to_string())
-            .unwrap_or_else(|| self.state.profile_ui.new_tag_name.trim().to_string());
+        let name = self.create_tag_input.as_ref().map_or_else(
+            || self.state.profile_ui.new_tag_name.trim().to_string(),
+            |input| input.read(cx).value().trim().to_string(),
+        );
         if name.is_empty() {
             return;
         }

@@ -26,13 +26,13 @@
 use super::should_suppress_loading;
 use crate::app::{App, RubberTarget};
 use crate::input::action::Action;
-use crate::ui::imm::cut::RectCut;
 use crate::ui::drag_hover::{
     DragHoverCommand, DragHoverDropCommand, DragHoverId, DragHoverKind, DragHoverTarget,
 };
 use crate::ui::file_icons::FileIcon;
 use crate::ui::glass::backdrop_tint;
 use crate::ui::icons::{is_windows_theme, AtlasIcon};
+use crate::ui::imm::cut::RectCut;
 use crate::ui::root::{ctrl_scroll, pane_bounds_recorder, zone_recorder};
 use crate::ui::selection_checkbox;
 use crate::ui::surface::{
@@ -49,8 +49,8 @@ use gpui::{
     div, point, px, size, AnyElement, App as GpuiApp, Bounds, Context, Corners, CursorStyle,
     DispatchPhase, Element, ElementId, Font, GlobalElementId, Hitbox, HitboxBehavior, Hsla,
     InspectorElementId, IntoElement, LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, Pixels,
-    Refineable, ScrollWheelEvent, ShapedLine, SharedString, Style, StyleRefinement,
-    Styled, TextAlign, WeakEntity, Window,
+    Refineable, ScrollWheelEvent, ShapedLine, SharedString, Style, StyleRefinement, Styled,
+    TextAlign, WeakEntity, Window,
 };
 use gpui_component::{v_flex, ActiveTheme, ElementExt};
 use std::path::PathBuf;
@@ -66,8 +66,16 @@ pub const MILLER_PAD_Y: f32 = 2.0;
 
 fn with_miller_clip(window: &mut Window, bounds: Bounds<Pixels>, draw: impl FnOnce(&mut Window)) {
     let bounds = bounds.intersect(&window.content_mask().bounds);
-    if bounds.is_empty() { return; }
-    window.with_content_mask(Some(gpui::ContentMask { bounds, fade_out: Default::default() }), |window| window.paint_layer(bounds, draw));
+    if bounds.is_empty() {
+        return;
+    }
+    window.with_content_mask(
+        Some(gpui::ContentMask {
+            bounds,
+            fade_out: gpui::Edges::default(),
+        }),
+        |window| window.paint_layer(bounds, draw),
+    );
 }
 
 /// Arithmetic layout slots for a Miller column.
@@ -440,7 +448,7 @@ impl Element for MillerImmElement {
                 // Record column bounds
                 app.miller_column_bounds.insert((pane_id, ci), col_bounds);
 
-                let col_loc = col.location.fs_dir().map(|p| p.to_path_buf());
+                let col_loc = col.location.fs_dir().map(std::path::Path::to_path_buf);
                 let is_col_flashing = col_loc.as_ref().is_some_and(|path| {
                     app.drag_hover.blink_id.as_ref()
                         == Some(&DragHoverId::Folder(pane_id, path.clone()))
@@ -459,7 +467,7 @@ impl Element for MillerImmElement {
                     }
                 }
 
-                let title = display_name(&col.location.display_path()).to_string();
+                let title = display_name(&col.location.display_path()).clone();
                 let status_msg = if visible.is_empty() {
                     match &col.load_state {
                         LoadState::Loading if should_suppress_loading(&col.location) => None,
@@ -524,7 +532,7 @@ impl Element for MillerImmElement {
                 }
                 let max_scroll_y = app.file_scroll_max(content_h, body_h);
                 crate::ui::imm::scroll::apply_deferred(&scroll, true, body_h, max_scroll_y, |row| {
-                    (row < total_rows).then(|| (row as f32 * row_h, row_h))
+                    (row < total_rows).then_some((row as f32 * row_h, row_h))
                 });
                 let mut scroll_y = (-f32::from(base_scroll.offset().y)).max(0.0);
                 if scroll_y > max_scroll_y {
@@ -712,50 +720,100 @@ impl Element for MillerImmElement {
             col.identity.hash(&mut hash);
             let row_epoch = hash.finish();
             let viewport = [col.scroll_y, row_h, col.slots.body_slot.h];
-            let presence_epoch = crate::ui::imm::motion::presentation_epoch(row_epoch, &[
-                col.scroll_y, row_h, col.slots.body_slot.x, col.slots.body_slot.y,
-                col.slots.body_slot.w, col.slots.body_slot.h,
-            ]);
+            let presence_epoch = crate::ui::imm::motion::presentation_epoch(
+                row_epoch,
+                &[
+                    col.scroll_y,
+                    row_h,
+                    col.slots.body_slot.x,
+                    col.slots.body_slot.y,
+                    col.slots.body_slot.w,
+                    col.slots.body_slot.h,
+                ],
+            );
             let state = window.use_keyed_state(
-                SharedString::from(format!("miller-rows-{}-{}", pane_id.0, col.col_idx)), cx,
-                |_, _| (
-                    crate::ui::imm::motion::RowMotion::<PathBuf>::new(row_epoch, viewport),
-                    crate::ui::imm::motion::PresenceMotion::<PathBuf, MillerPreparedRow>::new(),
-                ),
+                SharedString::from(format!("miller-rows-{}-{}", pane_id.0, col.col_idx)),
+                cx,
+                |_, _| {
+                    (
+                        crate::ui::imm::motion::RowMotion::<PathBuf>::new(row_epoch, viewport),
+                        crate::ui::imm::motion::PresenceMotion::<PathBuf, MillerPreparedRow>::new(),
+                    )
+                },
             );
             let now = std::time::Instant::now();
-            let targets: Vec<_> = col.rows.iter().map(|row| (row.entry.path(), row.row_idx, row.slots.row_slot.y)).collect();
+            let targets: Vec<_> = col
+                .rows
+                .iter()
+                .map(|row| (row.entry.path(), row.row_idx, row.slots.row_slot.y))
+                .collect();
             let rows = std::mem::take(&mut col.rows);
             let (samples, active) = state.update(cx, |state, _| {
-                let (positions, moving) = state.0.sample(&targets, row_epoch, viewport, instant, now);
-                let values = rows.into_iter().zip(positions).map(|(mut row, (_, y, opacity))| {
-                    row.slots = miller_checkbox_in_icon(
-                        miller_row_cut(col.slots.body_slot.x, y, col.slots.body_slot.w, row_h, zoom, row.is_dir, false),
-                        row.slots.check_slot.is_some(),
-                    );
-                    row.opacity = opacity;
-                    (row.entry.path(), row)
-                }).collect();
+                let (positions, moving) =
+                    state.0.sample(&targets, row_epoch, viewport, instant, now);
+                let values = rows
+                    .into_iter()
+                    .zip(positions)
+                    .map(|(mut row, (_, y, opacity))| {
+                        row.slots = miller_checkbox_in_icon(
+                            miller_row_cut(
+                                col.slots.body_slot.x,
+                                y,
+                                col.slots.body_slot.w,
+                                row_h,
+                                zoom,
+                                row.is_dir,
+                                false,
+                            ),
+                            row.slots.check_slot.is_some(),
+                        );
+                        row.opacity = opacity;
+                        (row.entry.path(), row)
+                    })
+                    .collect();
                 let (samples, fading) = state.1.sample(values, presence_epoch, instant, now);
                 (samples, moving || fading)
             });
-            col.rows = samples.into_iter().map(|sample| {
-                let mut row = sample.value;
-                row.opacity *= sample.opacity;
-                row.interactive = sample.interactive;
-                if !row.interactive { row.cursor = false; row.blinking = false; row.hovered = false; }
-                row
-            }).collect();
-            if active { window.request_animation_frame(); }
+            col.rows = samples
+                .into_iter()
+                .map(|sample| {
+                    let mut row = sample.value;
+                    row.opacity *= sample.opacity;
+                    row.interactive = sample.interactive;
+                    if !row.interactive {
+                        row.cursor = false;
+                        row.blinking = false;
+                        row.hovered = false;
+                    }
+                    row
+                })
+                .collect();
+            if active {
+                window.request_animation_frame();
+            }
         }
         app_entity.update(cx, |app, _| {
             let dragging = app.is_drag_active(has_gpui_drag);
             for col in &prepaint_cols {
-                let body = col.slots.body_slot.to_bounds(bounds.origin).intersect(&content_mask);
-                let rows: Vec<_> = col.rows.iter().filter(|row| row.interactive).map(|row| {
-                    (row.row_idx, row.slots.row_slot.to_bounds(bounds.origin).intersect(&body))
-                }).collect();
-                app.miller_row_rects.borrow_mut().insert((pane_id, col.col_idx), rows);
+                let body = col
+                    .slots
+                    .body_slot
+                    .to_bounds(bounds.origin)
+                    .intersect(&content_mask);
+                let rows: Vec<_> = col
+                    .rows
+                    .iter()
+                    .filter(|row| row.interactive)
+                    .map(|row| {
+                        (
+                            row.row_idx,
+                            row.slots.row_slot.to_bounds(bounds.origin).intersect(&body),
+                        )
+                    })
+                    .collect();
+                app.miller_row_rects
+                    .borrow_mut()
+                    .insert((pane_id, col.col_idx), rows);
                 if dragging {
                     for row in col.rows.iter().filter(|row| row.interactive && row.is_dir) {
                         app.register_drag_hover_target(DragHoverTarget {
@@ -992,7 +1050,7 @@ impl Element for MillerImmElement {
                                 .accent
                                 .opacity(if row.selected { 0.95 } else { 0.65 });
                             window.paint_quad(
-                                gpui::outline(row_bounds, outline_col, Default::default())
+                                gpui::outline(row_bounds, outline_col, gpui::BorderStyle::default())
                                     .corner_radii(Corners::all(px(4.0 * zoom))),
                             );
                         }
@@ -1242,9 +1300,15 @@ impl Element for MillerImmElement {
                                 if this.rename_edit.is_some() {
                                     this.commit_rename(cx);
                                 }
-                                let preserve_group = this.state.tab_states.get(&pane_id)
+                                let preserve_group = this
+                                    .state
+                                    .tab_states
+                                    .get(&pane_id)
                                     .and_then(|state| state.miller.columns.get(ci))
-                                    .is_some_and(|col| col.selection.selected.len() > 1 && col.selection.selected.contains(&idx));
+                                    .is_some_and(|col| {
+                                        col.selection.selected.len() > 1
+                                            && col.selection.selected.contains(&idx)
+                                    });
                                 this.selection_left_mouse_down(
                                     RubberTarget::MillerColumn(pane_id, ci),
                                     Some(idx),
@@ -1273,9 +1337,15 @@ impl Element for MillerImmElement {
                             if this.rename_edit.is_some() {
                                 this.commit_rename(cx);
                             }
-                            this.selection_left_mouse_down(RubberTarget::MillerColumn(pane_id, ci), None,
-                                ev.position, ev.modifiers.shift, ev.modifiers.control || ev.modifiers.platform,
-                                ev.click_count, cx);
+                            this.selection_left_mouse_down(
+                                RubberTarget::MillerColumn(pane_id, ci),
+                                None,
+                                ev.position,
+                                ev.modifiers.shift,
+                                ev.modifiers.control || ev.modifiers.platform,
+                                ev.click_count,
+                                cx,
+                            );
                             this.notify_pane(pane_id, cx);
                             cx.notify();
                         });
@@ -1300,15 +1370,7 @@ impl Element for MillerImmElement {
                                 .get(&pane_id)
                                 .and_then(|ts| ts.miller.columns.get(ci))
                                 .is_some_and(|col| col.selection.selected.contains(&idx));
-                            if !already_selected {
-                                this.process_actions(vec![Action::MillerSelect {
-                                    tile: pane_id,
-                                    column: ci,
-                                    idx,
-                                    shift: false,
-                                    ctrl: false,
-                                }]);
-                            } else {
+                            if already_selected {
                                 this.activate_tab(pane_id);
                                 if let Some(ts) = this.state.tab_states.get_mut(&pane_id) {
                                     ts.miller.focused = ci;
@@ -1317,6 +1379,14 @@ impl Element for MillerImmElement {
                                         col.selection.keyboard_cursor = Some(idx);
                                     }
                                 }
+                            } else {
+                                this.process_actions(vec![Action::MillerSelect {
+                                    tile: pane_id,
+                                    column: ci,
+                                    idx,
+                                    shift: false,
+                                    ctrl: false,
+                                }]);
                             }
                             let paths = {
                                 let p = this.miller_focused_selection_paths().unwrap_or_default();
@@ -1458,8 +1528,7 @@ impl App {
             .state
             .tab_states
             .get(&pane_id)
-            .map(|ts| ts.miller.columns.len())
-            .unwrap_or(0);
+            .map_or(0, |ts| ts.miller.columns.len());
 
         let col_w = MILLER_COL_W * zoom;
         let header_h = MILLER_HEADER_H * zoom;
@@ -1474,7 +1543,7 @@ impl App {
             row_h,
             zoom,
             colors,
-            font.clone(),
+            font,
             font_size,
             header_font_size,
             windows_theme,
@@ -1497,19 +1566,16 @@ impl App {
 
                 for (position, idx) in ts.miller_visible_indices(ci).iter().copied().enumerate() {
                     let entry = &col.entries[idx];
-                    if let Some(input) =
-                        crate::ui::views::rename::active_input_for_path(self, pane_id, &entry.path())
-                    {
+                    if let Some(input) = crate::ui::views::rename::active_input_for_path(
+                        self,
+                        pane_id,
+                        &entry.path(),
+                    ) {
                         let is_dir = matches!(entry.kind(), FileKind::Dir);
                         let row_y = header_h + (position as f32 * row_h) - scroll_y;
                         let col_x = ci as f32 * col_w;
                         let row_slots = miller_row_cut(
-                            col_x,
-                            row_y,
-                            col_w,
-                            row_h,
-                            zoom,
-                            is_dir,
+                            col_x, row_y, col_w, row_h, zoom, is_dir,
                             false, // checkbox lives in the icon slot; no gutter
                         );
                         let name_slot = row_slots.name_slot;
@@ -1643,19 +1709,22 @@ impl App {
             .size_full()
             .overflow_x_scroll()
             .track_scroll(&horizontal)
-            .when_some(hovered_entry.filter(|_| self.ctx_menu.is_none()), |el, (name, path, is_dir, size, modified)| {
-                el.tooltip(move |window, cx| {
-                    crate::ui::tooltips::entry_hover_tooltip(
-                        name.clone(),
-                        path.clone(),
-                        is_dir,
-                        size,
-                        modified,
-                        window,
-                        cx,
-                    )
-                })
-            })
+            .when_some(
+                hovered_entry.filter(|_| self.ctx_menu.is_none()),
+                |el, (name, path, is_dir, size, modified)| {
+                    el.tooltip(move |window, cx| {
+                        crate::ui::tooltips::entry_hover_tooltip(
+                            name.clone(),
+                            path.clone(),
+                            is_dir,
+                            size,
+                            modified,
+                            window,
+                            cx,
+                        )
+                    })
+                },
+            )
             .child(
                 div()
                     .w(px(total_w))
@@ -1663,7 +1732,7 @@ impl App {
                     .relative()
                     .child(miller_el)
                     .child(miller_drag_layer(&view, pane_id, total_w))
-                    .when_some(rename_overlay, |el, overlay| el.child(overlay)),
+                    .when_some(rename_overlay, gpui::ParentElement::child),
             );
 
         let key_view = view.clone();
@@ -1699,7 +1768,10 @@ impl App {
 fn miller_drag_layer(view: &gpui::Entity<App>, pane_id: TabId, total_w: f32) -> AnyElement {
     let drag_view = view.clone();
     div()
-        .id(SharedString::from(format!("miller-imm-drag-layer-{}", pane_id.0)))
+        .id(SharedString::from(format!(
+            "miller-imm-drag-layer-{}",
+            pane_id.0
+        )))
         .absolute()
         .top_0()
         .left_0()
@@ -1719,7 +1791,13 @@ fn miller_drag_layer(view: &gpui::Entity<App>, pane_id: TabId, total_w: f32) -> 
                             .map(|(idx, _)| (*column, *idx))
                     })
                     .and_then(|(column, idx)| {
-                        let col = app.state.tab_states.get(&pane_id)?.miller.columns.get(column)?;
+                        let col = app
+                            .state
+                            .tab_states
+                            .get(&pane_id)?
+                            .miller
+                            .columns
+                            .get(column)?;
                         let entry = col.entries.get(idx)?;
                         col.selection
                             .selected

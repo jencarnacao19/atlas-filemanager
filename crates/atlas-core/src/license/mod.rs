@@ -90,7 +90,13 @@ async fn polar_entitled() -> bool {
         Err(_) => Check::Unreachable,
     };
     match check {
-        Check::Valid => save(&Saved { validated_at: now(), ..saved }).await,
+        Check::Valid => {
+            save(&Saved {
+                validated_at: now(),
+                ..saved
+            })
+            .await;
+        }
         Check::Invalid => clear().await,
         Check::Unreachable => {}
     }

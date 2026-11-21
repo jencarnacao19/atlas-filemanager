@@ -84,6 +84,53 @@ too_long_first_doc_paragraph = "allow"
 pub_underscore_fields = "allow"
 implicit_hasher = "allow"
 new_without_default = "allow"
+# `mul_add` calls a software fma on x86-64 targets without FMA, which is slower,
+# and UI geometry gains nothing from fused rounding.
+suboptimal_flops = "allow"
+# `pub(crate)` inside private modules is the deliberate visibility style here.
+redundant_pub_crate = "allow"
+# Const-ness of internal helpers is churn with no caller that needs it.
+missing_const_for_fn = "allow"
+# Prose in doc comments names types and paths freely; backticks are optional.
+doc_markdown = "allow"
+# Local helper items next to their single use read better than hoisted ones.
+items_after_statements = "allow"
+# Paint helpers take explicit geometry and colour parameters by design.
+too_many_arguments = "allow"
+# Methods stay on `App` for call-site consistency even when `self` is unused.
+unused_self = "allow"
+# gpui action structs derive Deserialize next to `unsafe impl` glue from gpui.
+unsafe_derive_deserialize = "allow"
+# Arms that happen to share a body still describe different cases.
+match_same_arms = "allow"
+# Builder-style element methods follow gpui, which does not mark them either.
+return_self_not_must_use = "allow"
+# Geometry code uses x/y/w/h-style names on purpose.
+many_single_char_names = "allow"
+fn_params_excessive_bools = "allow"
+# gpui callback and element types are long by nature.
+type_complexity = "allow"
+# Nursery lint with known false positives around guards held across calls.
+significant_drop_tightening = "allow"
+# `{:?}` on paths quotes them in logs, which is the intent.
+unnecessary_debug_formatting = "allow"
+# perf spans are zero-sized without the perf-log feature; `drop(span)` marks
+# where a span ends in every build.
+drop_non_drop = "allow"
+# Mostly flags cheap constructors (`Path::new("")`, small tuples).
+or_fun_call = "allow"
+# `match` arms that log or `continue` read better than `let ... else`.
+manual_let_else = "allow"
+# Exact comparisons against sentinels (opacity 1.0, the max of the same inputs).
+float_cmp = "allow"
+branches_sharing_code = "allow"
+iter_on_single_items = "allow"
+literal_string_with_formatting_args = "allow"
+format_collect = "allow"
+needless_range_loop = "allow"
+# Fields and parameters prefixed `_` are kept alive or platform-gated on purpose.
+used_underscore_binding = "allow"
+useless_let_if_seq = "allow"
 
 # Bundle metadata for `cargo bundle` (cargo install cargo-bundle).
 # Produces a macOS .app / Linux .deb with the icon and identifier below.

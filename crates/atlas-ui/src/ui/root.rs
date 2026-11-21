@@ -44,9 +44,17 @@ pub(crate) struct DraggedCloudFiles {
 
 impl Render for DraggedCloudFiles {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div().px_2().py_1().rounded_md().bg(cx.theme().accent)
+        div()
+            .px_2()
+            .py_1()
+            .rounded_md()
+            .bg(cx.theme().accent)
             .text_color(cx.theme().accent_foreground)
-            .child(format!("{} · {}", self.account_label, rust_i18n::t!("root_elements", count = self.paths.len())))
+            .child(format!(
+                "{} · {}",
+                self.account_label,
+                rust_i18n::t!("root_elements", count = self.paths.len())
+            ))
     }
 }
 
@@ -99,47 +107,6 @@ pub(crate) fn rect_recorder(
             .entry(pane)
             .or_default()
             .push((idx, bounds));
-    }
-}
-
-pub(crate) fn miller_rect_recorder(
-    pane: TabId,
-    column: usize,
-    idx: usize,
-    view: &Entity<App>,
-) -> impl Fn(gpui::Bounds<gpui::Pixels>, &mut Window, &mut gpui::App) + 'static {
-    let view = view.clone();
-    move |bounds, _window, cx| {
-        crate::perf::count("prepaint.miller_row_rect");
-        let app = view.read(cx);
-        let mut rects = app.miller_row_rects.borrow_mut();
-        let rows = rects.entry((pane, column)).or_default();
-        if let Some((_, old)) = rows.iter_mut().find(|(row, _)| *row == idx) {
-            *old = bounds;
-        } else {
-            rows.push((idx, bounds));
-        }
-    }
-}
-
-pub(crate) fn miller_column_bounds_recorder(
-    pane: TabId,
-    column: usize,
-    view: &Entity<App>,
-) -> impl Fn(gpui::Bounds<gpui::Pixels>, &mut Window, &mut gpui::App) + 'static {
-    let view = view.clone();
-    move |bounds, _window, cx| {
-        let should_update = view
-            .read(cx)
-            .miller_column_bounds
-            .get(&(pane, column))
-            .copied()
-            != Some(bounds);
-        if should_update {
-            view.update(cx, |this, _| {
-                this.miller_column_bounds.insert((pane, column), bounds);
-            });
-        }
     }
 }
 
@@ -334,18 +301,29 @@ impl Render for App {
             let inspector_visible = self.preview_visible_for_focused();
             let breadcrumb_menu_visible = self.breadcrumb_menu.is_some();
             if !self.pending_drag_hover_targets.is_empty() {
-                let visible_panes: std::collections::HashSet<_> = tree.tiles.iter().filter_map(|(_, tile)| {
-                    match tile {
-                        atlas_model::layout_tree::Tile::Container(atlas_model::layout_tree::Container::Tabs(tabs)) => tabs.active,
+                let visible_panes: std::collections::HashSet<_> = tree
+                    .tiles
+                    .iter()
+                    .filter_map(|(_, tile)| match tile {
+                        atlas_model::layout_tree::Tile::Container(
+                            atlas_model::layout_tree::Container::Tabs(tabs),
+                        ) => tabs.active,
                         _ => None,
-                    }
-                }).collect();
+                    })
+                    .collect();
                 crate::ui::drag_hover::retain_visible_drop_targets(
                     &mut self.pending_drag_hover_targets,
-                    |tab| matches!(tree.tiles.get(tab), Some(atlas_model::layout_tree::Tile::Pane(_)))
-                        && !closing.contains_key(&tab) && !pane_closing.contains_key(&tab),
+                    |tab| {
+                        matches!(
+                            tree.tiles.get(tab),
+                            Some(atlas_model::layout_tree::Tile::Pane(_))
+                        ) && !closing.contains_key(&tab)
+                            && !pane_closing.contains_key(&tab)
+                    },
                     |tab| visible_panes.contains(&tab),
-                    sidebar_visible, inspector_visible, breadcrumb_menu_visible,
+                    sidebar_visible,
+                    inspector_visible,
+                    breadcrumb_menu_visible,
                 );
             }
         }
@@ -608,80 +586,86 @@ impl Render for App {
                 .max(180.0)
                 .min((f32::from(viewport.width) - 96.0).max(180.0))
         };
-        let inspector_container =
-            (preview_should_render && !preview_expanded && !crate::perf::skip_inspector()).then(|| {
-                crate::perf::count("render.inspector");
-                // The grab zone lives outside the clipped panel shell and reaches
-                // well into the dock, so the edge is easy to hit.
-                let accent = cx.theme().accent;
-                let resizing = self.inspector_resize.is_some();
-                let resize_handle = (preview_visible && !preview_expanded && !preview_closing)
-                    .then(|| {
-                        div()
-                            .id("inspector-resize-handle")
-                            .accessibility_id("inspector-resize-handle")
-                            .role(gpui::Role::Splitter)
-                            .absolute()
-                            .left(-px(14.0))
-                            .top_0()
-                            .w(px(20.0))
-                            .h_full()
-                            .group("inspector-resize")
-                            .cursor_col_resize()
-                            .on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener(|this, ev: &MouseDownEvent, _window, cx| {
-                                    this.inspector_resize =
-                                        Some(crate::app::InspectorResizeState {
-                                            start_x: f32::from(ev.position.x),
-                                            start_width: this.state.settings.inspector_width,
-                                        });
-                                    cx.stop_propagation();
-                                    cx.notify();
-                                }),
-                            )
-                            .child(
-                                div()
-                                    .absolute()
-                                    .left(px(13.0))
-                                    .top_0()
-                                    .w(px(2.0))
-                                    .h_full()
-                                    .rounded(px(1.0))
-                                    .bg(if resizing { accent } else { gpui::transparent_black() })
-                                    .group_hover("inspector-resize", |s| s.bg(accent.opacity(0.7))),
-                            )
-                            .occlude()
-                    });
-                let panel = div()
-                    .relative()
-                    .h_full()
-                    .w(px(inspector_width))
-                    .flex_shrink_0()
-                    .overflow_hidden()
-                    // Keep preview content in a retained host. The App root
-                    // still owns the panel shell/resize animation, but a pane
-                    // split or unrelated App notification no longer rebuilds
-                    // all preview rows and controls.
-                    .child(self.ensure_inspector_host(cx).into_any_element());
-                let panel = div()
-                    .relative()
-                    .h_full()
-                    .flex_shrink_0()
-                    .child(
-                        div()
-                            .h_full()
-                            .w(px(inspector_width * preview_progress))
-                            .overflow_hidden()
-                            .opacity(preview_progress)
-                            .paint_offset(gpui::point(px(10.0 * (1.0 - preview_progress)), px(0.0)))
-                            .child(panel),
-                    )
-                    .children(resize_handle);
-                crate::ui::layout_region::layout_region("inspector", panel).into_any_element()
-            });
-        let expanded_inspector = (preview_visible && preview_expanded && !crate::perf::skip_inspector())
-            .then(|| self.render_expanded_preview(window, cx));
+        let inspector_container = (preview_should_render
+            && !preview_expanded
+            && !crate::perf::skip_inspector())
+        .then(|| {
+            crate::perf::count("render.inspector");
+            // The grab zone lives outside the clipped panel shell and reaches
+            // well into the dock, so the edge is easy to hit.
+            let accent = cx.theme().accent;
+            let resizing = self.inspector_resize.is_some();
+            let resize_handle =
+                (preview_visible && !preview_expanded && !preview_closing).then(|| {
+                    div()
+                        .id("inspector-resize-handle")
+                        .accessibility_id("inspector-resize-handle")
+                        .role(gpui::Role::Splitter)
+                        .absolute()
+                        .left(-px(14.0))
+                        .top_0()
+                        .w(px(20.0))
+                        .h_full()
+                        .group("inspector-resize")
+                        .cursor_col_resize()
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(|this, ev: &MouseDownEvent, _window, cx| {
+                                this.inspector_resize = Some(crate::app::InspectorResizeState {
+                                    start_x: f32::from(ev.position.x),
+                                    start_width: this.state.settings.inspector_width,
+                                });
+                                cx.stop_propagation();
+                                cx.notify();
+                            }),
+                        )
+                        .child(
+                            div()
+                                .absolute()
+                                .left(px(13.0))
+                                .top_0()
+                                .w(px(2.0))
+                                .h_full()
+                                .rounded(px(1.0))
+                                .bg(if resizing {
+                                    accent
+                                } else {
+                                    gpui::transparent_black()
+                                })
+                                .group_hover("inspector-resize", |s| s.bg(accent.opacity(0.7))),
+                        )
+                        .occlude()
+                });
+            let panel = div()
+                .relative()
+                .h_full()
+                .w(px(inspector_width))
+                .flex_shrink_0()
+                .overflow_hidden()
+                // Keep preview content in a retained host. The App root
+                // still owns the panel shell/resize animation, but a pane
+                // split or unrelated App notification no longer rebuilds
+                // all preview rows and controls.
+                .child(self.ensure_inspector_host(cx).into_any_element());
+            let panel = div()
+                .relative()
+                .h_full()
+                .flex_shrink_0()
+                .child(
+                    div()
+                        .h_full()
+                        .w(px(inspector_width * preview_progress))
+                        .overflow_hidden()
+                        .opacity(preview_progress)
+                        .paint_offset(gpui::point(px(10.0 * (1.0 - preview_progress)), px(0.0)))
+                        .child(panel),
+                )
+                .children(resize_handle);
+            crate::ui::layout_region::layout_region("inspector", panel).into_any_element()
+        });
+        let expanded_inspector =
+            (preview_visible && preview_expanded && !crate::perf::skip_inspector())
+                .then(|| self.render_expanded_preview(window, cx));
         let overlays = if crate::perf::skip_overlays() {
             crate::perf::count("render.overlays.skipped");
             Vec::new()
@@ -727,7 +711,7 @@ impl Render for App {
             .key_context(key_ctx)
             .track_focus(&self.focus_handle)
             .on_modifiers_changed({
-                let view = view.clone();
+                let view = view;
                 move |_ev, window, cx| {
                     window.refresh();
                     view.update(cx, |_, cx| cx.notify());
@@ -997,7 +981,7 @@ impl Render for App {
                 if this
                     .state
                     .active_tab_data()
-                    .map_or(false, |t| t.location.is_archive())
+                    .is_some_and(|t| t.location.is_archive())
                 {
                     this.toast_error(rust_i18n::t!("root_delete_archive_error").into());
                     cx.notify();
@@ -1016,7 +1000,7 @@ impl Render for App {
                 if this
                     .state
                     .active_tab_data()
-                    .map_or(false, |t| t.location.is_archive())
+                    .is_some_and(|t| t.location.is_archive())
                 {
                     this.toast_error(rust_i18n::t!("root_delete_archive_error").into());
                     cx.notify();
@@ -1047,10 +1031,12 @@ impl Render for App {
                     cx.notify();
                 }),
             )
-            .on_drop::<crate::ui::sidebar_bookmarks::BookmarkDrag>(cx.listener(|this, drag, window, cx| {
-                this.remove_bookmark_reference(drag, window.mouse_position());
-                cx.notify();
-            }))
+            .on_drop::<crate::ui::sidebar_bookmarks::BookmarkDrag>(cx.listener(
+                |this, drag, window, cx| {
+                    this.remove_bookmark_reference(drag, window.mouse_position());
+                    cx.notify();
+                },
+            ))
             .on_drop::<DraggedCloudFiles>(cx.listener(|this, drag, window, cx| {
                 #[cfg(feature = "provider-host")]
                 this.drop_cloud_files(drag, window.mouse_position(), window.modifiers().shift);
@@ -1085,9 +1071,12 @@ impl Render for App {
                             .h_full()
                             .min_w(px(0.))
                             .children(sidebar_resizer)
-                            .child(v_flex().size_full()
-                                .child(div().flex_1().min_h_0().child(center_content))
-                                .children(self.render_private_session_bar(cx))),
+                            .child(
+                                v_flex()
+                                    .size_full()
+                                    .child(div().flex_1().min_h_0().child(center_content))
+                                    .children(self.render_private_session_bar(cx)),
+                            ),
                     )
                     .children(inspector_container),
             )
@@ -1103,11 +1092,16 @@ impl Render for App {
             .child(ctrl_scroll_layer(cx.entity()))
             .child({
                 let view = cx.entity();
-                gpui::canvas(|_, _, _| {}, move |_, _, _, cx| {
-                    if !view.read(cx).view_scroll_pending.is_empty() {
-                        view.update(cx, |this, cx| this.apply_view_scroll(cx));
-                    }
-                }).absolute().size(px(0.0))
+                gpui::canvas(
+                    |_, _, _| {},
+                    move |_, (), _, cx| {
+                        if !view.read(cx).view_scroll_pending.is_empty() {
+                            view.update(cx, Self::apply_view_scroll);
+                        }
+                    },
+                )
+                .absolute()
+                .size(px(0.0))
             })
             .children(self.render_drag_hover_blink(window, cx))
             .child(drag_hover_layer(cx.entity()))

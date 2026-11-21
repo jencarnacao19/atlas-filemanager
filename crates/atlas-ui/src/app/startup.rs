@@ -27,7 +27,9 @@ impl App {
         let focus_handle = cx.focus_handle();
         window.focus(&focus_handle, cx);
         let rubber_escape_listener = cx.listener(|this, ev: &gpui::KeystrokeEvent, window, cx| {
-            if ev.keystroke.key == "escape" && (this.rubber.is_some() || this.pending_folder_click.is_some()) {
+            if ev.keystroke.key == "escape"
+                && (this.rubber.is_some() || this.pending_folder_click.is_some())
+            {
                 let pane = this.rubber.as_ref().and_then(|r| match r.target {
                     RubberTarget::Pane(pane) | RubberTarget::MillerColumn(pane, _) => Some(pane),
                     RubberTarget::Dropzone => None,
@@ -54,7 +56,9 @@ impl App {
         {
             let volume_tx = tx.clone();
             rt.spawn_blocking(move || {
-                let _ = volume_tx.send(BgResult::VolumeSnapshot(atlas_win_space::storage::mounted_volume_serials()));
+                let _ = volume_tx.send(BgResult::VolumeSnapshot(
+                    atlas_win_space::storage::mounted_volume_serials(),
+                ));
             });
         }
         let (drain_tx, rx) = flume::unbounded();
@@ -66,7 +70,8 @@ impl App {
         cx.observe_global::<gpui_component::ThemeRegistry>(|this, cx| {
             this.theme_dirty = true;
             cx.notify();
-        }).detach();
+        })
+        .detach();
         // Forward off the foreground executor: the retained ingress queues must
         // remain readable by the OLE modal-loop drag-hover drain as well.
         cx.background_executor()
@@ -163,7 +168,9 @@ impl App {
         if let Some((token, tab)) = transferred_tab {
             if let Some(Tile::Pane(current)) = state.pane_tree.tiles.get_mut(state.focused_tile) {
                 *current = tab.tab.clone();
-                if let Some(show_hidden) = tab.view_filters.show_hidden { state.settings.show_hidden = show_hidden; }
+                if let Some(show_hidden) = tab.view_filters.show_hidden {
+                    state.settings.show_hidden = show_hidden;
+                }
                 initial_type_filters.insert(state.focused_tile, tab.view_filters.types.clone());
                 initial_size_filters.insert(state.focused_tile, tab.view_filters.sizes.clone());
                 if let Some(runtime) = state.tab_states.get_mut(&state.focused_tile) {
@@ -310,15 +317,35 @@ impl App {
             rt.spawn(async move {
                 let started = std::time::Instant::now();
                 let listing = if is_branch {
-                    atlas_core::fs::list::list_branch_dir_with_preview(&path, show_hidden, sort_col, sort_dir, |_| {}).await
+                    atlas_core::fs::list::list_branch_dir_with_preview(
+                        &path,
+                        show_hidden,
+                        sort_col,
+                        sort_dir,
+                        |_| {},
+                    )
+                    .await
                 } else {
                     list_dir(&path, show_hidden, sort_col, sort_dir, folder_order).await
                 };
                 match listing {
                     Ok(entries) => {
-                        let has_excluded_items = super::fs_sync::has_excluded_directory_items(&path, show_hidden, entries.is_empty()).await;
-                        let _ = tx_clone.send(BgResult::DirListExclusions { tab: tile_id, op_id, has_excluded_items });
-                        let _ = tx_clone.send(BgResult::DirListTiming { tab: tile_id, op_id, elapsed: started.elapsed() });
+                        let has_excluded_items = super::fs_sync::has_excluded_directory_items(
+                            &path,
+                            show_hidden,
+                            entries.is_empty(),
+                        )
+                        .await;
+                        let _ = tx_clone.send(BgResult::DirListExclusions {
+                            tab: tile_id,
+                            op_id,
+                            has_excluded_items,
+                        });
+                        let _ = tx_clone.send(BgResult::DirListTiming {
+                            tab: tile_id,
+                            op_id,
+                            elapsed: started.elapsed(),
+                        });
                         let _ = tx_clone.send(BgResult::DirListed {
                             tab: tile_id,
                             op_id,
@@ -541,7 +568,7 @@ impl App {
                         delay = app.maintenance_delay();
                         if app.close_after_tab_transfer {
                             let _ = cx.update_window(window_handle, |_, window, _| {
-                                window.remove_window()
+                                window.remove_window();
                             });
                         }
                     })
@@ -610,7 +637,7 @@ impl App {
             nucleo,
             goto_warm_nucleo,
             goto_index_root: Some((goto_root, false)),
-            goto_snapshot: Default::default(),
+            goto_snapshot: crate::ui::palette::GotoSnapshot::default(),
             goto_service_cache: None,
             goto_service_inflight: None,
             goto_service_failed: None,
@@ -669,32 +696,30 @@ impl App {
             miller_row_rects: std::cell::RefCell::new(HashMap::new()),
             details_hit: HashMap::new(),
             details_row_rings: HashMap::new(),
-            details_row_texts: Default::default(),
+            details_row_texts: crate::ui::views::details_ring::DetailsRowTextCache::default(),
             grid_hit: HashMap::new(),
             grid_hover: None,
-            file_surface_shapes: Default::default(),
             list_hit: HashMap::new(),
             list_hover: None,
-            grid_flip_states: std::rc::Rc::new(std::cell::RefCell::new(HashMap::new())),
 
             details_hover: None,
             miller_column_bounds: HashMap::new(),
-            dropzone_selection: Default::default(),
+            dropzone_selection: atlas_model::tab::SelectionState::default(),
             dropzone_rects: Vec::new(),
             dropzone_bounds: None,
             dropzone_drag_paths: HashSet::new(),
             dropzone_pending_tags: HashMap::new(),
-            operation_feedback: Default::default(),
-            hidden_operation_notices: Default::default(),
-            toast_stack: Default::default(),
+            operation_feedback: std::cell::RefCell::default(),
+            hidden_operation_notices: HashMap::default(),
+            toast_stack: crate::ui::overlays::toasts::ToastStack::default(),
             recycle_bin_full: None,
             recycle_bin_status_inflight: false,
             recycle_bin_status_checked: false,
             recycle_bin_status_dirty: false,
             recycle_bin_icon_dirty: false,
-            view_selection_pending: Default::default(),
+            view_selection_pending: HashMap::default(),
             tab_reorder_preview: None,
-            view_scroll_pending: Default::default(),
+            view_scroll_pending: HashMap::default(),
             pending_transfers: std::collections::VecDeque::new(),
             pending_pane_zones: std::cell::RefCell::new(Vec::new()),
             goto_input: None,
@@ -711,7 +736,6 @@ impl App {
             theme_editor: None,
             theme_fork_error: None,
             settings_section: 0,
-            settings_font_families: None,
             rename_edit: None,
             batch_input_sub: None,
             content_results: Vec::new(),
@@ -728,8 +752,6 @@ impl App {
             dnd: dnd_opt,
             #[cfg(windows)]
             shell_menu,
-            dropped_in_background: false,
-            sidebar_hit_model: None,
             was_inactive: false,
             inactive_since: None,
             eco_cleared: false,
@@ -741,7 +763,7 @@ impl App {
             ctx_menu: None,
             ctx_menu_seq: 0,
             #[cfg(windows)]
-            ctx_native: Default::default(),
+            ctx_native: crate::ui::shell_context_menu::NativeMenuCache::default(),
             suppress_next_shell_ctx_menu: false,
             type_filter_scroll: gpui::ScrollHandle::new(),
             settings_scroll: gpui::ScrollHandle::new(),
@@ -789,7 +811,7 @@ impl App {
             typed_selection: None,
             #[cfg(windows)]
             win_e_enabled: atlas_win_space::integration::win_e_enabled().unwrap_or(false),
-            preview_delay: Default::default(),
+            preview_delay: crate::ui::preview_delay::PreviewDelay::default(),
             details_column_order: details_prefs.order,
             col_resize: None,
             col_dragging: None,

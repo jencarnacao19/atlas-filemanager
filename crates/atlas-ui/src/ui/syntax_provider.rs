@@ -1,8 +1,8 @@
-use std::ops::Range;
 use anyhow::Result;
 use gpui::{App, Task, Window};
 use gpui_component::input::{DocumentRangeSemanticTokensProvider, Rope, RopeExt};
 use lsp_types::{SemanticToken, SemanticTokenType, SemanticTokens, SemanticTokensLegend};
+use std::ops::Range;
 
 pub struct AtlasSyntaxTokensProvider {
     ext: String,
@@ -18,14 +18,14 @@ impl DocumentRangeSemanticTokensProvider for AtlasSyntaxTokensProvider {
     fn legend(&self) -> SemanticTokensLegend {
         SemanticTokensLegend {
             token_types: vec![
-                SemanticTokenType::KEYWORD,         // 0: keyword
-                SemanticTokenType::TYPE,            // 1: type
-                SemanticTokenType::STRING,          // 2: string
-                SemanticTokenType::NUMBER,          // 3: number
-                SemanticTokenType::COMMENT,         // 4: comment
-                SemanticTokenType::new("preproc"),  // 5: preproc
-                SemanticTokenType::OPERATOR,        // 6: operator
-                SemanticTokenType::VARIABLE,        // 7: variable
+                SemanticTokenType::KEYWORD,        // 0: keyword
+                SemanticTokenType::TYPE,           // 1: type
+                SemanticTokenType::STRING,         // 2: string
+                SemanticTokenType::NUMBER,         // 3: number
+                SemanticTokenType::COMMENT,        // 4: comment
+                SemanticTokenType::new("preproc"), // 5: preproc
+                SemanticTokenType::OPERATOR,       // 6: operator
+                SemanticTokenType::VARIABLE,       // 7: variable
             ],
             token_modifiers: vec![],
         }
@@ -80,7 +80,7 @@ impl DocumentRangeSemanticTokensProvider for AtlasSyntaxTokensProvider {
                     | atlas_core::fs::preview::syntax::TokenKind::LogError => 5,
                     atlas_core::fs::preview::syntax::TokenKind::Symbol => 6,
                     atlas_core::fs::preview::syntax::TokenKind::Identifier => 7,
-                    _ => 7,
+                    atlas_core::fs::preview::syntax::TokenKind::Whitespace => 7,
                 };
 
                 let col_start = tok.range.start as u32;

@@ -11,8 +11,8 @@
 use crate::app::App;
 use crate::ui::inspector::rgba_to_render_image;
 use atlas_model::app_state::BgResult;
-use gpui::{point, px, size, Bounds, Corners, Pixels, Point, RenderImage};
 use gpui::ColorExt as _;
+use gpui::{point, px, size, Bounds, Corners, Pixels, Point, RenderImage};
 use gpui_component::ActiveTheme as _;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -47,23 +47,19 @@ pub(crate) const MAX_EXT_THUMB_INFLIGHT: usize = 8;
 pub(crate) const MAX_NATIVE_THUMB_INFLIGHT: usize = 16;
 
 /// Aspect-fit without upscaling; leave ten percent of the slot height as air.
-pub(crate) fn thumbnail_size(natural_w: f32, natural_h: f32, slot_w: f32, slot_h: f32) -> (f32, f32) {
-    let scale = (slot_w.max(0.0) / natural_w.max(1.0))
-        .min(slot_h.max(0.0) * 0.90 / natural_h.max(1.0)).min(1.0);
-    ((natural_w * scale).round().max(1.0), (natural_h * scale).round().max(1.0))
-}
-
-/// Shared by retained and IMM surfaces: every preview texture (including PDF,
-/// video, RAW and extension previews) gets the same inner one-pixel outline.
-pub(crate) fn paint_thumbnail(
-    window: &mut gpui::Window,
-    cx: &gpui::App,
-    texture: &Arc<RenderImage>,
-    center: Point<Pixels>,
+pub(crate) fn thumbnail_size(
+    natural_w: f32,
+    natural_h: f32,
     slot_w: f32,
     slot_h: f32,
-) {
-    paint_thumbnail_state(window, cx, texture, center, slot_w, slot_h, false);
+) -> (f32, f32) {
+    let scale = (slot_w.max(0.0) / natural_w.max(1.0))
+        .min(slot_h.max(0.0) * 0.90 / natural_h.max(1.0))
+        .min(1.0);
+    (
+        (natural_w * scale).round().max(1.0),
+        (natural_h * scale).round().max(1.0),
+    )
 }
 
 /// Same as [`paint_thumbnail`] with a hover state. The frame is two hairlines so it
@@ -80,11 +76,17 @@ pub(crate) fn paint_thumbnail_state(
     hovered: bool,
 ) {
     let natural = texture.size(0);
-    let (width, height) = thumbnail_size(i32::from(natural.width) as f32,
-        i32::from(natural.height) as f32, slot_w, slot_h);
+    let (width, height) = thumbnail_size(
+        i32::from(natural.width) as f32,
+        i32::from(natural.height) as f32,
+        slot_w,
+        slot_h,
+    );
     let bounds = Bounds {
-        origin: point(px((f32::from(center.x) - width * 0.5).round()),
-            px((f32::from(center.y) - height * 0.5).round())),
+        origin: point(
+            px((f32::from(center.x) - width * 0.5).round()),
+            px((f32::from(center.y) - height * 0.5).round()),
+        ),
         size: size(px(width), px(height)),
     };
     let corners = Corners::all(px(3.0));
@@ -92,7 +94,9 @@ pub(crate) fn paint_thumbnail_state(
     let theme = cx.theme();
     let dark = theme.is_dark();
     let inner = gpui::black().opacity(if dark { 0.35 } else { 0.12 });
-    window.paint_quad(gpui::outline(bounds, inner, Default::default()).corner_radii(corners));
+    window.paint_quad(
+        gpui::outline(bounds, inner, gpui::BorderStyle::default()).corner_radii(corners),
+    );
     let ring_bounds = bounds.dilate(px(1.0));
     let ring = if hovered {
         theme.accent.opacity(if dark { 0.75 } else { 0.65 })
@@ -100,24 +104,16 @@ pub(crate) fn paint_thumbnail_state(
         theme.foreground.opacity(if dark { 0.16 } else { 0.14 })
     };
     window.paint_quad(
-        gpui::outline(ring_bounds, ring, Default::default()).corner_radii(Corners::all(px(4.0))),
+        gpui::outline(ring_bounds, ring, gpui::BorderStyle::default())
+            .corner_radii(Corners::all(px(4.0))),
     );
-}
-
-#[cfg(test)]
-mod geometry_tests {
-    use super::thumbnail_size;
-    #[test]
-    fn landscape_portrait_and_small_previews_keep_their_proportions() {
-        assert_eq!(thumbnail_size(400.0, 200.0, 100.0, 100.0), (100.0, 50.0));
-        assert_eq!(thumbnail_size(200.0, 400.0, 100.0, 100.0), (45.0, 90.0));
-        assert_eq!(thumbnail_size(20.0, 10.0, 100.0, 100.0), (20.0, 10.0));
-    }
 }
 
 impl App {
     pub(crate) fn request_recycle_bin_status(&mut self, refresh: bool) {
-        if !refresh && self.recycle_bin_status_checked { return; }
+        if !refresh && self.recycle_bin_status_checked {
+            return;
+        }
         if self.recycle_bin_status_inflight {
             self.recycle_bin_status_dirty |= refresh;
             return;
@@ -127,10 +123,17 @@ impl App {
         self.rt.spawn(async move {
             let full = tokio::task::spawn_blocking(|| {
                 #[cfg(windows)]
-                { crate::shell_thumb::recycle_bin_contains_items() }
+                {
+                    crate::shell_thumb::recycle_bin_contains_items()
+                }
                 #[cfg(not(windows))]
-                { atlas_core::fs::recycle_bin::contains_items() }
-            }).await.ok().flatten();
+                {
+                    atlas_core::fs::recycle_bin::contains_items()
+                }
+            })
+            .await
+            .ok()
+            .flatten();
             let _ = tx.send(BgResult::RecycleBinStatus(full));
         });
     }
@@ -159,7 +162,10 @@ impl App {
 
     #[cfg(target_os = "windows")]
     pub(crate) fn shell_folder_icon(&self) -> Option<Arc<crate::icon_theme::MultiResIcon>> {
-        self.shell_icons.get(&Self::shell_folder_icon_key()).cloned().flatten()
+        self.shell_icons
+            .get(&Self::shell_folder_icon_key())
+            .cloned()
+            .flatten()
     }
 
     #[cfg(target_os = "windows")]
@@ -169,9 +175,8 @@ impl App {
 
     #[cfg(target_os = "windows")]
     pub(crate) fn request_shell_folder_icon(&mut self) {
-        let folder = std::env::var_os("WINDIR")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
+        let folder =
+            std::env::var_os("WINDIR").map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from);
         self.request_shell_icon_tiers(Self::shell_folder_icon_key(), folder, false);
     }
 
@@ -182,7 +187,9 @@ impl App {
         /// Max cached per-file icons (exe/lnk/…); oldest are evicted.
         const MAX_PER_PATH_ICONS: usize = 512;
         if self.shell_icons.contains_key(&key)
-            || self.shell_icon_inflight.load(std::sync::atomic::Ordering::Relaxed)
+            || self
+                .shell_icon_inflight
+                .load(std::sync::atomic::Ordering::Relaxed)
                 >= MAX_SHELL_ICON_INFLIGHT
         {
             return;
@@ -248,7 +255,12 @@ impl App {
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_ascii_lowercase();
-        if ext.is_empty() || matches!(ext.as_str(), "exe" | "lnk" | "ico" | "scr" | "url" | "cur" | "msi") {
+        if ext.is_empty()
+            || matches!(
+                ext.as_str(),
+                "exe" | "lnk" | "ico" | "scr" | "url" | "cur" | "msi"
+            )
+        {
             PathBuf::from(format!("__atlas_shell_icon__{}", path.display()))
         } else {
             PathBuf::from(format!("__atlas_shell_icon__.{ext}"))
@@ -260,13 +272,17 @@ impl App {
         &self,
         path: &std::path::Path,
     ) -> Option<Arc<crate::icon_theme::MultiResIcon>> {
-        self.shell_icons.get(&Self::shell_type_icon_key(path)).cloned().flatten()
+        self.shell_icons
+            .get(&Self::shell_type_icon_key(path))
+            .cloned()
+            .flatten()
     }
 
     #[cfg(target_os = "windows")]
     pub(crate) fn request_shell_type_icon(&mut self, path: &std::path::Path) {
         let key = Self::shell_type_icon_key(path);
-        let per_path = key.to_string_lossy().starts_with("__atlas_shell_icon__") && !key.to_string_lossy().starts_with("__atlas_shell_icon__.");
+        let per_path = key.to_string_lossy().starts_with("__atlas_shell_icon__")
+            && !key.to_string_lossy().starts_with("__atlas_shell_icon__.");
         self.request_shell_icon_tiers(key, path.to_path_buf(), per_path);
     }
 
@@ -342,7 +358,7 @@ impl App {
             if let Ok(bg) = tokio::task::spawn_blocking(move || {
                 if !wanted
                     .lock()
-                    .unwrap_or_else(|p| p.into_inner())
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .contains(&path)
                 {
                     return BgResult::GridThumbnailSkipped { path };
@@ -375,7 +391,9 @@ impl App {
         run_tmpl: String,
         tools: HashMap<String, PathBuf>,
     ) {
-        if atlas_core::vault::live::is_private(path) { return; }
+        if atlas_core::vault::live::is_private(path) {
+            return;
+        }
         if self.thumb_textures.contains_key(path)
             || self.ext_thumb_inflight.len() >= MAX_EXT_THUMB_INFLIGHT
         {
@@ -391,7 +409,7 @@ impl App {
             let report = path.clone();
             if !wanted
                 .lock()
-                .unwrap_or_else(|p| p.into_inner())
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .contains(&path)
             {
                 let _ = tx.send(BgResult::GridThumbnailSkipped { path: report });
@@ -399,16 +417,20 @@ impl App {
             }
             let wanted_check = wanted.clone();
             let result = tokio::task::spawn_blocking(move || {
-                if atlas_core::fs::preview::is_cloud_placeholder(&path) { return Ok(None); }
+                if atlas_core::fs::preview::is_cloud_placeholder(&path) {
+                    return Ok(None);
+                }
                 if !wanted_check
                     .lock()
-                    .unwrap_or_else(|p| p.into_inner())
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .contains(&path)
                 {
                     return Err(());
                 }
                 #[cfg(target_os = "linux")]
-                if let Some(thumb) = atlas_core::fs::preview::freedesktop_thumbnail(&path, THUMB_MAX_EDGE) {
+                if let Some(thumb) =
+                    atlas_core::fs::preview::freedesktop_thumbnail(&path, THUMB_MAX_EDGE)
+                {
                     return Ok(Some(thumb));
                 }
                 let thumb = atlas_core::ext::runner::run_thumbnail(
@@ -467,7 +489,9 @@ impl App {
         allow_icon: bool,
         visible_only: bool,
     ) {
-        if atlas_core::vault::live::is_private(path) { return; }
+        if atlas_core::vault::live::is_private(path) {
+            return;
+        }
         if self.thumb_textures.contains_key(path)
             || self.ext_thumb_inflight.len() >= MAX_EXT_THUMB_INFLIGHT
         {
@@ -484,7 +508,7 @@ impl App {
             if visible_only
                 && !wanted
                     .lock()
-                    .unwrap_or_else(|p| p.into_inner())
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .contains(&path)
             {
                 let _ = tx.send(BgResult::GridThumbnailSkipped { path: report });
@@ -495,7 +519,7 @@ impl App {
                 if visible_only
                     && !wanted_check
                         .lock()
-                        .unwrap_or_else(|p| p.into_inner())
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
                         .contains(&path)
                 {
                     return Err(());
@@ -532,7 +556,7 @@ impl App {
     /// Look up an already-decoded thumbnail texture for `path`, if ready.
     pub(crate) fn grid_thumbnail(&self, path: &std::path::Path) -> Option<Arc<RenderImage>> {
         match self.thumb_textures.get(path) {
-            Some(ThumbState::Ready(tex)) => Some(tex.clone()),
+            Some(ThumbState::Ready(tex)) => Some(tex),
             _ => None,
         }
     }
@@ -565,9 +589,16 @@ impl App {
 
 /// Decode `path` and box-resize so its longest edge is `max_edge`, returning packed
 /// RGBA8. Returns an empty vec on any failure (cached as a permanent miss).
+// reason: only called from the background thumbnail worker.
+#[allow(clippy::disallowed_methods)]
 fn decode_thumbnail(path: &std::path::Path, max_edge: u32) -> BgResult {
     if atlas_core::fs::preview::is_cloud_placeholder(path) {
-        return BgResult::GridThumbnailReady { path: path.to_path_buf(), rgba: Vec::new(), width: 0, height: 0 };
+        return BgResult::GridThumbnailReady {
+            path: path.to_path_buf(),
+            rgba: Vec::new(),
+            width: 0,
+            height: 0,
+        };
     }
     if let Ok(meta) = std::fs::metadata(path) {
         if meta.len() == 0 {
@@ -601,9 +632,7 @@ fn decode_thumbnail(path: &std::path::Path, max_edge: u32) -> BgResult {
     };
 
     #[cfg(target_os = "linux")]
-    let result = result.or_else(|| {
-        atlas_core::fs::preview::freedesktop_thumbnail(path, max_edge)
-    });
+    let result = result.or_else(|| atlas_core::fs::preview::freedesktop_thumbnail(path, max_edge));
 
     match result {
         Some((rgba, width, height)) => BgResult::GridThumbnailReady {
@@ -618,5 +647,16 @@ fn decode_thumbnail(path: &std::path::Path, max_edge: u32) -> BgResult {
             width: 0,
             height: 0,
         },
+    }
+}
+
+#[cfg(test)]
+mod geometry_tests {
+    use super::thumbnail_size;
+    #[test]
+    fn landscape_portrait_and_small_previews_keep_their_proportions() {
+        assert_eq!(thumbnail_size(400.0, 200.0, 100.0, 100.0), (100.0, 50.0));
+        assert_eq!(thumbnail_size(200.0, 400.0, 100.0, 100.0), (45.0, 90.0));
+        assert_eq!(thumbnail_size(20.0, 10.0, 100.0, 100.0), (20.0, 10.0));
     }
 }

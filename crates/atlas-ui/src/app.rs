@@ -43,7 +43,8 @@ pub struct App {
     pub(crate) startup_first_render_logged: bool,
     pub(crate) close_after_tab_transfer: bool,
     #[cfg(windows)]
-    pub(crate) pending_tab_restore: Option<(TileId, crate::dnd::windows::ole_clipboard::TabTransfer)>,
+    pub(crate) pending_tab_restore:
+        Option<(TileId, crate::dnd::windows::ole_clipboard::TabTransfer)>,
     pub(crate) tx: flume::Sender<BgResult>,
     pub(crate) rx: flume::Receiver<BgResult>,
     pub(crate) rt: tokio::runtime::Handle,
@@ -92,6 +93,8 @@ pub struct App {
     pub(crate) pane_zoom_sliders: HashMap<TileId, Entity<gpui_component::slider::SliderState>>,
     pub(crate) pane_zoom_slider_subs: HashMap<TileId, gpui::Subscription>,
     /// View-selector popovers whose open state must survive switching render trees.
+    // reason: tracked in every build but only read by the ui-lab diagnostics.
+    #[cfg_attr(not(feature = "ui-lab"), allow(dead_code))]
     pub(crate) open_view_selectors: HashSet<TileId>,
     /// Runtime extension registry. Kept out of `AppState` because loading it scans
     /// extension folders and PATH.
@@ -113,7 +116,11 @@ pub struct App {
     /// field lists expanded folders still waiting for their children.
     pub(crate) tree_rows_cache: HashMap<
         TileId,
-        (u64, std::sync::Arc<[(atlas_model::file_entry::FileEntry, usize, bool, bool)]>, Vec<PathBuf>),
+        (
+            u64,
+            std::sync::Arc<[(atlas_model::file_entry::FileEntry, usize, bool, bool)]>,
+            Vec<PathBuf>,
+        ),
     >,
     // Selectable code/text preview editors per tab. Keyed by path/content so the
     // inspector can preserve selection while rendering read-only preview text.
@@ -144,10 +151,19 @@ pub struct App {
     pub(crate) batch_rename_field: BatchRenameField,
     // UI-side cache of downscaled grid thumbnails, keyed by file path.
     pub(crate) thumb_textures: crate::ui::thumbnail_cache::ThumbnailCache,
+    // reason: filled everywhere but only read by the Windows shell-icon path.
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub(crate) shell_icon_inflight: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    // reason: filled everywhere but only read by the Windows shell-icon path.
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub(crate) shell_icon_lru: std::collections::VecDeque<std::path::PathBuf>,
     /// Windows Shell file-type / folder icons (multi-resolution). `None` = requested.
-    pub(crate) shell_icons: std::collections::HashMap<std::path::PathBuf, Option<std::sync::Arc<crate::icon_theme::MultiResIcon>>>,
+    // reason: filled everywhere but only read by the Windows shell-icon path.
+    #[cfg_attr(not(windows), allow(dead_code))]
+    pub(crate) shell_icons: std::collections::HashMap<
+        std::path::PathBuf,
+        Option<std::sync::Arc<crate::icon_theme::MultiResIcon>>,
+    >,
     // Paths with an in-flight *extension* thumbnailer process. Caps how many
     // external processes (ffmpeg/magick) run at once so a big folder can't spawn
     // hundreds. Native image decodes are CPU-only and not throttled here.
@@ -261,13 +277,8 @@ pub struct App {
     pub(crate) details_row_texts: crate::ui::views::details_ring::DetailsRowTextCache,
     pub(crate) grid_hit: HashMap<TileId, GridHitModel>,
     pub(crate) grid_hover: Option<(TileId, usize)>,
-    /// Cross-pane cold cache; hot reuse remains in each Grid surface's local ring.
-    pub(crate) file_surface_shapes: crate::ui::views::grid_surface_element_deprecated::FileSurfaceShapeCache,
     pub(crate) list_hit: HashMap<TileId, GridHitModel>,
     pub(crate) list_hover: Option<(TileId, usize)>,
-    pub(crate) grid_flip_states: std::rc::Rc<
-        std::cell::RefCell<std::collections::HashMap<atlas_model::pane::TabId, GridFlipState>>,
-    >,
     pub(crate) details_hover: Option<(TileId, usize)>,
     pub(crate) miller_column_bounds: HashMap<(TileId, usize), gpui::Bounds<gpui::Pixels>>,
     pub(crate) dropzone_selection: atlas_model::tab::SelectionState<PathBuf>,
@@ -276,13 +287,17 @@ pub struct App {
     pub(crate) dropzone_drag_paths: HashSet<PathBuf>,
     pub(crate) dropzone_pending_tags: HashMap<PathBuf, atlas_model::tag_cache::TagId>,
     pub(crate) pending_transfers: std::collections::VecDeque<atlas_model::ops::TransferRequest>,
-    pub(crate) operation_feedback: std::cell::RefCell<crate::ui::operation_feedback::OperationFeedback>,
-    pub(crate) hidden_operation_notices: HashMap<TileId, crate::ui::operation_feedback::HiddenResultNotice>,
+    pub(crate) operation_feedback:
+        std::cell::RefCell<crate::ui::operation_feedback::OperationFeedback>,
+    pub(crate) hidden_operation_notices:
+        HashMap<TileId, crate::ui::operation_feedback::HiddenResultNotice>,
     pub(crate) toast_stack: crate::ui::overlays::toasts::ToastStack,
     pub(crate) recycle_bin_full: Option<bool>,
     pub(crate) recycle_bin_status_inflight: bool,
     pub(crate) recycle_bin_status_checked: bool,
     pub(crate) recycle_bin_status_dirty: bool,
+    // reason: filled everywhere but only read by the Windows shell-icon path.
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub(crate) recycle_bin_icon_dirty: bool,
     pub(crate) view_selection_pending: HashMap<TileId, crate::ui::view_continuity::ViewSelection>,
     pub(crate) tab_reorder_preview: Option<crate::ui::tab_reorder::TabReorderPreview>,
@@ -313,9 +328,6 @@ pub struct App {
     pub(crate) theme_editor: Option<crate::ui::theme_editor::ThemeEditor>,
     pub(crate) theme_fork_error: Option<String>,
     pub(crate) settings_section: usize,
-    /// System font families are relatively expensive to enumerate, so cache
-    /// them after settings first opens.
-    pub(crate) settings_font_families: Option<std::sync::Arc<Vec<gpui::SharedString>>>,
     pub(crate) ext_manager_input: Option<Entity<InputState>>,
     /// Native inputs for the parameters of the pending extension command.
     pub(crate) ext_prompt_inputs: Vec<Entity<InputState>>,
@@ -365,16 +377,11 @@ pub struct App {
     // (Open with, Send to, 7-Zip, Properties, …). `None` if the worker failed.
     #[cfg(windows)]
     pub(crate) shell_menu: Option<crate::shell_menu::ShellMenuHandle>,
-    // Open right-click menu state: Atlas items + (Windows) native shell items.
-    // `None` when closed. Cross-platform; on non-Windows only Atlas items show.
-    pub(crate) dropped_in_background: bool,
-
-    // Sidebar interaction model for monolithic custom element rendering
-    pub(crate) sidebar_hit_model: Option<SidebarHitModel>,
-
     pub(crate) was_inactive: bool,
     pub(crate) inactive_since: Option<Instant>,
     pub(crate) eco_cleared: bool,
+    // Open right-click menu state: Atlas items + (Windows) native shell items.
+    // `None` when closed. Cross-platform; on non-Windows only Atlas items show.
     pub(crate) ctx_menu: Option<crate::ui::shell_context_menu::CtxMenuState>,
     // Monotonic id: stale `Built` events from a previous open are ignored.
     pub(crate) ctx_menu_seq: u64,
@@ -413,7 +420,8 @@ pub struct App {
     /// Per-pane active size-category filters for the Details view.
     /// Empty set = no filter.
     pub(crate) size_filters: HashMap<TileId, HashSet<crate::ui::size_filter_menu::SizeFilter>>,
-    pub(crate) file_filter_projections: HashMap<TileId, crate::ui::file_filter::FileFilterProjection>,
+    pub(crate) file_filter_projections:
+        HashMap<TileId, crate::ui::file_filter::FileFilterProjection>,
     // ── Details type-filter overlay ───────────────────────────────────────
     /// State for the open type-filter overlay. `None` when closed.
     pub(crate) type_filter_menu: Option<crate::ui::type_filter_menu::TypeFilterMenuState>,
@@ -569,9 +577,12 @@ impl DockSplitAnimation {
                 *share *= scale;
             }
             from.insert(inserted_ix, start);
-            from_gap_factors.insert(inserted_ix.saturating_sub(1).min(from_gap_factors.len()), 0.0);
+            from_gap_factors.insert(
+                inserted_ix.saturating_sub(1).min(from_gap_factors.len()),
+                0.0,
+            );
         } else {
-            from = to.clone();
+            from.clone_from(&to);
             from_gap_factors = Self::gap_targets(&from);
         }
         normalize_split_shares_allow_zero(&mut from);
@@ -586,6 +597,7 @@ impl DockSplitAnimation {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn closing(from: Vec<f32>, closing_ix: usize) -> Self {
         Self::closing_many(from, &[closing_ix])
     }
@@ -632,9 +644,13 @@ impl DockSplitAnimation {
                 let adjacent = ix.min(gaps.len() - 1);
                 // A run of closing panes must collapse one distinct gap each.
                 // In particular, the last two slots share the same adjacent gap.
-                let gap_ix = (0..=adjacent).rev().chain(adjacent + 1..gaps.len())
+                let gap_ix = (0..=adjacent)
+                    .rev()
+                    .chain(adjacent + 1..gaps.len())
                     .find(|gap| gaps[*gap] != 0.0);
-                if let Some(gap_ix) = gap_ix { gaps[gap_ix] = 0.0; }
+                if let Some(gap_ix) = gap_ix {
+                    gaps[gap_ix] = 0.0;
+                }
             }
         }
         gaps
@@ -642,8 +658,11 @@ impl DockSplitAnimation {
 
     pub(crate) fn gap_factors(&self) -> Vec<f32> {
         let progress = self.progress();
-        self.from_gap_factors.iter().zip(Self::gap_targets(&self.to))
-            .map(|(from, to)| from + (to - from) * progress).collect()
+        self.from_gap_factors
+            .iter()
+            .zip(Self::gap_targets(&self.to))
+            .map(|(from, to)| from + (to - from) * progress)
+            .collect()
     }
 
     /// Visual progress for paint-only FLIP. Layout uses `to` immediately; only
@@ -653,8 +672,7 @@ impl DockSplitAnimation {
         if duration.is_zero() {
             return 1.0;
         }
-        let t =
-            (self.started.elapsed().as_secs_f32() / duration.as_secs_f32()).clamp(0.0, 1.0);
+        let t = (self.started.elapsed().as_secs_f32() / duration.as_secs_f32()).clamp(0.0, 1.0);
         if self.closing {
             Self::closing_progress(t)
         } else {
@@ -672,23 +690,31 @@ impl DockSplitAnimation {
 
     pub(crate) fn retarget_close_deadline(&mut self, previous: &Self) {
         if self.closing && previous.closing && !previous.done() {
-            self.close_duration = Some(previous.duration()
-                .saturating_sub(previous.started.elapsed())
-                .max(Duration::from_millis(32)));
+            self.close_duration = Some(
+                previous
+                    .duration()
+                    .saturating_sub(previous.started.elapsed())
+                    .max(Duration::from_millis(32)),
+            );
         }
     }
 
     /// Rebase a live transition when an already covered pane is removed. The
     /// remaining geometry and dividers start at their current painted extents.
     pub(crate) fn remove_child(&mut self, ix: usize) {
-        if ix >= self.to.len() { return; }
+        if ix >= self.to.len() {
+            return;
+        }
         let remaining = self.duration().saturating_sub(self.started.elapsed());
         let mut shares = self.shares();
         let mut gaps = self.gap_factors();
         if !gaps.is_empty() {
             let adjacent = ix.min(gaps.len() - 1);
-            let gap = (0..=adjacent).rev().chain(adjacent + 1..gaps.len())
-                .find(|gap| gaps[*gap] <= f32::EPSILON).unwrap_or(adjacent);
+            let gap = (0..=adjacent)
+                .rev()
+                .chain(adjacent + 1..gaps.len())
+                .find(|gap| gaps[*gap] <= f32::EPSILON)
+                .unwrap_or(adjacent);
             gaps.remove(gap);
         }
         shares.remove(ix);
@@ -699,7 +725,9 @@ impl DockSplitAnimation {
         self.from_gap_factors = gaps;
         self.closing_ix = self.to.iter().position(|share| *share == 0.0);
         self.started = Instant::now();
-        if self.closing { self.close_duration = Some(remaining); }
+        if self.closing {
+            self.close_duration = Some(remaining);
+        }
     }
 
     /// Progress used by both the closing split geometry and its visual treatment.
@@ -765,14 +793,6 @@ pub(crate) fn normalize_split_shares_allow_zero(shares: &mut [f32]) {
     }
 }
 
-fn split_spring(t: f32) -> f32 {
-    let omega: f32 = 22.0;
-    let zeta: f32 = 0.68;
-    let wd = omega * (1.0 - zeta * zeta).sqrt();
-    let e = (-zeta * omega * t).exp();
-    1.0 - e * ((wd * t).cos() + (zeta * omega / wd) * (wd * t).sin())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -806,14 +826,18 @@ mod tests {
         let mut opening = DockSplitAnimation::new(vec![1.0, 1.0], 1);
         assert_eq!(opening.from[1], 0.0);
         assert!(opening.from[0] > 0.0);
-        opening.started = Instant::now() - DockSplitAnimation::DURATION;
+        opening.started = Instant::now()
+            .checked_sub(DockSplitAnimation::DURATION)
+            .unwrap();
         assert!(opening.done());
         assert_eq!(opening.progress(), 1.0);
         assert_eq!(opening.shares(), opening.to);
 
         let mut closing = DockSplitAnimation::closing(vec![1.0, 1.0], 1);
         assert!(closing.duration() < opening.duration());
-        closing.started = Instant::now() - DockSplitAnimation::CLOSE_DURATION;
+        closing.started = Instant::now()
+            .checked_sub(DockSplitAnimation::CLOSE_DURATION)
+            .unwrap();
         assert!(closing.done());
         assert_eq!(closing.shares()[1], 0.0);
         let mut previous = 0.0;
@@ -875,7 +899,9 @@ mod tests {
         closing.from_gap_factors = vec![1.0, 0.4, 0.7];
         closing.started = Instant::now() + Duration::from_secs(1);
         assert_eq!(closing.gap_factors(), vec![1.0, 0.4, 0.7]);
-        closing.started = Instant::now() - DockSplitAnimation::CLOSE_DURATION;
+        closing.started = Instant::now()
+            .checked_sub(DockSplitAnimation::CLOSE_DURATION)
+            .unwrap();
         assert_eq!(closing.gap_factors(), vec![1.0, 0.0, 0.0]);
     }
 
@@ -883,13 +909,18 @@ mod tests {
     fn middle_split_adds_exactly_one_zero_width_divider() {
         let opening = DockSplitAnimation::opening(vec![1.0, 1.0], vec![1.0, 1.0, 1.0], 1);
         assert_eq!(opening.from_gap_factors, vec![0.0, 1.0]);
-        assert_eq!(DockSplitAnimation::gap_targets(&[0.0, 0.0, 1.0, 1.0]), vec![0.0, 0.0, 1.0]);
+        assert_eq!(
+            DockSplitAnimation::gap_targets(&[0.0, 0.0, 1.0, 1.0]),
+            vec![0.0, 0.0, 1.0]
+        );
     }
 
     #[test]
     fn close_bursts_keep_a_bounded_deadline() {
         let mut previous = DockSplitAnimation::closing(vec![1.0, 1.0, 1.0], 2);
-        previous.started = Instant::now() - Duration::from_millis(100);
+        previous.started = Instant::now()
+            .checked_sub(Duration::from_millis(100))
+            .unwrap();
         let mut next = DockSplitAnimation::closing_many(previous.shares(), &[1, 2]);
         next.retarget_close_deadline(&previous);
         assert!(next.duration() <= Duration::from_millis(80));
@@ -943,7 +974,7 @@ mod tests {
             start_idx: 0,
             end_idx: 4,
             total_count: 4,
-            bands: Default::default(),
+            bands: atlas_model::grouping::RowBands::default(),
         };
 
         assert_eq!(
@@ -968,13 +999,27 @@ mod tests {
         let model = GridHitModel {
             presented: vec![(0, a), (1, b)],
             bounds: Bounds::new(point(px(10.0), px(20.0)), size(px(300.0), px(200.0))),
-            pad_x: 0.0, pad_y: 0.0, scroll_x: 0.0, scroll_y: 30.0, cell_w: 100.0, cell_h: 80.0,
-            cols: 2, major_rows: 0, pitch_y: 110.0, pitch_x: 110.0,
-            visible: std::sync::Arc::new(vec![4, 5]), start_idx: 0, end_idx: 2, total_count: 2,
-            bands: Default::default(),
+            pad_x: 0.0,
+            pad_y: 0.0,
+            scroll_x: 0.0,
+            scroll_y: 30.0,
+            cell_w: 100.0,
+            cell_h: 80.0,
+            cols: 2,
+            major_rows: 0,
+            pitch_y: 110.0,
+            pitch_x: 110.0,
+            visible: std::sync::Arc::new(vec![4, 5]),
+            start_idx: 0,
+            end_idx: 2,
+            total_count: 2,
+            bands: atlas_model::grouping::RowBands::default(),
         };
         assert_eq!(model.hit_entry(point(px(150.0), px(50.0))), Some(5));
-        assert_eq!(model.hit_entry_at_content_offset(point(px(140.0), px(60.0))), Some(5));
+        assert_eq!(
+            model.hit_entry_at_content_offset(point(px(140.0), px(60.0))),
+            Some(5)
+        );
         assert_eq!(model.hit_entry(point(px(210.0), px(50.0))), Some(4));
         assert_eq!(model.hit_entry(point(px(20.0), px(50.0))), None);
         assert_eq!(model.cell_bounds(0), a);
@@ -999,22 +1044,42 @@ pub(crate) struct ColWidths {
 
 impl ColWidths {
     pub(crate) fn projected(self, available: f32) -> Self {
-        let factor = self.reference_width
+        let factor = self
+            .reference_width
             .filter(|width| width.is_finite() && *width > 0.0)
             .map_or(1.0, |width| available.max(0.0) / width);
-        Self { name: self.name * factor, size: self.size * factor,
-            modified: self.modified * factor, type_w: self.type_w * factor,
-            reference_width: None }
+        Self {
+            name: self.name * factor,
+            size: self.size * factor,
+            modified: self.modified * factor,
+            type_w: self.type_w * factor,
+            reference_width: None,
+        }
     }
 
     pub(crate) fn resize(&mut self, column: &str, pixels: f32, available: f32) {
-        if !available.is_finite() || available <= 0.0 { return; }
-        let index = match column { "name" => 0, "size" => 1, "modified" => 2, "type" => 3, _ => return };
+        if !available.is_finite() || available <= 0.0 {
+            return;
+        }
+        let index = match column {
+            "name" => 0,
+            "size" => 1,
+            "modified" => 2,
+            "type" => 3,
+            _ => return,
+        };
         let projected = self.projected(available);
-        let mut values = [projected.name, projected.size, projected.modified, projected.type_w];
+        let mut values = [
+            projected.name,
+            projected.size,
+            projected.modified,
+            projected.type_w,
+        ];
         let total: f32 = values.iter().sum();
         if total > 0.0 {
-            for value in &mut values { *value *= available / total; }
+            for value in &mut values {
+                *value *= available / total;
+            }
         }
         let neighbor = if index < 3 { index + 1 } else { index - 1 };
         let combined = values[index] + values[neighbor];
@@ -1023,8 +1088,10 @@ impl ColWidths {
         let maximum = (combined - minima[neighbor]).max(minimum);
         values[index] = pixels.clamp(minimum, maximum);
         values[neighbor] = combined - values[index];
-        self.name = values[0]; self.size = values[1];
-        self.modified = values[2]; self.type_w = values[3];
+        self.name = values[0];
+        self.size = values[1];
+        self.modified = values[2];
+        self.type_w = values[3];
         self.reference_width = Some(available);
     }
 }
@@ -1208,36 +1275,6 @@ pub struct RubberDrag {
     pub(crate) last_scroll_frame: Option<std::time::Instant>,
 }
 
-#[derive(Clone, Debug)]
-pub(crate) enum SidebarHit {
-    SectionHeader(usize),
-    NavRow(std::path::PathBuf),
-    VirtualNavRow(atlas_model::location::Location),
-    TagRow(atlas_model::tag_cache::TagId),
-    DriveRow(std::path::PathBuf),
-    CloudRow(std::path::PathBuf),
-}
-
-#[derive(Clone, Default)]
-pub(crate) struct SidebarHitModel {
-    pub(crate) bounds: gpui::Bounds<gpui::Pixels>,
-    pub(crate) zones: Vec<(gpui::Bounds<gpui::Pixels>, SidebarHit)>,
-}
-
-impl SidebarHitModel {
-    pub(crate) fn hit(&self, pos: gpui::Point<gpui::Pixels>) -> Option<SidebarHit> {
-        if !self.bounds.contains(&pos) {
-            return None;
-        }
-        for (rect, hit) in &self.zones {
-            if rect.contains(&pos) {
-                return Some(hit.clone());
-            }
-        }
-        None
-    }
-}
-
 #[derive(Clone)]
 pub(crate) struct DetailsHitModel {
     pub(crate) bounds: gpui::Bounds<gpui::Pixels>,
@@ -1261,7 +1298,10 @@ impl DetailsHitModel {
             return None;
         }
         if !self.presented_rows.is_empty() {
-            return self.presented_rows.iter().rev()
+            return self
+                .presented_rows
+                .iter()
+                .rev()
                 .find(|(_, top)| y >= *top && y < *top + self.row_h)
                 .map(|(row, _)| *row);
         }
@@ -1273,8 +1313,12 @@ impl DetailsHitModel {
     }
 
     pub(crate) fn hit_entry(&self, pos: gpui::Point<gpui::Pixels>) -> Option<usize> {
-        self.hit_visible_pos(pos)
-            .and_then(|visible_pos| self.visible.get(visible_pos).copied().filter(|cell| !atlas_model::grouping::is_virtual_cell(*cell)))
+        self.hit_visible_pos(pos).and_then(|visible_pos| {
+            self.visible
+                .get(visible_pos)
+                .copied()
+                .filter(|cell| !atlas_model::grouping::is_virtual_cell(*cell))
+        })
     }
 
     pub(crate) fn hit_entry_at_content_offset(
@@ -1286,18 +1330,34 @@ impl DetailsHitModel {
             return None;
         }
         if !self.presented_rows.is_empty() {
-            return self.presented_rows.iter().rev()
+            return self
+                .presented_rows
+                .iter()
+                .rev()
                 .find(|(_, top)| y >= *top && y < *top + self.row_h)
-                .and_then(|(row, _)| self.visible.get(*row).copied().filter(|cell| !atlas_model::grouping::is_virtual_cell(*cell)));
+                .and_then(|(row, _)| {
+                    self.visible
+                        .get(*row)
+                        .copied()
+                        .filter(|cell| !atlas_model::grouping::is_virtual_cell(*cell))
+                });
         }
         let visible_pos = (y / self.row_h).floor() as usize;
         (visible_pos < self.total_count)
             .then_some(visible_pos)
-            .and_then(|visible_pos| self.visible.get(visible_pos).copied().filter(|cell| !atlas_model::grouping::is_virtual_cell(*cell)))
+            .and_then(|visible_pos| {
+                self.visible
+                    .get(visible_pos)
+                    .copied()
+                    .filter(|cell| !atlas_model::grouping::is_virtual_cell(*cell))
+            })
     }
 
     pub(crate) fn row_bounds(&self, visible_pos: usize) -> gpui::Bounds<gpui::Pixels> {
-        let y = self.presented_rows.iter().find(|(row, _)| *row == visible_pos)
+        let y = self
+            .presented_rows
+            .iter()
+            .find(|(row, _)| *row == visible_pos)
             .map_or(visible_pos as f32 * self.row_h, |(_, y)| *y);
         gpui::Bounds {
             origin: gpui::point(
@@ -1538,7 +1598,7 @@ impl App {
         let root = self
             .state
             .active_tab_data()
-            .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+            .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
             .unwrap_or_else(|| dirs::home_dir().unwrap_or_default());
         let cancel = Arc::new(AtomicBool::new(false));
         self.content_cancel = Some(cancel.clone());
@@ -1630,10 +1690,12 @@ impl App {
     ///
     /// No-op on non-Windows (OLE drag-and-drop not used; field always empty).
     pub(crate) fn push_pane_zone(&self, pane_id: TileId, bounds: gpui::Bounds<gpui::Pixels>) {
+        #[cfg(not(windows))]
+        let _ = (pane_id, bounds);
         #[cfg(windows)]
         if let Some(dest) = self
             .tab_data_for(pane_id)
-            .and_then(|t| t.location.fs_dir().map(|p| p.to_path_buf()))
+            .and_then(|t| t.location.fs_dir().map(std::path::Path::to_path_buf))
         {
             crate::perf::count("dnd.pending_zone_push");
             self.pending_pane_zones
@@ -1678,14 +1740,17 @@ impl App {
         }
         // Tree selection indexes visible tree rows, not the flat listing; mapping
         // it through `entries` would act on the wrong files once a folder is open.
-        let mode = self.tab_data_for(pane).map(|tab| tab.view_mode.clone()).unwrap_or_default();
+        let mode = self
+            .tab_data_for(pane)
+            .map(|tab| tab.view_mode.clone())
+            .unwrap_or_default();
         self.state
             .tab_states
             .get(&pane)
             .map(|tab| {
                 tab.selected_entries(&mode)
                     .into_iter()
-                    .map(|entry| entry.path())
+                    .map(atlas_model::file_entry::FileEntry::path)
                     .collect()
             })
             .unwrap_or_default()
@@ -1737,14 +1802,23 @@ impl App {
         // every file view scrolls with the same feel. Cheap; runs per render.
         let (ease, boost) = scroll_smooth_params(self.state.settings.scroll_smoothness);
         handle.0.borrow().base_handle.set_smooth(ease, boost);
-        handle.0.borrow().base_handle.set_bottom_scroll_margin(self.state.settings.scroll_overscroll_fraction());
+        handle
+            .0
+            .borrow()
+            .base_handle
+            .set_bottom_scroll_margin(self.state.settings.scroll_overscroll_fraction());
     }
 
     /// Move the keyboard cursor within the focused tab's visible list. `target`
     /// maps `(current_pos, len)` to the new visible position. `extend` grows the
     /// selection from the anchor (Shift); `cursor_only` moves the cursor without
     /// changing `selected` (Ctrl+arrows); otherwise it becomes a single selection.
-    fn nav_apply(&mut self, target: impl Fn(usize, usize) -> usize, extend: bool, cursor_only: bool) {
+    fn nav_apply(
+        &mut self,
+        target: impl Fn(usize, usize) -> usize,
+        extend: bool,
+        cursor_only: bool,
+    ) {
         // Miller and Tree share the selection model in their own visible index space.
         if self.miller_nav_apply(&target, extend, cursor_only) {
             return;
@@ -1770,7 +1844,8 @@ impl App {
                 .unwrap_or(0);
             let np = target(cur, len).min(len - 1);
             let next_idx = visible[np];
-            ts.selection.navigate(next_idx, &visible, extend, cursor_only, column_rows);
+            ts.selection
+                .navigate(next_idx, &visible, extend, cursor_only, column_rows);
         };
     }
 
@@ -1779,7 +1854,11 @@ impl App {
         let tab = self.tab_data_for(tile)?;
         (tab.view_mode == atlas_model::settings::ViewMode::Grid
             && tab.group_by != atlas_model::tab::GroupBy::None)
-            .then(|| self.grid_hit.get(&tile).map_or(1, |model| model.cols.max(1)))
+            .then(|| {
+                self.grid_hit
+                    .get(&tile)
+                    .map_or(1, |model| model.cols.max(1))
+            })
     }
 
     /// Cells a horizontal arrow moves in a grouped List (one column).
@@ -1787,7 +1866,11 @@ impl App {
         let tab = self.tab_data_for(tile)?;
         (tab.view_mode == atlas_model::settings::ViewMode::List
             && tab.group_by != atlas_model::tab::GroupBy::None)
-            .then(|| self.list_hit.get(&tile).map_or(1, |model| model.major_rows.max(1)))
+            .then(|| {
+                self.list_hit
+                    .get(&tile)
+                    .map_or(1, |model| model.major_rows.max(1))
+            })
     }
 
     /// Move the cursor by `delta` cells of the grouped layout, hopping over headers
@@ -1805,10 +1888,13 @@ impl App {
             .and_then(|index| cells.iter().position(|cell| *cell == index));
         let target = match current {
             Some(current) => atlas_model::grouping::grouped_step(&cells, current, delta),
-            None => cells.iter().position(|cell| !atlas_model::grouping::is_virtual_cell(*cell)),
+            None => cells
+                .iter()
+                .position(|cell| !atlas_model::grouping::is_virtual_cell(*cell)),
         };
         if let Some(target) = target {
-            ts.selection.navigate(cells[target], &visible, extend, cursor_only, None);
+            ts.selection
+                .navigate(cells[target], &visible, extend, cursor_only, None);
         }
     }
 
@@ -1838,15 +1924,12 @@ impl App {
             return;
         }
         let tile = self.state.focused_tile;
-        let is_grid_or_list = self
-            .tab_data_for(tile)
-            .map(|td| {
-                matches!(
-                    td.view_mode,
-                    atlas_model::settings::ViewMode::Grid | atlas_model::settings::ViewMode::List
-                )
-            })
-            .unwrap_or(false);
+        let is_grid_or_list = self.tab_data_for(tile).is_some_and(|td| {
+            matches!(
+                td.view_mode,
+                atlas_model::settings::ViewMode::Grid | atlas_model::settings::ViewMode::List
+            )
+        });
 
         if let Some(rows) = self.grouped_list_rows(tile) {
             self.nav_by_cells(-(rows as isize), extend, cursor_only);
@@ -1870,22 +1953,23 @@ impl App {
             return;
         }
         let tile = self.state.focused_tile;
-        let is_grid_or_list = self
-            .tab_data_for(tile)
-            .map(|td| {
-                matches!(
-                    td.view_mode,
-                    atlas_model::settings::ViewMode::Grid | atlas_model::settings::ViewMode::List
-                )
-            })
-            .unwrap_or(false);
+        let is_grid_or_list = self.tab_data_for(tile).is_some_and(|td| {
+            matches!(
+                td.view_mode,
+                atlas_model::settings::ViewMode::Grid | atlas_model::settings::ViewMode::List
+            )
+        });
 
         if let Some(rows) = self.grouped_list_rows(tile) {
             self.nav_by_cells(rows as isize, extend, cursor_only);
         } else if let Some((rows, _)) = self.list_column_step(tile) {
             // Explorer List: Right moves to the same row of the next column; when
             // that column is shorter, land on the last item.
-            self.nav_apply(move |c, len| list_column_right(c, len, rows), extend, cursor_only);
+            self.nav_apply(
+                move |c, len| list_column_right(c, len, rows),
+                extend,
+                cursor_only,
+            );
         } else if is_grid_or_list {
             self.nav_apply(|c, _| c + 1, extend, cursor_only);
         } else if !extend && !cursor_only {
@@ -1998,7 +2082,11 @@ impl App {
     }
 
     /// Open the shell or background context menu anchored to the focused pane.
-    pub(crate) fn open_context_menu_focused(&mut self, window: &mut gpui::Window, cx: &mut gpui::Context<Self>) {
+    pub(crate) fn open_context_menu_focused(
+        &mut self,
+        window: &mut gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) {
         let tile = self.state.focused_tile;
         let paths = self.selected_paths();
         let anchor = self
@@ -2018,7 +2106,9 @@ impl App {
     }
 
     pub(crate) fn select_first_visible(&mut self, tile: TileId) {
-        let is_miller = self.tab_data_for(tile).is_some_and(|tab| tab.view_mode == atlas_model::settings::ViewMode::Miller);
+        let is_miller = self
+            .tab_data_for(tile)
+            .is_some_and(|tab| tab.view_mode == atlas_model::settings::ViewMode::Miller);
         let visible = self.flat_visible_indices(tile);
         let Some(ts) = self.state.tab_states.get_mut(&tile) else {
             return;
@@ -2027,7 +2117,9 @@ impl App {
             let visible = ts.miller_visible_indices(ts.miller.focused);
             if let Some(column) = ts.miller.columns.get_mut(ts.miller.focused) {
                 column.selection.clear();
-                if let Some(index) = visible.first() { column.selection.select(*index, &visible, false, false); }
+                if let Some(index) = visible.first() {
+                    column.selection.select(*index, &visible, false, false);
+                }
             }
             ts.selection.scroll_to_selected = true;
             return;
@@ -2117,7 +2209,9 @@ impl App {
         self.vault = None;
         // The receiving process owns the transferred session. The acknowledged
         // source must not overwrite it while its last window is being closed.
-        if self.close_after_tab_transfer { return; }
+        if self.close_after_tab_transfer {
+            return;
+        }
         if self.state.settings.autosave_session {
             // Flush any panes/tabs that are still in their close-animation so they
             // don't reappear as ghost panels on the next launch.
@@ -2175,22 +2269,14 @@ fn collect_tag_migration(
     out
 }
 
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct ActiveGridAnimation {
-    pub(crate) start_time: std::time::Instant,
-    pub(crate) start_offset: gpui::Point<f32>,
-}
-
-#[derive(Clone, Default)]
-pub(crate) struct GridFlipState {
-    pub(crate) last_unscrolled_origins: std::collections::HashMap<usize, gpui::Point<f32>>,
-    pub(crate) animations: std::collections::HashMap<usize, ActiveGridAnimation>,
-}
-
 /// Column-major Left: previous column, same row; no wrap past the first column.
 pub(crate) fn list_column_left(pos: usize, rows: usize) -> usize {
     let rows = rows.max(1);
-    if pos >= rows { pos - rows } else { pos }
+    if pos >= rows {
+        pos - rows
+    } else {
+        pos
+    }
 }
 
 /// Column-major Right: next column, same row; a shorter last column lands on the
@@ -2287,7 +2373,12 @@ impl GridHitModel {
             return None;
         }
         if !self.presented.is_empty() {
-            return self.presented.iter().rev().find(|(_, bounds)| bounds.contains(&pos)).map(|(i, _)| *i);
+            return self
+                .presented
+                .iter()
+                .rev()
+                .find(|(_, bounds)| bounds.contains(&pos))
+                .map(|(i, _)| *i);
         }
         self.pos_at_content(
             f32::from(pos.x) - f32::from(self.bounds.left()) + self.scroll_x,
@@ -2296,8 +2387,12 @@ impl GridHitModel {
     }
 
     pub(crate) fn hit_entry(&self, pos: gpui::Point<gpui::Pixels>) -> Option<usize> {
-        self.hit_visible_pos(pos)
-            .and_then(|visible_pos| self.visible.get(visible_pos).copied().filter(|cell| !atlas_model::grouping::is_virtual_cell(*cell)))
+        self.hit_visible_pos(pos).and_then(|visible_pos| {
+            self.visible
+                .get(visible_pos)
+                .copied()
+                .filter(|cell| !atlas_model::grouping::is_virtual_cell(*cell))
+        })
     }
 
     pub(crate) fn hit_entry_at_content_offset(
@@ -2311,11 +2406,18 @@ impl GridHitModel {
             ));
         }
         self.pos_at_content(f32::from(offset.x), f32::from(offset.y))
-            .and_then(|visible_pos| self.visible.get(visible_pos).copied().filter(|cell| !atlas_model::grouping::is_virtual_cell(*cell)))
+            .and_then(|visible_pos| {
+                self.visible
+                    .get(visible_pos)
+                    .copied()
+                    .filter(|cell| !atlas_model::grouping::is_virtual_cell(*cell))
+            })
     }
 
     pub(crate) fn cell_bounds(&self, visible_pos: usize) -> gpui::Bounds<gpui::Pixels> {
-        if let Some((_, bounds)) = self.presented.iter().find(|(i, _)| *i == visible_pos) { return *bounds; }
+        if let Some((_, bounds)) = self.presented.iter().find(|(i, _)| *i == visible_pos) {
+            return *bounds;
+        }
         let (row, col) = self.slot(visible_pos);
         let y = self.bands.row_top(row, self.pitch_y) - self.scroll_y + self.pad_y;
         let x = (col as f32) * self.pitch_x - self.scroll_x + self.pad_x;

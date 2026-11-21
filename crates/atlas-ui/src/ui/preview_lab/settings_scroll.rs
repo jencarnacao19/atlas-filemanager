@@ -1,9 +1,12 @@
 //! Focused native regression run: settings themes/Escape and editor wheel input.
+// reason: a feature-gated diagnostic harness, not shipped app code: it panics on
+// setup failure and writes its evidence to disk on purpose.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use super::{key, mouse_down, mouse_up, select_named, type_text};
 use crate::app::App;
 use anyhow::{ensure, Context as _};
 use gpui::{point, px, size, Entity, Window};
-use gpui_component::{ActiveTheme, ThemeRegistry};
+use gpui_component::ThemeRegistry;
 use std::{path::PathBuf, time::Duration};
 
 fn present(window: &mut Window, cx: &mut gpui::App) {
@@ -38,7 +41,7 @@ pub(super) fn install(
                         view.update(cx, |app, cx| {
                             app.state.overlay.show_getting_started = false;
                             app.state.settings.disable_animations = true;
-                            app.state.profiles.active_mut().theme = theme.clone();
+                            app.state.profiles.active_mut().theme.clone_from(theme);
                             app.theme_dirty = true;
                             app.settings_section = section;
                             app.state.overlay.show_settings = true;
@@ -153,7 +156,7 @@ pub(super) fn install(
                 });
             }
         }
-        let _ = cx.update(|cx| cx.quit());
+        let () = cx.update(|cx| cx.quit());
     }).detach();
 }
 

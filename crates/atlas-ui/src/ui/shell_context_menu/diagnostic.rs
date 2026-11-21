@@ -1,4 +1,7 @@
 //! Real GPUI dispatch and GPU captures without taking over the user's desktop.
+// reason: a feature-gated diagnostic harness, not shipped app code: it panics on
+// setup failure and writes its evidence to disk on purpose.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 use super::{App, AtlasCmd, CtxRow};
 use anyhow::ensure;
 use gpui::prelude::*;
@@ -6,7 +9,12 @@ use gpui::{point, px, size, Entity, Keystroke, Window, WindowBounds, WindowOptio
 use gpui_component::{Root, ThemeRegistry, TitleBar};
 use std::{path::PathBuf, time::Instant};
 
-pub(crate) fn prepare_open_with(app: &Entity<App>, path: PathBuf, window: &mut Window, cx: &mut gpui::App) {
+pub(crate) fn prepare_open_with(
+    app: &Entity<App>,
+    path: PathBuf,
+    window: &mut Window,
+    cx: &mut gpui::App,
+) {
     app.update(cx, |app, cx| {
         app.open_ctx_menu(vec![path], point(px(400.), px(140.)), window, cx);
         let menu = app.ctx_menu.as_mut().unwrap();
@@ -35,16 +43,64 @@ pub(crate) fn prepare_open_with(app: &Entity<App>, path: PathBuf, window: &mut W
     });
 }
 
-pub(crate) fn check_open_with(app: &Entity<App>, expanded: bool, cx: &gpui::App) -> anyhow::Result<()> {
+pub(crate) fn check_open_with(
+    app: &Entity<App>,
+    expanded: bool,
+    cx: &gpui::App,
+) -> anyhow::Result<()> {
     let app = app.read(cx);
     let rows = app.ctx_menu_rows("", "");
-    ensure!(rows.iter().filter(|row| matches!(row, CtxRow::Native { id: super::OPEN_WITH_GROUP, depth: 0, .. })).count() == 1, "Expected exactly one Open with group");
-    ensure!(rows.iter().filter(|row| matches!(row, CtxRow::DesktopApp { .. })).count() == if expanded { 8 } else { 0 }, "Applications must stay collapsed and all eight must be reachable");
-    ensure!(!rows.iter().any(|row| matches!(row, CtxRow::Native { id: 100 | 101 | 102 | 103, depth: 0, .. })), "Native Open with escaped the group");
+    ensure!(
+        rows.iter()
+            .filter(|row| matches!(
+                row,
+                CtxRow::Native {
+                    id: super::OPEN_WITH_GROUP,
+                    depth: 0,
+                    ..
+                }
+            ))
+            .count()
+            == 1,
+        "Expected exactly one Open with group"
+    );
+    ensure!(
+        rows.iter()
+            .filter(|row| matches!(row, CtxRow::DesktopApp { .. }))
+            .count()
+            == if expanded { 8 } else { 0 },
+        "Applications must stay collapsed and all eight must be reachable"
+    );
+    ensure!(
+        !rows.iter().any(|row| matches!(
+            row,
+            CtxRow::Native {
+                id: 100..=103,
+                depth: 0,
+                ..
+            }
+        )),
+        "Native Open with escaped the group"
+    );
     if expanded {
-        ensure!(rows.iter().any(|row| matches!(row, CtxRow::Native { id: 102, depth: 1, .. })), "Native application chooser disappeared");
+        ensure!(
+            rows.iter().any(|row| matches!(
+                row,
+                CtxRow::Native {
+                    id: 102,
+                    depth: 1,
+                    ..
+                }
+            )),
+            "Native application chooser disappeared"
+        );
     }
-    ensure!(app.ctx_menu_rows("Aplicación 8", "").iter().any(|row| matches!(row, CtxRow::DesktopApp { app, .. } if app.name == "Aplicación 8")), "Search lost the eighth app");
+    ensure!(
+        app.ctx_menu_rows("Aplicación 8", "")
+            .iter()
+            .any(|row| matches!(row, CtxRow::DesktopApp { app, .. } if app.name == "Aplicación 8")),
+        "Search lost the eighth app"
+    );
     Ok(())
 }
 
@@ -66,7 +122,7 @@ fn type_text(value: &str, window: &mut Window, cx: &mut gpui::App) {
             Keystroke {
                 key: character.to_string(),
                 key_char: Some(character.to_string()),
-                modifiers: Default::default(),
+                modifiers: gpui::Modifiers::default(),
             },
             cx,
         );
@@ -179,7 +235,7 @@ fn check_menu(
             gpui::PlatformInput::MouseDown(gpui::MouseDownEvent {
                 position,
                 button: gpui::MouseButton::Left,
-                modifiers: Default::default(),
+                modifiers: gpui::Modifiers::default(),
                 click_count: 1,
                 first_mouse: false,
             })
@@ -187,7 +243,7 @@ fn check_menu(
             gpui::PlatformInput::MouseUp(gpui::MouseUpEvent {
                 position,
                 button: gpui::MouseButton::Left,
-                modifiers: Default::default(),
+                modifiers: gpui::Modifiers::default(),
                 click_count: 1,
             })
         };
@@ -284,7 +340,7 @@ pub fn run(directory: PathBuf) -> anyhow::Result<()> {
                 let _ = std::fs::write(&failure, format!("{error:#}"));
             }
             *result.borrow_mut() = checked;
-            let _ = cx.update(|cx| cx.quit());
+            let () = cx.update(|cx| cx.quit());
         }).detach();
     });
     let outcome = std::mem::replace(&mut *final_result.borrow_mut(), Ok(()));

@@ -15,24 +15,26 @@
 
 pub mod clipboard_formats;
 pub mod data_object;
+mod drop_description;
 pub mod drop_source;
 pub mod drop_target;
 pub mod ole_clipboard;
-mod drop_description;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::Graphics::Gdi::ScreenToClient;
+use windows::Win32::System::DataExchange::{
+    AddClipboardFormatListener, RemoveClipboardFormatListener,
+};
 use windows::Win32::System::Ole::IDropTarget;
-use windows::Win32::System::DataExchange::{AddClipboardFormatListener, RemoveClipboardFormatListener};
 use windows::Win32::System::Ole::{
     DoDragDrop, DROPEFFECT, DROPEFFECT_COPY, DROPEFFECT_MOVE, DROPEFFECT_NONE,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CallWindowProcW, GetCursorPos, PostMessageW, SetWindowLongPtrW, GWLP_WNDPROC, WM_LBUTTONUP,
-    WM_USER, WM_CLIPBOARDUPDATE,
+    CallWindowProcW, GetCursorPos, PostMessageW, SetWindowLongPtrW, GWLP_WNDPROC,
+    WM_CLIPBOARDUPDATE, WM_LBUTTONUP, WM_USER,
 };
 
 use crate::dnd::DropZones;
@@ -43,17 +45,26 @@ use drop_target::DropPayload;
 /// Events pushed by the OLE layer and drained by `App::drain_dnd_queue`.
 pub enum DndEvent {
     DevicesChanged,
-    ClipboardChanged { cut_paths: Vec<PathBuf> },
-    TabTransferAccepted { tab: atlas_model::layout_tree::TileId },
+    ClipboardChanged {
+        cut_paths: Vec<PathBuf>,
+    },
+    TabTransferAccepted {
+        tab: atlas_model::layout_tree::TileId,
+    },
     /// Current drag cursor position over the Atlas window.
-    DragOver { x: f32, y: f32 },
+    DragOver {
+        x: f32,
+        y: f32,
+    },
     /// The external/native drag left the Atlas window.
     DragLeave,
     /// Something was dropped onto an Atlas window.
     DropIn(DropPayload),
     /// A drag *out of* Atlas ended with the target reporting MOVE: the source
     /// files must now be deleted (to trash, recoverable).
-    DragOutMoved { paths: Vec<PathBuf> },
+    DragOutMoved {
+        paths: Vec<PathBuf>,
+    },
     /// An OLE-layer failure the user should see as a toast.
     Error(String),
 }
@@ -94,7 +105,7 @@ struct PendingDrag {
 
 thread_local! {
     static PENDING_DRAG: std::cell::Cell<Option<PendingDrag>> =
-        std::cell::Cell::new(None);
+        const { std::cell::Cell::new(None) };
 }
 
 /// WndProc hook. Intercepts `WM_ATLAS_START_DRAG` and calls `DoDragDrop` there,
@@ -117,12 +128,13 @@ unsafe extern "system" fn atlas_wndproc(
         if let Some((_, queue)) = &hook {
             let cut_paths = ole_clipboard::get_clipboard_files()
                 .filter(|contents| contents.preferred_move)
-                .map(|contents| contents.paths).unwrap_or_default();
+                .map(|contents| contents.paths)
+                .unwrap_or_default();
             push_event(Some(queue), DndEvent::ClipboardChanged { cut_paths });
         }
     }
     if msg == WM_ATLAS_START_DRAG {
-        let pending = PENDING_DRAG.with(|p| p.take());
+        let pending = PENDING_DRAG.with(std::cell::Cell::take);
         if let Some(pd) = pending {
             if let Some(items) = pd.archive_items {
                 if !items.is_empty() {
@@ -141,7 +153,7 @@ unsafe extern "system" fn atlas_wndproc(
         }
         return LRESULT(0);
     }
-    let orig = hook.map(|(original, _)| original).unwrap_or(0);
+    let orig = hook.map_or(0, |(original, _)| original);
     if orig != 0 {
         // SAFETY: orig is a valid WNDPROC stored during setup_dnd.
         // SAFETY: orig is the valid WNDPROC isize returned by SetWindowLongPtrW.
@@ -164,10 +176,10 @@ unsafe extern "system" fn atlas_wndproc(
 /// returns; the `WNDPROC` chain forwards it to gpui's handler.
 unsafe fn inject_mouse_up(hwnd: HWND) {
     let mut pt = POINT { x: 0, y: 0 };
-    let _ = GetCursorPos(&mut pt);
-    let _ = ScreenToClient(hwnd, &mut pt);
+    let _ = GetCursorPos(&raw mut pt);
+    let _ = ScreenToClient(hwnd, &raw mut pt);
     // Pack (x, y) into lParam: low word = x, high word = y.
-    let lparam = LPARAM(((pt.y as u32) << 16 | (pt.x as u16 as u32)) as isize);
+    let lparam = LPARAM(((pt.y as u32) << 16 | u32::from(pt.x as u16)) as isize);
     let _ = PostMessageW(Some(hwnd), WM_LBUTTONUP, WPARAM(0), lparam);
 }
 
@@ -247,7 +259,9 @@ pub struct DndState {
 
 impl Drop for DndState {
     fn drop(&mut self) {
-        unsafe { let _ = RemoveClipboardFormatListener(HWND(self.hwnd as *mut _)); }
+        unsafe {
+            let _ = RemoveClipboardFormatListener(HWND(self.hwnd as *mut _));
+        }
         // The original procedure remains installed until GPUI destroys the HWND.
     }
 }
@@ -274,8 +288,12 @@ pub fn setup_dnd(hwnd_raw: isize, scale_factor: f32) -> Option<DndState> {
             install_wndproc_hook(hwnd, action_queue.clone());
             let cut_paths = ole_clipboard::get_clipboard_files()
                 .filter(|contents| contents.preferred_move)
-                .map(|contents| contents.paths).unwrap_or_default();
-            push_event(Some(&action_queue), DndEvent::ClipboardChanged { cut_paths });
+                .map(|contents| contents.paths)
+                .unwrap_or_default();
+            push_event(
+                Some(&action_queue),
+                DndEvent::ClipboardChanged { cut_paths },
+            );
             Some(DndState {
                 hwnd: hwnd_raw,
                 target,
@@ -308,7 +326,6 @@ pub fn setup_dnd(hwnd_raw: isize, scale_factor: f32) -> Option<DndState> {
 /// - WM_PAINT is serviced by DirectX/gpui's existing compositor; no re-entrant
 ///   `&mut App` access occurs (render is a separate path from event dispatch).
 pub fn start_drag_real(hwnd_raw: isize, paths: &[PathBuf], allowed: DROPEFFECT) -> DROPEFFECT {
-
     let performed = Arc::new(std::sync::atomic::AtomicU32::new(0));
     let Some(data_obj) = AtlasDataObject::new(paths, allowed, performed.clone()) else {
         tracing::error!("drag aborted: CF_HDROP allocation failed");
@@ -316,16 +333,21 @@ pub fn start_drag_real(hwnd_raw: isize, paths: &[PathBuf], allowed: DROPEFFECT) 
     };
     let source: windows::Win32::System::Ole::IDropSource = AtlasDropSource.into();
     unsafe {
-        use windows::Win32::UI::Shell::{IDragSourceHelper2, CLSID_DragDropHelper, DSH_ALLOWDROPDESCRIPTIONTEXT};
+        use windows::Win32::UI::Shell::{
+            CLSID_DragDropHelper, IDragSourceHelper2, DSH_ALLOWDROPDESCRIPTIONTEXT,
+        };
         if let Ok(helper) = windows::Win32::System::Com::CoCreateInstance::<_, IDragSourceHelper2>(
-            &CLSID_DragDropHelper, None, windows::Win32::System::Com::CLSCTX_INPROC_SERVER) {
+            &CLSID_DragDropHelper,
+            None,
+            windows::Win32::System::Com::CLSCTX_INPROC_SERVER,
+        ) {
             let _ = helper.SetFlags(DSH_ALLOWDROPDESCRIPTIONTEXT.0 as u32);
             let _ = helper.InitializeFromWindow(Some(HWND(hwnd_raw as *mut _)), None, &data_obj);
         }
     }
 
     let mut effect = DROPEFFECT_NONE;
-    let hr = unsafe { DoDragDrop(&data_obj, &source, allowed, &mut effect) };
+    let hr = unsafe { DoDragDrop(&data_obj, &source, allowed, &raw mut effect) };
 
     // Some targets only report via CFSTR_PERFORMEDDROPEFFECT on the data object.
     let performed_val = performed.load(std::sync::atomic::Ordering::Relaxed);
@@ -385,6 +407,8 @@ pub fn start_drag_copy_only(hwnd_raw: isize, paths: &[PathBuf]) {
 /// Extracts `items` (archive_path, inner_path pairs) to a session-unique temp
 /// directory synchronously, then delegates to `start_drag_and_handle`.
 /// The temp directory is left on disk; the OS (or next startup) cleans it up.
+// reason: creates the drag staging dir once, before OLE takes the drag.
+#[allow(clippy::disallowed_methods)]
 pub fn start_drag_archive(hwnd_raw: isize, items: &[(PathBuf, PathBuf)], queue: Option<&DndQueue>) {
     if items.is_empty() {
         return;
@@ -393,8 +417,7 @@ pub fn start_drag_archive(hwnd_raw: isize, items: &[(PathBuf, PathBuf)], queue: 
     // Build a unique temp session dir under %TEMP%\atlas-dnd.
     let session = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_micros())
-        .unwrap_or(0);
+        .map_or(0, |d| d.as_micros());
     let temp_dir = std::env::temp_dir()
         .join("atlas-dnd")
         .join(session.to_string());
@@ -434,8 +457,7 @@ pub fn start_drag_archive(hwnd_raw: isize, items: &[(PathBuf, PathBuf)], queue: 
         for inner in inners {
             let name = inner
                 .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_else(|| "file".to_string());
+                .map_or_else(|| "file".to_string(), |n| n.to_string_lossy().into_owned());
             let dest = temp_dir.join(&name);
             match provider.extract_to(inner, &dest) {
                 Ok(()) => extracted.push(dest),

@@ -74,6 +74,9 @@ reqwest = { version = "0.12", default-features = false, features = [
 
 # --- cloud feature (optional) ---
 sha2 = "0.10"
+# Ed25519 verification for the signed extension registry (already in the tree via rustls).
+ring = "0.17"
+hex = "0.4"
 async-trait = { version = "0.1", optional = true }
 futures-util = { version = "0.3", default-features = false, optional = true }
 sevenz-rust2 = { version = "0.21.0", optional = true }

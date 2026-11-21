@@ -8,15 +8,14 @@ Before opening a PR or commit you care about, run:
 
 ```powershell
 cargo fmt --check
-cargo check --workspace
+cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-Strict clippy is tracked as cleanup work, but it is not a required gate yet:
-
-```powershell
-cargo clippy --workspace --all-targets -- -D warnings
-```
+CI runs the same three on Windows and Linux, plus clippy with
+`--all-features` on Linux. The lint policy lives in `[workspace.lints]` in
+`Cargo.toml`; when a lint is legitimately wrong for one spot, allow it there
+with a `// reason:` comment rather than loosening the workspace policy.
 
 ## Build Profiles
 

@@ -1,8 +1,13 @@
 //! Hidden-window GPU/interaction lab. With windows-cleanup enabled, deletion is
 //! tested exclusively on files created by the harness in a unique Temp folder.
+// reason: a test/probe harness, not app code: panicking on setup failure and
+// touching the disk directly are both intended here.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
 fn main() -> anyhow::Result<()> {
     #[cfg(windows)]
-    if atlas_win_space::mft_space::helper::try_run() { return Ok(()); }
+    if atlas_win_space::mft_space::helper::try_run() {
+        return Ok(());
+    }
     let output = std::env::args_os()
         .nth(1)
         .map(std::path::PathBuf::from)

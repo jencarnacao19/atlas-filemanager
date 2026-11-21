@@ -45,7 +45,7 @@ fn run_stdio(
         .context("Could not start conversion engine")?;
     let started = Instant::now();
     let status = loop {
-        if cancel.load(Ordering::Relaxed) || started.elapsed() > Duration::from_secs(3600) {
+        if cancel.load(Ordering::Relaxed) || started.elapsed() > Duration::from_hours(1) {
             let _ = child.kill();
             let _ = child.wait();
             bail!("Conversion cancelled or exceeded the one-hour limit");
@@ -154,12 +154,12 @@ pub(super) fn convert(
             command.args(["-limit", "memory", "256MiB", "-limit", "map", "512MiB"]);
             // Multipage TIFF/PDF outputs preserve all pages. Single-image
             // formats intentionally take page/frame 1, disclosed in the UI.
-            if !["gif", "tiff", "pdf"].contains(&target) {
+            if ["gif", "tiff", "pdf"].contains(&target) {
+                command.arg(source);
+            } else {
                 let mut input = source.as_os_str().to_os_string();
                 input.push("[0]");
                 command.arg(input);
-            } else {
-                command.arg(source);
             }
             command.arg("-auto-orient");
             if let Some(edge) = plan.settings.max_edge {

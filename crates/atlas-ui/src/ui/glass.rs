@@ -53,7 +53,7 @@ pub fn backdrop_tint(color: Hsla, alpha: f32) -> Hsla {
 
 pub fn layer_color(base: Hsla, delta_l: f32, alpha: f32) -> Hsla {
     hsla(
-        (base.hue.into_positive_degrees() / 360.0),
+        base.hue.into_positive_degrees() / 360.0,
         base.saturation,
         (base.lightness + delta_l).clamp(0.0, 1.0),
         // Hover and floating controls inherit the theme's material density.
@@ -71,7 +71,6 @@ pub(crate) struct ControlColors {
     pub pressed: Hsla,
     pub border: Hsla,
     pub foreground: Hsla,
-    pub muted: Hsla,
 }
 
 pub(crate) fn control_hover(foreground: Hsla) -> Hsla {
@@ -100,7 +99,6 @@ pub(crate) fn control_colors(theme: &gpui_component::Theme, glass: bool) -> Cont
             .foreground
             .opacity(if theme.is_dark() { 0.14 } else { 0.12 }),
         foreground: theme.foreground,
-        muted: theme.muted_foreground,
     }
 }
 

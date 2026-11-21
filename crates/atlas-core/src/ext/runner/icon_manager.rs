@@ -4,9 +4,9 @@ use std::collections::HashMap;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
+use crate::ext::registry::CommandRef;
 use anyhow::{Context as _, Result};
 use atlas_model::app_state::BgResult;
-use crate::ext::registry::CommandRef;
 
 pub fn run_icon_manager(
     rt: &tokio::runtime::Handle,
@@ -16,7 +16,7 @@ pub fn run_icon_manager(
 ) {
     let ext_id = cmd.ext_id.clone();
     let cmd_id = cmd.command.id.clone();
-    let data_dir = cmd.ext_dir.clone();
+    let data_dir = cmd.ext_dir;
     let tx = bg_tx.clone();
 
     rt.spawn(async move {
@@ -24,8 +24,7 @@ pub fn run_icon_manager(
             "icon-manager.download-theme" => {
                 let theme_id = answers
                     .get("theme")
-                    .map(String::as_str)
-                    .unwrap_or("PKief/material-icon-theme")
+                    .map_or("PKief/material-icon-theme", String::as_str)
                     .trim();
                 download_and_activate_theme(&tx, &data_dir, theme_id).await
             }
@@ -38,12 +37,8 @@ pub fn run_icon_manager(
             "icon-manager.download-flow" => {
                 download_and_activate_theme(&tx, &data_dir, "thang-nm/flow-icons").await
             }
-            "icon-manager.select-theme" => {
-                select_theme_variant(&tx, &data_dir).await
-            }
-            "icon-manager.reset-default" => {
-                reset_default_icons(&data_dir)
-            }
+            "icon-manager.select-theme" => select_theme_variant(&tx, &data_dir).await,
+            "icon-manager.reset-default" => reset_default_icons(&data_dir),
             other => Err(anyhow::anyhow!("Unsupported icon-manager command: {other}")),
         };
 
@@ -145,7 +140,7 @@ fn read_package_variants(theme_root: &Path) -> Result<Vec<ThemeVariant>> {
     } else if theme_root.join("package.json").is_file() {
         theme_root.join("package.json")
     } else {
-        anyhow::bail!("no package.json found in {:?}", theme_root);
+        anyhow::bail!("no package.json found in {theme_root:?}");
     };
     let package: serde_json::Value = serde_json::from_reader(std::fs::File::open(package_path)?)?;
 
@@ -179,10 +174,7 @@ fn read_package_variants(theme_root: &Path) -> Result<Vec<ThemeVariant>> {
     Ok(variants)
 }
 
-pub async fn select_theme_variant(
-    bg_tx: &flume::Sender<BgResult>,
-    data_dir: &Path,
-) -> Result<()> {
+pub async fn select_theme_variant(bg_tx: &flume::Sender<BgResult>, data_dir: &Path) -> Result<()> {
     let mut all_variants = Vec::new();
     let mut search_dirs = vec![data_dir.to_path_buf()];
     if let Some(home) = dirs::home_dir() {
@@ -194,7 +186,9 @@ pub async fn select_theme_variant(
         if let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.join("extension/package.json").is_file() || path.join("package.json").is_file() {
+                if path.join("extension/package.json").is_file()
+                    || path.join("package.json").is_file()
+                {
                     if let Ok(variants) = read_package_variants(&path) {
                         all_variants.extend(variants);
                     }
@@ -256,6 +250,8 @@ pub async fn select_theme_variant(
     )
 }
 
+// reason: keeps the same signature as the other icon-manager commands.
+#[allow(clippy::unnecessary_wraps)]
 pub fn reset_default_icons(data_dir: &Path) -> Result<()> {
     let mappings_path = data_dir.join("theme_mappings.json");
     if mappings_path.exists() {
@@ -311,7 +307,7 @@ fn build_mappings_from_theme_file(
     };
     let theme_file = base.join(theme_rel_path);
     let contents = std::fs::read_to_string(&theme_file)
-        .context(format!("Failed to read theme file at {:?}", theme_file))?;
+        .context(format!("Failed to read theme file at {theme_file:?}"))?;
     let clean = contents
         .lines()
         .filter(|line| !line.trim_start().starts_with("//"))
@@ -331,7 +327,11 @@ fn build_mappings_from_theme_file(
 
     // Map default folder
     if let Some(folder_id) = theme.get("folder").and_then(serde_json::Value::as_str) {
-        if let Some(icon_path) = definitions.get(folder_id).and_then(|d| d.get("iconPath")).and_then(serde_json::Value::as_str) {
+        if let Some(icon_path) = definitions
+            .get(folder_id)
+            .and_then(|d| d.get("iconPath"))
+            .and_then(serde_json::Value::as_str)
+        {
             if let Ok(path) = normalize_icon_path(&base, theme_dir, icon_path) {
                 mappings.insert(
                     "/".to_string(),
@@ -343,10 +343,14 @@ fn build_mappings_from_theme_file(
 
     // Map generic file
     if let Some(file_id) = theme.get("file").and_then(serde_json::Value::as_str) {
-        if let Some(icon_path) = definitions.get(file_id).and_then(|d| d.get("iconPath")).and_then(serde_json::Value::as_str) {
+        if let Some(icon_path) = definitions
+            .get(file_id)
+            .and_then(|d| d.get("iconPath"))
+            .and_then(serde_json::Value::as_str)
+        {
             if let Ok(path) = normalize_icon_path(&base, theme_dir, icon_path) {
                 mappings.insert(
-                    "".to_string(),
+                    String::new(),
                     serde_json::Value::String(path.to_string_lossy().into_owned()),
                 );
             }
@@ -354,7 +358,10 @@ fn build_mappings_from_theme_file(
     }
 
     // Map file extensions
-    if let Some(extensions) = theme.get("fileExtensions").and_then(serde_json::Value::as_object) {
+    if let Some(extensions) = theme
+        .get("fileExtensions")
+        .and_then(serde_json::Value::as_object)
+    {
         for (extension, icon_id) in extensions {
             let Some(icon_path) = icon_id
                 .as_str()
@@ -407,7 +414,13 @@ mod tests {
 
     #[test]
     fn parses_multiple_variants_from_package_json() {
-        let temp = std::env::temp_dir().join(format!("pkg_test_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let temp = std::env::temp_dir().join(format!(
+            "pkg_test_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
         let ext_dir = temp.join("extension");
         std::fs::create_dir_all(&ext_dir).unwrap();
 
